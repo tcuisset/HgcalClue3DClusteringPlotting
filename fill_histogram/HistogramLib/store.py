@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import os
 import glob
 import shelve
+import copy
 
 @dataclass(unsafe_hash=True)
 class ShelfId:
@@ -56,13 +57,15 @@ class HistogramStore:
     def _openShelf(self, shelfId:ShelfId):
         """
         Precondition: shelf not already open
+        raises dbm.error
         """
         # if shelfId in self.openShelves:
         #     raise ValueError("Shelf already open " + repr(shelfId))
         pathToFile = os.path.join(self.hist_folder, shelfId.path)
         if self.makeDirs:
             os.makedirs(os.path.dirname(pathToFile), exist_ok=True)
-        self.openShelves[shelfId] = shelve.open(pathToFile, flag=self.dbmFlag)
+        # We need to copy shelfId
+        self.openShelves[copy.copy(shelfId)] = shelve.open(pathToFile, flag=self.dbmFlag)
 
     def _closeAllShelves(self):
         for shelf in self.openShelves.values():
