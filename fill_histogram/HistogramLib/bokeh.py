@@ -79,12 +79,16 @@ class MultiBokehHistogram2D:
         self.figure.xaxis.axis_label = h_proj.axes[0].label
         self.figure.yaxis.axis_label = h_proj.axes[1].label
 
+        colorMapper = bokeh.models.LinearColorMapper(palette="Spectral11")
+
         self.source = ColumnDataSource()
         self.update(None, None, None)
         self.figure.image(image='histogram_2D_view', x=h_proj.axes[0].edges[0], y=h_proj.axes[0].edges[0],
             dw=h_proj.axes[0].edges[-1]-h_proj.axes[0].edges[0], dh=h_proj.axes[0].edges[-1]-h_proj.axes[0].edges[0],
-            palette="Spectral11",
+            color_mapper=colorMapper,
             source=self.source)
+
+        self.figure.add_layout(bokeh.models.ColorBar(color_mapper=colorMapper), 'right')
 
         self.histProvider.registerUpdateCallback(self.update)
     
