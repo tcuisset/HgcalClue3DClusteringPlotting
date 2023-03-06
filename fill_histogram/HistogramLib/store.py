@@ -74,5 +74,6 @@ class HistogramStore:
         return self.openShelves[shelfId]
     
     def getPossibleClueParameters(self):
-        return [shelfId.clue_param_name for shelfId in discoverShelves(self.hist_folder)]
+        # Make a set to remove duplicates
+        return list({shelfId.clue_param_name for shelfId in discoverShelves(self.hist_folder)})
 
