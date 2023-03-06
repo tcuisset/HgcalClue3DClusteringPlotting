@@ -28,6 +28,8 @@ class MultiSelectAxisSelector(ProjectionAxisSelector):
     
     def getSlice(self):
         return ListHistogramSlice(self.axisName, [int(val) for val in self.widget.value])
+    def registerCallback(self, callback):
+        self.widget.on_change('value', callback)
 
 class PlaceholderAxisSelector(ProjectionAxisSelector):
     def __init__(self, slice) -> None:
