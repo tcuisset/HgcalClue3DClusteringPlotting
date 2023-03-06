@@ -26,6 +26,10 @@ curdoc().add_root(layout([
     [column(
         clueParamSelector.widget,
         datatype_selector.widget, beamEnergySelector.widget, layerSelector.widget, toggleProfile.widget),
-    MultiBokehHistogram2D(MakeView(histName="Clus3DSpatialResolution")).figure],
+    MultiBokehHistogram2D(MakeView(histName="Clus3DSpatialResolution")).figure,
+    MultiBokehHistogram2D(MakeView(histName="Clus3DPositionXY")).figure,
+    BokehHistogram(MakeView(histName="Clus3DPositionZ")).figure
+    ],
+    
     #[h_xy.figure, h_spatial_resolution_xy.figure, h_spatial_resolution_xy_profiled.figure]
 ]))
