@@ -1,4 +1,5 @@
 import hist
+import dbm
 from typing import List
 
 from .store import *
@@ -60,7 +61,11 @@ class HistogramProjectedView:
     def updateShelf(self, attr, old, new):
         for shelfIdProvider in self.shelfIdProviders:
             shelfIdProvider.fillShelfId(self.shelfId)
-        self.hist = self.store.getShelf(self.shelfId)[self.histName]
+        
+        try:
+            self.hist = self.store.getShelf(self.shelfId)[self.histName]
+        except dbm.error:
+            self.hist = self.hist.getEmptyCopy()
         self.updateProjection(None, None, None)
 
     def updateProjection(self, attr, old, new):

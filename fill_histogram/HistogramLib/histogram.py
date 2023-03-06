@@ -86,7 +86,8 @@ class MyHistogram(hist.Hist, family=None): # see https://hist.readthedocs.io/en/
     def axisNames(self):
         return [axis.name for axis in self.axes]
 
-
+    def getEmptyCopy(self):
+        return MyHistogram(*self.axes)
 
 
 
