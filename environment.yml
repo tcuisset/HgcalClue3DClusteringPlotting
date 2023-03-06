@@ -1,0 +1,17 @@
+name: clustering-analysis
+channels:
+ - conda-forge
+ - nodefaults
+dependencies:
+ - python>=3.10
+ - uproot=5.*
+ - awkward=2.*
+ - pandas>=1.5,<2
+ - hist>=2.6,<3
+ - bokeh=3.*
+ - ipykernel
+ - matplotlib>=3
+ - mplhep>=0.3
+ - pip
+ - pip:
+    - awkward-pandas

@@ -1,12 +1,13 @@
-import numpy as np
-import boost_histogram as bh
-import bokeh.plotting
 import bokeh.models
+import bokeh.plotting
+import boost_histogram as bh
+import numpy as np
 from bokeh.models import ColumnDataSource
 
 from .histogram import *
-from .store import *
 from .projection_manager import *
+from .store import *
+
 
 class RangeAxisSelector(ProjectionAxisSelector):
     def __init__(self, axisName:str, **kwargs) -> None:

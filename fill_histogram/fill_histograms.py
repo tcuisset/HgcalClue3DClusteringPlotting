@@ -4,8 +4,8 @@ import argparse
 import uproot
 import hist
 
-from HistogramLib.histogram import *
-from HistogramLib.store import * 
+from ..HistogramLib.histogram import MyHistogram
+from ..HistogramLib.store import HistogramStore, ShelfId
 from dataframe import *
 import custom_hists
 

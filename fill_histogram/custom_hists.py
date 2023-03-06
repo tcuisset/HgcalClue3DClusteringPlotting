@@ -1,5 +1,8 @@
 from functools import partial
-from HistogramLib.histogram import *
+import hist
+
+from .dataframe import DataframeComputations
+from ..HistogramLib.histogram import MyHistogram, ProfileVariable
 
 beamEnergies = [20, 50, 80, 100, 120, 150, 200, 250, 300]
 beamEnergiesAxis = hist.axis.IntCategory(beamEnergies, name="beamEnergy", label="Beam energy (GeV)")

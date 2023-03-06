@@ -1,4 +1,3 @@
-from functools import cached_property
 from dataclasses import dataclass
 from collections import namedtuple
 from typing import List
@@ -6,8 +5,6 @@ import hist
 import hist.axis
 import pandas as pd
 import boost_histogram as bh
-
-from dataframe import *
 
 ProfileVariable = namedtuple('ProfileVariable', ['name', 'label'])
 
