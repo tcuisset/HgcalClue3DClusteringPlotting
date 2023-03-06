@@ -80,7 +80,8 @@ class MultiBokehHistogram2D:
         self.figure.yaxis.axis_label = h_proj.axes[1].label
 
         colorMapper = bokeh.models.LinearColorMapper(palette="Spectral11")
-
+        self.plottedValueTitle = bokeh.models.Title(text="")
+        
         self.source = ColumnDataSource()
         self.update(None, None, None)
         self.figure.image(image='histogram_2D_view', x=h_proj.axes[0].edges[0], y=h_proj.axes[0].edges[0],
@@ -90,10 +91,19 @@ class MultiBokehHistogram2D:
 
         self.figure.add_layout(bokeh.models.ColorBar(color_mapper=colorMapper), 'right')
 
+        
+        self.figure.add_layout(self.plottedValueTitle, "right")
+
         self.histProvider.registerUpdateCallback(self.update)
     
     def update(self, attr, old, new):
         # It would seem that the histogram x, y view is the transpose of what is expected by bokeh, though it needs to be checked
         self.source.data = {"histogram_2D_view":[np.transpose(self.histProvider.getProjectedHistogramView())]}
+
+        if self.histProvider.isProfileEnabled():
+            self.plottedValueTitle.text = self.histProvider.hist.profileOn.label
+        else:
+            self.plottedValueTitle.text = 'Event count'
+
 
 

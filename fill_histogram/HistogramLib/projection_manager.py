@@ -81,7 +81,10 @@ class HistogramProjectedView:
         
         # This might do nothing, but see ListHistogramSlice for why we should project all the time
         self.projectedHist = self.hist[slice_args_dict].project(*self.plotAxises)
-    
+
+    def isProfileEnabled(self) -> bool:
+        return self.toggleProfile.shouldProfile() and self.hist.isProfile()
+
     def getProjectedHistogramView(self):
         """ Get the view to plot, according to toggleProfile"""
         if self.toggleProfile.shouldProfile() and self.hist.isProfile():
