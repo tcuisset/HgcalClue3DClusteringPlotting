@@ -34,6 +34,7 @@ class HistogramStore:
 
     def __init__(self, hist_folder, dbmFlag='r', makedirs=False) -> None:
         """
+        hist_folder is the path to the tag folder, ie it has to be a folder where there is clue_param_name/datatype/hists.shelf.* subsirectory and files
         dbmFlag meaning  :
         'r' Open existing database for reading only (default)
         'w' Open existing database for reading and writing

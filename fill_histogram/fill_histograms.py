@@ -1,34 +1,43 @@
 import os
 import argparse
-import sys
-import inspect
 
 import uproot
-import awkward as ak
 import hist
-import pandas as pd
 
 from HistogramLib.histogram import *
 from HistogramLib.store import * 
 from dataframe import *
 import custom_hists
 
+default_tag = 'v3'
+
 parser = argparse.ArgumentParser(description="Fill histograms from CLUE_clusters.root files for plotting. Writes pickled boost-histograms")
-parser.add_argument("--input", dest="input_file", default='ClusteringAnalysis/CLUE_clusters_single.root',
-    help="Complete path to CLUE output, usually named CLUE_clusters.root")
-parser.add_argument("--output", dest="output_directory",
-    default='/home/llr/cms/cuisset/hgcal/testbeam18/clue3d-dev/src/plots/cache/',
-    help="Path to output histograms. Will write in clue_param/datatype/hists.shelf")
+parser.add_argument("--data-dir", dest='data_dir',
+    default=os.path.join('/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d/', default_tag),
+    help="The path to the directory where all the data is, with the tag included, but with clue_params/datatype exluded",
+)
+parser.add_argument("--force-input-file", dest='force_input_file',
+    default=None,
+    help="Complete path to CLUE3D output file (for testing)")
+parser.add_argument("--force-output-directory", dest='force_output_directory',
+    default=None,
+    help="Complete path to folder where to store histograms (as a python shelve database, files hists.shelve.*) (for testing)")
+
 parser.add_argument("--datatype", dest="datatype", default="data",
     help="Can be data, sim_proton, sim_noproton")
-parser.add_argument("--clue-params", dest='clue_params', default="default",
+parser.add_argument("--clue-params", dest='clue_params', default="single-file",
     help="CLUE3D parameters name")
 args = parser.parse_args()
 
-##### DEBUG
-args.input_file = "/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d/v3/default/data/CLUE_clusters.root"
-args.output_directory = "/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d/v3/"
+if args.force_input_file is not None:
+    input_file = args.force_input_file
+else:
+    input_file = os.path.join(args.data_dir, args.clue_params, args.datatype, 'CLUE_clusters.root')
 
+if args.force_output_directory is not None:
+    output_dir = args.force_output_directory
+else:
+    output_dir = args.data_dir
 
 hist_dict = {}
 
@@ -39,9 +48,9 @@ for name in dir(custom_hists):
     if isinstance(potentialClass, type) and issubclass(potentialClass, MyHistogram) and potentialClass is not MyHistogram:
         hist_dict[potentialClass.__name__] = potentialClass()
 
-with HistogramStore(args.output_directory, 'c', makedirs=True) as store:
+with HistogramStore(output_dir, 'c', makedirs=True) as store:
     try:
-        for (array, report) in uproot.iterate(args.input_file + ":clusters", step_size="50MB", library="ak", report=True):
+        for (array, report) in uproot.iterate(input_file + ":clusters", step_size="50MB", library="ak", report=True):
             print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[")
 
             comp = DataframeComputations(array)

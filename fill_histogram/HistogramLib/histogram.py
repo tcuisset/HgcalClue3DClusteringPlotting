@@ -63,7 +63,7 @@ class MyHistogram(hist.Hist, family=None): # see https://hist.readthedocs.io/en/
     def isProfile(self):
         return self.profileOn is not None
     
-    def fillFromDf(self, df:pd.DataFrame, mapping:dict):
+    def fillFromDf(self, df:pd.DataFrame, mapping:dict={}):
         """
         mapping : dict hist_axis_name -> dataframe_axis_name
         """
