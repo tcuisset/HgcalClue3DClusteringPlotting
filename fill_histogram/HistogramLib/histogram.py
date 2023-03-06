@@ -58,11 +58,16 @@ class MyHistogram(hist.Hist, family=None): # see https://hist.readthedocs.io/en/
     profileOn:ProfileVariable|None = None
 
     def __init__(self, *args, **kwargs) -> None:
+        self.profileOn = kwargs.pop('profileOn', None)
+        if self.profileOn is not None and "storage" not in kwargs:
+            # In case we want a profile histogram
+            kwargs["storage"] = hist.storage.Mean()
         super().__init__(*args, **kwargs)
     
     def isProfile(self):
-        return self.profileOn is not None
-    
+        #return self.profileOn is not None
+        return self.kind is not bh.Kind.COUNT
+
     def fillFromDf(self, df:pd.DataFrame, mapping:dict={}):
         """
         mapping : dict hist_axis_name -> dataframe_axis_name
@@ -80,7 +85,7 @@ class MyHistogram(hist.Hist, family=None): # see https://hist.readthedocs.io/en/
         else:
             weight = None
 
-        self.fill(**dict_fill, weight=weight)
+        self.fill(**dict_fill, sample=weight)
 
     def axisNames(self):
         return [axis.name for axis in self.axes]
