@@ -59,6 +59,7 @@ class BokehHistogram:
         self.histProvider.registerUpdateCallback(self.update)
     
     def update(self, attr, old, new):
+        h_proj = self.histProvider.projectedHist
         self.source.data = {"top":self.histProvider.getProjectedHistogramView(), "left":h_proj.axes[0].edges[:-1], "right":h_proj.axes[0].edges[1:]}
 
 
