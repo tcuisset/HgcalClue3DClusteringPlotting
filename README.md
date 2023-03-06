@@ -25,7 +25,7 @@ output files are stored in `/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d
 ## Step 2 : fill histograms
 This fills multidimensional histograms using pandas from the output of CLUE3D (`CLUE_clusters.root` files)
 
-    python fill_histogram/fill_histograms.py --data-dir=/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d/v3/  --datatype=data --clue-params=default
+    python fill_histograms.py --data-dir=/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d/v3/  --datatype=data --clue-params=default
 
 ## Step 3 : run the bokeh server
 

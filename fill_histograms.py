@@ -4,10 +4,10 @@ import argparse
 import uproot
 import hist
 
-from ..HistogramLib.histogram import MyHistogram
-from ..HistogramLib.store import HistogramStore, ShelfId
-from dataframe import *
-import custom_hists
+from HistogramLib.histogram import MyHistogram
+from HistogramLib.store import HistogramStore, ShelfId
+from hists.dataframe import *
+from hists import custom_hists
 
 default_tag = 'v3'
 
