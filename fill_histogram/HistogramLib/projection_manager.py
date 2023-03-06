@@ -16,6 +16,12 @@ class ProjectionAxisSelector:
     def registerCallback(self, callback):
         pass
 
+class ToggleProfile:
+    def registerCallback(self, callback):
+        pass
+    def shouldProfile(self) -> bool:
+        return False
+
 class HistogramProjectedView:
     store:HistogramStore
     hist:MyHistogram
@@ -26,14 +32,16 @@ class HistogramProjectedView:
     projectionProviders:dict
 
     plotAxises:List[str]|None = None
+    toggleProfile:ToggleProfile
 
     def __init__(self, store:HistogramStore, shelfIdProviders:List[ShelfIdSelector], projectionProviders,
-        histName:str, forcePlotAxis:List[str]|None=None) -> None:
+        histName:str, forcePlotAxis:List[str]|None=None, toggleProfileButton:ToggleProfile=None) -> None:
         self.store = store
         self.shelfIdProviders = shelfIdProviders
         self.projectionProviders = projectionProviders
         self.histName = histName
         self.plotAxises = forcePlotAxis
+        self.toggleProfile = toggleProfileButton
         
         for shelfIdProvider in self.shelfIdProviders:
             shelfIdProvider.registerCallback(self.updateShelf)
@@ -47,6 +55,7 @@ class HistogramProjectedView:
             shelfIdProvider.registerCallback(callback)
         for projectionProvider in self.projectionProviders.values():
             projectionProvider.registerCallback(callback)
+        self.toggleProfile.registerCallback(callback)
 
     def updateShelf(self, attr, old, new):
         for shelfIdProvider in self.shelfIdProviders:
@@ -73,3 +82,11 @@ class HistogramProjectedView:
         # This might do nothing, but see ListHistogramSlice for why we should project all the time
         self.projectedHist = self.hist[slice_args_dict].project(*self.plotAxises)
     
+    def getProjectedHistogramView(self):
+        """ Get the view to plot, according to toggleProfile"""
+        if self.toggleProfile.shouldProfile() and self.hist.isProfile():
+            return self.projectedHist.view().value
+        elif self.hist.isProfile():
+            return self.projectedHist.view().count
+        else:
+            return self.projectedHist.view()

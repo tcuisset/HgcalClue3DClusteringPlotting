@@ -2,14 +2,10 @@ from functools import cached_property
 from dataclasses import dataclass
 from collections import namedtuple
 from typing import List
-import os
-import glob
-import shelve
 import hist
 import hist.axis
 import pandas as pd
-import uproot
-import awkward as ak
+import boost_histogram as bh
 
 from dataframe import *
 
@@ -89,12 +85,7 @@ class MyHistogram(hist.Hist, family=None): # see https://hist.readthedocs.io/en/
 
     def axisNames(self):
         return [axis.name for axis in self.axes]
-    
-    def countView(self):
-        if self.profileOn is None:
-            return self.view()
-        else:
-            return self.view() # TODO FIX THIS
+
 
 
 

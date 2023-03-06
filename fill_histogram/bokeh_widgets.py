@@ -64,6 +64,16 @@ class PlaceholderClueParamsSelector(ShelfIdSelector):
     def fillShelfId(self, shelfId:ShelfId):
         shelfId.clue_param_name = "default"
 
+class ToggleProfileButton(ToggleProfile):
+    def __init__(self) -> None:
+        self.widget = bokeh.models.Toggle(label="Profile histogram")
+
+    def registerCallback(self, callback):
+        self.widget.on_change("active", callback)
+    
+    def shouldProfile(self) -> bool:
+        return self.widget.active
+
 import argparse
 
 def parseArgs():

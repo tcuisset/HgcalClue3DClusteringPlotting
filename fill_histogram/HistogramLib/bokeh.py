@@ -48,10 +48,7 @@ class BokehHistogram:
         self.figure = bokeh.plotting.figure(**kwargs_figure)
         self.histProvider = histProvider
         
-        try:
-            self.figure.title = histProvider.hist.title
-        except AttributeError:
-            self.figure.title = histProvider.hist.name
+        self.figure.title = histProvider.hist.label
         self.figure.xaxis.axis_label = self.histProvider.projectedHist.axes[0].label
         self.figure.yaxis.axis_label = self.histProvider.hist.profileOn.label if self.histProvider.hist.isProfile() else "Count"
 
@@ -62,8 +59,7 @@ class BokehHistogram:
         self.histProvider.registerUpdateCallback(self.update)
     
     def update(self, attr, old, new):
-        h_proj = self.histProvider.projectedHist
-        self.source.data = {"top":h_proj.countView(), "left":h_proj.axes[0].edges[:-1], "right":h_proj.axes[0].edges[1:]}
+        self.source.data = {"top":self.histProvider.getProjectedHistogramView(), "left":h_proj.axes[0].edges[:-1], "right":h_proj.axes[0].edges[1:]}
 
 
 
@@ -78,10 +74,8 @@ class MultiBokehHistogram2D:
         self.histProvider = histProvider
 
         h_proj = self.histProvider.projectedHist
-        try:
-            self.figure.title = histProvider.hist.title
-        except AttributeError:
-            self.figure.title = histProvider.hist.name
+
+        self.figure.title = histProvider.hist.label
         self.figure.xaxis.axis_label = h_proj.axes[0].label
         self.figure.yaxis.axis_label = h_proj.axes[1].label
 
@@ -96,6 +90,6 @@ class MultiBokehHistogram2D:
     
     def update(self, attr, old, new):
         # It would seem that the histogram x, y view is the transpose of what is expected by bokeh, though it needs to be checked
-        self.source.data = {"histogram_2D_view":[np.transpose(self.histProvider.projectedHist.countView())]}
+        self.source.data = {"histogram_2D_view":[np.transpose(self.histProvider.getProjectedHistogramView())]}
 
 
