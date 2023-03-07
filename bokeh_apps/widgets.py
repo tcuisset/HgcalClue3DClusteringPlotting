@@ -1,6 +1,6 @@
 import bokeh.models
 
-from ..HistogramLib.bokeh import *
+from HistogramLib.bokeh import *
 
 beamEnergies = [20, 50, 80, 100, 120, 150, 200, 250, 300]
 datatypes = ['data', 'sim_proton', 'sim_noproton']

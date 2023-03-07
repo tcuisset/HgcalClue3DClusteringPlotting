@@ -3,9 +3,9 @@ from functools import partial
 from bokeh.layouts import layout, column
 from bokeh.plotting import curdoc
 
-from ..HistogramLib.histogram import *
-from ..HistogramLib.bokeh import *
-from .bokeh_widgets import *
+from HistogramLib.histogram import *
+from HistogramLib.bokeh import *
+from bokeh_apps.widgets import *
 
 args = parseArgs()
 histStore = HistogramStore(args.hist_folder)
