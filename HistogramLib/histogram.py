@@ -61,9 +61,13 @@ class MyHistogram(hist.Hist, family=None): # see https://hist.readthedocs.io/en/
         #return self.profileOn is not None
         return self.kind is not bh.Kind.COUNT
 
-    def fillFromDf(self, df:pd.DataFrame, mapping:dict={}):
+    def fillFromDf(self, df:pd.DataFrame, mapping:dict={}, valuesNotInDf:dict={}):
         """
         mapping : dict hist_axis_name -> dataframe_axis_name
+        valuesNotInDf : dict axis_name -> array of values or single value
+            to be used if some columns are not in the dataframe, use the dict value then (directly passed to Hist.fill)
+            (can also override the df column if it is the same name)
+            these names are not mapped
         """
         dict_fill = {}
         
@@ -71,14 +75,17 @@ class MyHistogram(hist.Hist, family=None): # see https://hist.readthedocs.io/en/
             return mapping[axisName] if axisName in mapping.keys() else axisName
 
         for ax in self.axes:
-            dict_fill[ax.name] = df[mapAxisName(ax.name)]
+            if ax.name in valuesNotInDf:
+                dict_fill[ax.name] = valuesNotInDf[ax.name]
+            else:
+                dict_fill[ax.name] = df[mapAxisName(ax.name)]
         
         if self.profileOn is not None:
-            weight = df[mapAxisName(self.profileOn.name)]
+            sample = df[mapAxisName(self.profileOn.name)]
         else:
-            weight = None
+            sample = None
 
-        self.fill(**dict_fill, sample=weight)
+        self.fill(**dict_fill, sample=sample)
 
     def axisNames(self):
         return [axis.name for axis in self.axes]
