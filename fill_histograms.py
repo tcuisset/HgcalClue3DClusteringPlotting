@@ -9,7 +9,7 @@ from HistogramLib.store import HistogramStore, ShelfId
 from hists.dataframe import *
 from hists import custom_hists
 
-default_tag = 'v3'
+default_tag = 'v4'
 
 parser = argparse.ArgumentParser(description="Fill histograms from CLUE_clusters.root files for plotting. Writes pickled boost-histograms")
 parser.add_argument("--data-dir", dest='data_dir',

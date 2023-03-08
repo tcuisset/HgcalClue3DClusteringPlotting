@@ -29,12 +29,14 @@ This fills multidimensional histograms using pandas from the output of CLUE3D (`
 
 ## Step 3 : run the bokeh server
 
-    conda run -n clustering-analysis bokeh serve --allow-websocket-origin=llruicms01 --dev --args --hist-folder=/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d/v3/ -- cluster3D.py
+    conda activate clustering-analysis
+
+    bokeh serve --allow-websocket-origin=llruicms01:5006 --dev --args --hist-folder=/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d/v3/ -- bokeh_apps/cluster3D.py
 
 Change the hist folder if needed (you should probably update the version number)
 
 Then connect :
- - if on LLR network, then simply open <http://llruicms:5006> in your browser (you may need to change the default port in case it is already in use, the port chosen is given by the previous command)
+ - if on LLR network, then simply open <http://llruicms01:5006> in your browser (you may need to change the default port in case it is already in use, the port chosen is given by the previous command)
  - elsewhere, you need to create an SSH tunnel (you may also need to adapt the port):
 
     ssh -NL 5006:localhost:5006 *your_llruicms_hostname*
