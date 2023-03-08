@@ -22,6 +22,13 @@ def makeBeamEnergySelector():
         height=200
     )
 
+def makeMainOrAllTrackstersSelector():
+    """ For CLUE3D, whether we use all 3D clusters per event or only the cluster with the highest energy """
+    return RadioButtonGroupAxisSelector("mainOrAllTracksters",
+        name="mainOrAllTracksters",
+        labels=["allTracksters", "mainTrackster"],
+        active=0
+    )
 
 class DatatypeSelector(ShelfIdSelector):
     def __init__(self) -> None:

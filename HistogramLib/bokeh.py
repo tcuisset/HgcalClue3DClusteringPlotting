@@ -32,6 +32,18 @@ class MultiSelectAxisSelector(ProjectionAxisSelector):
     def registerCallback(self, callback):
         self.widget.on_change('value', callback)
 
+class RadioButtonGroupAxisSelector(ProjectionAxisSelector):
+    """ You need to pass labels as kwargs with the same labels as category axis values """
+    def __init__(self, axisName:str, **kwargs) -> None:
+        self.axisName = axisName
+        self.widget = bokeh.models.RadioButtonGroup(**kwargs)
+    
+    def getSlice(self):
+        return SingleValueHistogramSlice(self.axisName, self.widget.labels[self.widget.active])
+    def registerCallback(self, callback):
+        self.widget.on_change('active', callback)
+
+
 class PlaceholderAxisSelector(ProjectionAxisSelector):
     def __init__(self, slice) -> None:
         self.slice = slice

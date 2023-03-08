@@ -19,6 +19,12 @@ class HistogramSlice:
         return False
 
 @dataclass
+class SingleValueHistogramSlice(HistogramSlice):
+    value:str|int
+    def getSliceObject(self):
+        return hist.loc(self.value)
+
+@dataclass
 class RangeHistogramSlice(HistogramSlice):
     minRange:int
     maxRange:int
