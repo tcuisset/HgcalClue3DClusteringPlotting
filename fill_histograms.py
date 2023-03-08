@@ -50,6 +50,7 @@ for name in dir(custom_hists):
 
 with HistogramStore(output_dir, 'c', makedirs=True) as store:
     try:
+        # step_size of 50MB stranslates to about 5GB of memory usage by python, and about 4k events at a time
         for (array, report) in uproot.iterate(input_file + ":clusters", step_size="50MB", library="ak", report=True):
             print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[")
 
