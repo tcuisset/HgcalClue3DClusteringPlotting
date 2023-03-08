@@ -63,7 +63,6 @@ class BokehHistogram:
         
         self.figure.title = histProvider.hist.label
         self.figure.xaxis.axis_label = self.histProvider.projectedHist.axes[0].label
-        self.figure.yaxis.axis_label = self.histProvider.hist.profileOn.label if self.histProvider.hist.isProfile() else "Count"
 
         self.source = ColumnDataSource()
         self.update(None, None, None)
@@ -75,6 +74,10 @@ class BokehHistogram:
         h_proj = self.histProvider.projectedHist
         self.source.data = {"top":self.histProvider.getProjectedHistogramView(), "left":h_proj.axes[0].edges[:-1], "right":h_proj.axes[0].edges[1:]}
 
+        if self.histProvider.isProfileEnabled():
+            self.figure.yaxis.axis_label = self.histProvider.hist.profileOn.label
+        else:
+            self.figure.yaxis.axis_label = 'Event count'
 
 
 class MultiBokehHistogram2D:
