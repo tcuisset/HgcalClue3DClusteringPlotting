@@ -1,35 +1,25 @@
-from functools import partial
-
 from bokeh.layouts import layout, column
 from bokeh.plotting import curdoc
 
-from HistogramLib.histogram import *
-from HistogramLib.bokeh import *
-from bokeh_apps.widgets import *
+from bokeh_apps.common_init import *
 
-args = parseArgs()
-histStore = HistogramStore(args.hist_folder)
+s = Selectors()
 
-datatype_selector = DatatypeSelector()
-clueParamSelector = ClueParamsSelector(histStore.getPossibleClueParameters())
-#clueParamSelector = PlaceholderClueParamsSelector()
-layerSelector = makeLayerSelector()
-beamEnergySelector = makeBeamEnergySelector()
-toggleProfile = ToggleProfileButton()
-
-MakeView = partial(HistogramProjectedView, histStore, [datatype_selector, clueParamSelector],
-    {'beamEnergy' : beamEnergySelector, 'layer'  : layerSelector}, toggleProfileButton=toggleProfile)
-
-
-
-curdoc().add_root(layout([
-    [column(
-        clueParamSelector.widget,
-        datatype_selector.widget, beamEnergySelector.widget, layerSelector.widget, toggleProfile.widget),
-    MultiBokehHistogram2D(MakeView(histName="Clus3DSpatialResolution")).figure,
-    MultiBokehHistogram2D(MakeView(histName="Clus3DPositionXY")).figure,
-    BokehHistogram(MakeView(histName="Clus3DPositionZ")).figure
+curdoc().add_root(layout(
+[
+    [ # First line
+        column(
+            s.clueParamSelector.widget, s.datatype_selector.widget, s.beamEnergySelector.widget,
+            s.layerSelector.widget, s.toggleProfile.widget, s.mainOrAllTrackstersSelector.widget
+        ),
+        MultiBokehHistogram2D(s.MakeViewClue3D(histName="Clus3DSpatialResolution")).figure,
+        MultiBokehHistogram2D(s.MakeViewClue3D(histName="Clus3DPositionXY")).figure,
+        BokehHistogram(s.MakeViewClue3D(histName="Clus3DPositionZ")).figure
     ],
+    [ # Second line 
+        BokehHistogram(s.MakeViewClue3D(histName="Clus3DFirstLayerOfCluster")).figure,
+        BokehHistogram(s.MakeViewClue3D(histName="Clus3DLastLayerOfCluster")).figure,
+        BokehHistogram(s.MakeViewClue3D(histName="Clus3DNumberOf2DClustersPerLayer")).figure,
+    ]
     
-    #[h_xy.figure, h_spatial_resolution_xy.figure, h_spatial_resolution_xy_profiled.figure]
 ]))
