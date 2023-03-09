@@ -13,7 +13,7 @@ curdoc().add_root(layout(
             s.layerSelector.widget, s.toggleProfile.widget
         ),
         MultiBokehHistogram2D(s.MakeView(histName="RechitsPositionXY")).figure,
-        BokehHistogram(s.MakeView(histName="RechitsPositionZ")).figure,
+        BokehHistogram(s.MakeView(histName="RechitsPositionZ"), xGridTicks=layers_z).figure,
     ],
     [ # Second line 
         BokehHistogram(s.MakeView(histName="RechitsRho")).figure,

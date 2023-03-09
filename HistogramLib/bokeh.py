@@ -2,7 +2,7 @@ import bokeh.models
 import bokeh.plotting
 import boost_histogram as bh
 import numpy as np
-from bokeh.models import ColumnDataSource
+from bokeh.models import ColumnDataSource, FixedTicker
 
 from .histogram import *
 from .projection_manager import *
@@ -53,7 +53,8 @@ class PlaceholderAxisSelector(ProjectionAxisSelector):
 
 
 class BokehHistogram:
-    def __init__(self, histProvider:HistogramProjectedView, **kwargs_figure) -> None:
+    def __init__(self, histProvider:HistogramProjectedView, xGridTicks=None, **kwargs_figure) -> None:
+        """ xGridTicks : Put x grid lines at these x values """
         if len(histProvider.projectedHist.axes) != 1:
             raise ValueError("You are trying to plot a 1D histogram using multidimensional data, you are missing a projection. Histogram axes : " 
                 + ", ".join(histProvider.projectedHist.axisNames))
@@ -63,6 +64,8 @@ class BokehHistogram:
         
         self.figure.title = histProvider.hist.label
         self.figure.xaxis.axis_label = self.histProvider.projectedHist.axes[0].label
+        if xGridTicks:
+            self.figure.xgrid.ticker = FixedTicker(ticks=xGridTicks)
 
         self.source = ColumnDataSource()
         self.update()
