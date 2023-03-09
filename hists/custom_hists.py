@@ -16,26 +16,26 @@ layerAxis_custom = partial(hist.axis.Integer, start=0, stop=30, name="layer", la
 #ntupleNumberAxis = hist.axis.IntCategory([], growth=True, name="ntupleNumber", label="ntuple number")
 
 #Bind commonly used parameters of hist axis construction using functools.partial
-xyPosition_axis = partial(hist.axis.Regular, bins=100, start=-10., stop=10.)
-zPosition_axis = partial(hist.axis.Regular, bins=100, start=0., stop=60.)
+xyPosition_axis = partial(hist.axis.Regular, bins=200, start=-10., stop=10.)
+zPosition_axis = partial(hist.axis.Regular, bins=200, start=0., stop=60.)
 
-rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=10., label="Energy density")
-delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., label="Distance to nearest higher")
-seed_axis =partial(hist.axis.IntCategory, [0, 1]) #0: not a seed, 1: is a seed
+#For rho use a transform to have more bins at low rho. For now use sqrt, but log would be better (though needs to find a way to include start=0)
+rechits_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=20., transform=hist.axis.transform.sqrt,
+    name="rechits_rho", label="RecHit rho (local energy density)")
+rechits_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="rechits_delta", label="RecHit delta (distance to nearest higher)")
+seed_axis = partial(hist.axis.IntCategory, [0, 1]) #0: not a seed, 1: is a seed
 
-cluster2dEnergy_axis = hist.axis.Regular(100, 0, 1, name="cluster2dEnergy", label="2D cluster energy")
+cluster2D_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=100., transform=hist.axis.transform.sqrt,
+    name="clus2D_rho", label="2D cluster rho (local energy density)")
+cluster2D_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="clus2D_delta", label="2D cluster delta (distance to nearest higher)")
 
-cluster3dSizeAxis = hist.axis.Integer(1, 40, name="cluster3dSize", label="3D cluster size")
-cluster3dEnergyAxis = hist.axis.Regular(100, 0, 20, name="cluster3dEnergy", label="3D cluster energy")
+cluster3D_size_xis = hist.axis.Integer(1, 40, name="cluster3dSize", label="3D cluster size")
 
 
 # An axis for difference in position (for example cluster spatial resolution)
-diffX_axis = hist.axis.Regular(bins=50, start=-5., stop=5., name="clus2D_diff_impact_x", label="x position difference")
-diffY_axis = hist.axis.Regular(bins=50, start=-5., stop=5., name="clus2D_diff_impact_y", label="y position difference")
+diffX_axis = hist.axis.Regular(bins=200, start=-8., stop=8., name="clus2D_diff_impact_x", label="x position difference")
+diffY_axis = hist.axis.Regular(bins=200, start=-8., stop=8., name="clus2D_diff_impact_y", label="y position difference")
 
-energy_axis = hist.axis.Regular(bins=100, start=0., stop=10., name="energy", label="Reconstructed hit energy")
-
-totalRecHitEnergy_axis = hist.axis.Regular(bins=500, start=0, stop=300, name="totalRecHitEnergy", label="Total RecHit energy per event (GeV)")
 
 clus3D_mainOrAllTracksters_axis = hist.axis.StrCategory(["allTracksters", "mainTrackster"], name="mainOrAllTracksters",
     label="For 3D clusters, whether to consider for each event all 3D clusters (allTracksters) or only the highest energy 3D cluster (mainTrackster)")
@@ -49,6 +49,7 @@ class RechitsPositionXY(MyHistogram):
             xyPosition_axis(name="rechits_y", label="RecHit y position"),
 
             label="RecHits position (x-y)",
+            binCountLabel="RecHits count",
             profileOn = ProfileVariable('rechits_energy', 'Reconstructed hit energy')
         )
 
@@ -61,6 +62,7 @@ class RechitsPositionZ(MyHistogram):
             zPosition_axis(name="rechits_z", label="RecHit z position"),
 
             label="RecHits z position",
+            binCountLabel="RecHits count",
             profileOn = ProfileVariable('rechits_energy', 'Reconstructed hit energy')
         )
 
@@ -70,9 +72,10 @@ class RechitsPositionZ(MyHistogram):
 class RechitsRho(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis,
-            rho_axis(name="rechits_rho", label="RecHit rho (local energy density)"),
+            rechits_rho_axis(),
 
             label="RecHits rho (local energy density)",
+            binCountLabel="RecHits count",
             profileOn = ProfileVariable('rechits_energy', 'Reconstructed hit energy')
         )
 
@@ -82,9 +85,10 @@ class RechitsRho(MyHistogram):
 class RechitsDelta(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis,
-            delta_axis(name="rechits_delta", label="RecHit delta (distance to nearest higher)"),
+            rechits_delta_axis(),
 
             label="RecHit delta (distance to nearest higher)",
+            binCountLabel="RecHits count",
             profileOn = ProfileVariable('rechits_energy', 'Reconstructed hit energy')
         )
 
@@ -94,10 +98,11 @@ class RechitsDelta(MyHistogram):
 class RechitsRhoDelta(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis,
-            rho_axis(name="rechits_rho", label="RecHit rho (local energy density)"),
-            delta_axis(name="rechits_delta", label="RecHit delta (distance to nearest higher)"),
+            rechits_rho_axis(),
+            rechits_delta_axis(),
 
             label="RecHit rho-delta",
+            binCountLabel="RecHits count",
             profileOn = ProfileVariable('rechits_energy', 'Reconstructed hit energy')
         )
 
@@ -111,6 +116,7 @@ class EnergyClustered2DPerLayer(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis_custom(name="clus2D_layer"), 
             label="Sum of 2D clusters energies per layer",
+            binCountLabel="Event count",
             profileOn = ProfileVariable('clus2D_energy_sum', '2D cluster reconstructed energy (profile)')
         )
 
@@ -123,17 +129,19 @@ class LayerWithMaximumClustered2DEnergy(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis_custom(name="clus2D_layer"), 
             label="Layer with the maximum 2D-clustered energy",
-            #profileOn = ProfileVariable('clus2D_energy_sum', '2D cluster reconstructed energy (profile)')
+            binCountLabel="Event count",
+            profileOn = ProfileVariable('clus2D_energy_sum', 'Mean of the sum of 2D cluster energy on the layer with max clustered energy per event')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.clusters2D_selectLayerWithMaxClusteredEnergy)
+        self.fillFromDf(comp.clusters2D_sumClustersOnLayerWithMaxClusteredEnergy)
 
 # Note : here layer is meant as a plot axis (not to be used with a slider)
 class NumberOf2DClustersPerLayer(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis_custom(name="clus2D_layer"), 
             label="Number of 2D clusters per layer",
+            binCountLabel="2D clusters count",
             profileOn = ProfileVariable('clus2D_energy', 'Mean of 2D cluster reconstructed energy per layer')
         )
 
@@ -143,9 +151,10 @@ class NumberOf2DClustersPerLayer(MyHistogram):
 class Cluster2DRho(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis,
-            rho_axis(name="clus2D_rho", label="2D cluster rho (local energy density)"),
+            cluster2D_rho_axis(),
 
             label="2D cluster rho (local energy density)",
+            binCountLabel="2D clusters count",
             profileOn = ProfileVariable('clus2D_energy', '2D cluster energy')
         )
 
@@ -155,9 +164,10 @@ class Cluster2DRho(MyHistogram):
 class Cluster2DDelta(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis,
-            delta_axis(name="clus2D_delta", label="2D cluster delta (distance to nearest higher)"),
+            cluster2D_delta_axis(),
 
             label="2D cluster delta (distance to nearest higher)",
+            binCountLabel="2D clusters count",
             profileOn = ProfileVariable('clus2D_energy', '2D cluster energy')
         )
 
@@ -167,10 +177,11 @@ class Cluster2DDelta(MyHistogram):
 class Cluster2DRhoDelta(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis,
-            rho_axis(name="clus2D_rho", label="2D cluster rho (local energy density)"),
-            delta_axis(name="clus2D_delta", label="2D cluster delta (distance to nearest higher)"),
+            cluster2D_rho_axis(),
+            cluster2D_delta_axis(),
 
             label="2D cluster rho-delta",
+            binCountLabel="2D clusters count",
             profileOn = ProfileVariable('clus2D_energy', '2D cluster energy')
         )
 
@@ -187,6 +198,7 @@ class Clus3DPositionXY(MyHistogram):
             hist.axis.Regular(bins=50, start=-10., stop=10., name="clus3D_y", label="3D cluster y position"),
 
             label = "3D cluster X-Y position",
+            binCountLabel="3D clusters count",
             profileOn = ProfileVariable('clus3D_energy', '3D cluster total reconstructed energy')
         )
 
@@ -199,7 +211,8 @@ class Clus3DPositionZ(MyHistogram):
         super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis,
             zPosition_axis(name="clus3D_z", label="3D cluster z position"),
             
-            label = "3D cluster X-Y position",
+            label = "3D cluster Z position",
+            binCountLabel="3D clusters count",
             profileOn = ProfileVariable('clus3D_energy', '3D cluster total reconstructed energy')
         )
 
@@ -212,6 +225,7 @@ class Clus3DSpatialResolution(MyHistogram):
         super().__init__(beamEnergiesAxis, layerAxis, clus3D_mainOrAllTracksters_axis,
             diffX_axis, diffY_axis,
             label = "Spatial resolution of 2D clusters that are part of a 3D cluster",
+            binCountLabel="3D clusters count",
             profileOn = ProfileVariable('clus2D_energy', '2D cluster energy')
         )
 
@@ -227,6 +241,7 @@ class Clus3DFirstLayerOfCluster(MyHistogram):
         super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis,
             layerAxis_custom(name="clus2D_minLayer", label="First layer clustered in CLUE3D"),
             label = "First layer used by CLUE3D",
+            binCountLabel="3D clusters count",
             profileOn = ProfileVariable('clus3D_energy', '3D cluster total reconstructed energy')
         )
 
@@ -242,6 +257,7 @@ class Clus3DLastLayerOfCluster(MyHistogram):
         super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis,
             layerAxis_custom(name="clus2D_maxLayer", label="Last layer clustered in CLUE3D"),
             label = "Last layer used by CLUE3D",
+            binCountLabel="3D clusters count",
             profileOn = ProfileVariable('clus3D_energy', '3D cluster total reconstructed energy')
         )
 
