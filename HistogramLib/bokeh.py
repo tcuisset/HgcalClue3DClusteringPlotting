@@ -65,12 +65,12 @@ class BokehHistogram:
         self.figure.xaxis.axis_label = self.histProvider.projectedHist.axes[0].label
 
         self.source = ColumnDataSource()
-        self.update(None, None, None)
+        self.update()
         self.figure.quad(bottom=0, source=self.source)
 
         self.histProvider.registerUpdateCallback(self.update)
     
-    def update(self, attr, old, new):
+    def update(self):
         h_proj = self.histProvider.projectedHist
         self.source.data = {"top":self.histProvider.getProjectedHistogramView(), "left":h_proj.axes[0].edges[:-1], "right":h_proj.axes[0].edges[1:]}
 
@@ -100,7 +100,7 @@ class MultiBokehHistogram2D:
         self.plottedValueTitle = bokeh.models.Title(text="")
         
         self.source = ColumnDataSource()
-        self.update(None, None, None)
+        self.update()
         self.figure.image(image='histogram_2D_view', x=h_proj.axes[0].edges[0], y=h_proj.axes[0].edges[0],
             dw=h_proj.axes[0].edges[-1]-h_proj.axes[0].edges[0], dh=h_proj.axes[0].edges[-1]-h_proj.axes[0].edges[0],
             color_mapper=colorMapper,
@@ -113,7 +113,7 @@ class MultiBokehHistogram2D:
 
         self.histProvider.registerUpdateCallback(self.update)
     
-    def update(self, attr, old, new):
+    def update(self):
         # It would seem that the histogram x, y view is the transpose of what is expected by bokeh, though it needs to be checked
         self.source.data = {"histogram_2D_view":[np.transpose(self.histProvider.getProjectedHistogramView())]}
 

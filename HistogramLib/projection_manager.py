@@ -29,7 +29,7 @@ class HistogramProjectedView:
     projectedHist:MyHistogram
     histName:str
     shelfIdProviders:List[ShelfIdSelector]
-    shelfId = ShelfId('default', 'data')
+    shelfId:ShelfId
     projectionProviders:dict
 
     plotAxises:List[str]|None = None
@@ -43,20 +43,19 @@ class HistogramProjectedView:
         self.histName = histName
         self.plotAxises = forcePlotAxis
         self.toggleProfile = toggleProfileButton
+        self.shelfId = ShelfId('default', 'data')
+        self.callbacks = []
         
         for shelfIdProvider in self.shelfIdProviders:
             shelfIdProvider.registerCallback(self.updateShelf)
         for projectionProvider in self.projectionProviders.values():
             projectionProvider.registerCallback(self.updateProjection)
+        self.toggleProfile.registerCallback(self.updateProjection)
         
         self.updateShelf(None, None, None)
 
     def registerUpdateCallback(self, callback):
-        for shelfIdProvider in self.shelfIdProviders:
-            shelfIdProvider.registerCallback(callback)
-        for projectionProvider in self.projectionProviders.values():
-            projectionProvider.registerCallback(callback)
-        self.toggleProfile.registerCallback(callback)
+        self.callbacks.append(callback)
 
     def updateShelf(self, attr, old, new):
         for shelfIdProvider in self.shelfIdProviders:
@@ -86,6 +85,9 @@ class HistogramProjectedView:
         
         # This might do nothing, but see ListHistogramSlice for why we should project all the time
         self.projectedHist = self.hist[slice_args_dict].project(*self.plotAxises)
+
+        for callback in self.callbacks:
+            callback()
 
     def isProfileEnabled(self) -> bool:
         return self.toggleProfile.shouldProfile() and self.hist.isProfile()
