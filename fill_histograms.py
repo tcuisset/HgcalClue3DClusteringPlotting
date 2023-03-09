@@ -48,7 +48,7 @@ for name in dir(custom_hists):
     if isinstance(potentialClass, type) and issubclass(potentialClass, MyHistogram) and potentialClass is not MyHistogram:
         hist_dict[potentialClass.__name__] = potentialClass()
 
-with HistogramStore(output_dir, 'c', makedirs=True) as store:
+with HistogramStore(output_dir, 'n', makedirs=True) as store:
     try:
         # step_size of 50MB stranslates to about 5GB of memory usage by python, and about 4k events at a time
         for (array, report) in uproot.iterate(input_file + ":clusters", step_size="50MB", library="ak", report=True):

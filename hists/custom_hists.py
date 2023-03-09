@@ -33,8 +33,9 @@ cluster3D_size_xis = hist.axis.Integer(1, 40, name="cluster3dSize", label="3D cl
 
 
 # An axis for difference in position (for example cluster spatial resolution)
-diffX_axis = hist.axis.Regular(bins=200, start=-8., stop=8., name="clus2D_diff_impact_x", label="x position difference")
-diffY_axis = hist.axis.Regular(bins=200, start=-8., stop=8., name="clus2D_diff_impact_y", label="y position difference")
+# 200 bins takes about 500MB of space with all the other axises (200 * 200 * 10 (beamEnergy) * 30 (layer) * 2 (mainTrackster) * 8 (double storage) = 0.2 GB)
+diffX_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_x", label="x position difference")
+diffY_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_y", label="y position difference")
 
 
 clus3D_mainOrAllTracksters_axis = hist.axis.StrCategory(["allTracksters", "mainTrackster"], name="mainOrAllTracksters",
