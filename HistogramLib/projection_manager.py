@@ -1,6 +1,7 @@
 import hist
 import dbm
 from typing import List
+import hist
 
 from .store import *
 from .histogram import *
@@ -17,32 +18,35 @@ class ProjectionAxisSelector:
     def registerCallback(self, callback):
         pass
 
-class ToggleProfile:
+
+class HistKindSelector:
     def registerCallback(self, callback):
         pass
-    def shouldProfile(self) -> bool:
-        return False
+    def getSelection(self) -> HistogramKind:
+        return HistogramKind.COUNT
 
 class HistogramProjectedView:
     store:HistogramStore
-    hist:MyHistogram
-    projectedHist:MyHistogram
+    myHist:MyHistogram
+    projectedHist:hist.Hist
+    histLambdaView = None # A lambda to apply to projectedHist that returns the relevant view for the current histogram kind
     histName:str
     shelfIdProviders:List[ShelfIdSelector]
     shelfId:ShelfId
     projectionProviders:dict
 
     plotAxises:List[str]|None = None
-    toggleProfile:ToggleProfile
+    histKindSelector:HistKindSelector
 
     def __init__(self, store:HistogramStore, shelfIdProviders:List[ShelfIdSelector], projectionProviders,
-        histName:str, forcePlotAxis:List[str]|None=None, toggleProfileButton:ToggleProfile=None) -> None:
+        histName:str, forcePlotAxis:List[str]|None=None, histKindSelector:HistKindSelector=HistKindSelector()) -> None:
         self.store = store
+        self.myHist = None
         self.shelfIdProviders = shelfIdProviders
         self.projectionProviders = projectionProviders
         self.histName = histName
         self.plotAxises = forcePlotAxis
-        self.toggleProfile = toggleProfileButton
+        self.histKindSelector = histKindSelector
         self.shelfId = ShelfId('default', 'data')
         self.callbacks = []
         
@@ -50,7 +54,7 @@ class HistogramProjectedView:
             shelfIdProvider.registerCallback(self.updateShelf)
         for projectionProvider in self.projectionProviders.values():
             projectionProvider.registerCallback(self.updateProjection)
-        self.toggleProfile.registerCallback(self.updateProjection)
+        self.histKindSelector.registerCallback(self.updateProjection)
         
         self.updateShelf(None, None, None)
 
@@ -62,16 +66,17 @@ class HistogramProjectedView:
             shelfIdProvider.fillShelfId(self.shelfId)
         
         try:
-            self.hist = self.store.getShelf(self.shelfId)[self.histName]
+            self.myHist = self.store.getShelf(self.shelfId)[self.histName]
         except dbm.error:
-            self.hist = self.hist.getEmptyCopy()
+            if self.myHist is not None:
+                self.myHist = self.myHist.getEmptyCopy() # make an empty copy so we keep the labels but remove the data
         self.updateProjection(None, None, None)
 
     def updateProjection(self, attr, old, new):
         slice_args_dict = {}
         unprojected_axes = []
         
-        for axisName in self.hist.axisNames():
+        for axisName in self.myHist.axisNames():
             if axisName in self.projectionProviders:
                 histogramSlice = self.projectionProviders[axisName].getSlice()
                 if histogramSlice is not None:
@@ -83,27 +88,24 @@ class HistogramProjectedView:
             # First call to updateProjection, figure out automatically the plotting axes and cache them
             self.plotAxises = unprojected_axes
         
-        # This might do nothing, but see ListHistogramSlice for why we should project all the time
-        self.projectedHist = self.hist[slice_args_dict].project(*self.plotAxises)
-
+        unprojected_hist, self.histLambdaView = self.myHist.getHistogramAndViewLambda(self.getHistKindSelection())
+        # The project call might do nothing, but see ListHistogramSlice for why we should project all the time
+        self.projectedHist = unprojected_hist[slice_args_dict].project(*self.plotAxises)
         for callback in self.callbacks:
             callback()
-
-    def isProfileEnabled(self) -> bool:
-        return self.toggleProfile.shouldProfile() and self.hist.isProfile()
-
-    def getHistogramBinCountLabel(self) -> str:
-        """ Get the label of the bin contents of histogram, depending on profile (-> profile variable label) or count (-> stored in MyHistogram, usually "Event count")"""
-        if self.isProfileEnabled():
-            return self.hist.profileOn.label
+    
+    def getHistKindSelection(self):
+        """ Get the current histKind selection, potentially falling back on COUNT if requested is not available"""
+        requestedKind = self.histKindSelector.getSelection()
+        if self.myHist.hasHistogramType(requestedKind):
+            return requestedKind
         else:
-            return self.hist.binCountLabel
+            return HistogramKind.COUNT
+
+    def getHistogramBinCountLabel(self):
+        return self.myHist.getHistogramBinCountLabel(self.getHistKindSelection())
 
     def getProjectedHistogramView(self):
-        """ Get the view to plot, according to toggleProfile"""
-        if self.toggleProfile.shouldProfile() and self.hist.isProfile():
-            return self.projectedHist.view().value
-        elif self.hist.isProfile():
-            return self.projectedHist.view().count
-        else:
-            return self.projectedHist.view()
+        """ Get the view to plot, according to histogram kind selector"""
+        return self.histLambdaView(self.projectedHist)
+

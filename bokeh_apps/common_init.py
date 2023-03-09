@@ -16,15 +16,15 @@ class Selectors:
         #self.clueParamSelector = PlaceholderClueParamsSelector()
         self.layerSelector = makeLayerSelector()
         self.beamEnergySelector = makeBeamEnergySelector()
-        self.toggleProfile = ToggleProfileButton()
+        self.histKindSelector = HistogramKindRadioButton()
         self.mainOrAllTrackstersSelector = makeMainOrAllTrackstersSelector() 
 
         self.MakeView = partial(HistogramProjectedView, histStore, 
             shelfIdProviders=[self.datatype_selector, self.clueParamSelector],
             projectionProviders={'beamEnergy': self.beamEnergySelector, 'layer': self.layerSelector},
-            toggleProfileButton=self.toggleProfile)
+            histKindSelector=self.histKindSelector)
 
         self.MakeViewClue3D = partial(HistogramProjectedView, histStore, 
             shelfIdProviders=[self.datatype_selector, self.clueParamSelector],
             projectionProviders={'beamEnergy': self.beamEnergySelector, 'layer': self.layerSelector, 'mainOrAllTracksters': self.mainOrAllTrackstersSelector},
-            toggleProfileButton=self.toggleProfile)
+            histKindSelector=self.histKindSelector)

@@ -10,7 +10,7 @@ curdoc().add_root(layout(
     [ # First line
         column(
             s.clueParamSelector.widget, s.datatype_selector.widget, s.beamEnergySelector.widget,
-            s.layerSelector.widget, s.toggleProfile.widget, s.mainOrAllTrackstersSelector.widget
+            s.layerSelector.widget, s.histKindSelector.widget, s.mainOrAllTrackstersSelector.widget
         ),
         MultiBokehHistogram2D(s.MakeViewClue3D(histName="Clus3DSpatialResolution")).figure,
         MultiBokehHistogram2D(s.MakeViewClue3D(histName="Clus3DPositionXY")).figure,

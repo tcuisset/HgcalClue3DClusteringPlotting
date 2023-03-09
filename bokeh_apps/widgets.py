@@ -1,6 +1,8 @@
 import bokeh.models
 
 from HistogramLib.bokeh import *
+from HistogramLib.projection_manager import HistKindSelector
+from HistogramLib.histogram import HistogramKind
 
 beamEnergies = [20, 50, 80, 100, 120, 150, 200, 250, 300]
 datatypes = ['data', 'sim_proton', 'sim_noproton']
@@ -71,15 +73,22 @@ class PlaceholderClueParamsSelector(ShelfIdSelector):
     def fillShelfId(self, shelfId:ShelfId):
         shelfId.clue_param_name = "default"
 
-class ToggleProfileButton(ToggleProfile):
+class HistogramKindRadioButton(HistKindSelector):
+    labels_dict = {"Count" : HistogramKind.COUNT,
+                    "Weight" : HistogramKind.WEIGHT,
+                    "Profile" : HistogramKind.PROFILE}
+
     def __init__(self) -> None:
-        self.widget = bokeh.models.Toggle(label="Profile histogram")
+        self.widget = bokeh.models.RadioButtonGroup(
+            labels=list(self.labels_dict.keys()),
+            active=0
+        )
 
     def registerCallback(self, callback):
         self.widget.on_change("active", callback)
     
-    def shouldProfile(self) -> bool:
-        return self.widget.active
+    def getSelection(self) -> HistogramKind:
+        return self.labels_dict[self.widget.labels[self.widget.active]]
 
 import argparse
 

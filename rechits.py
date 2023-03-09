@@ -10,7 +10,7 @@ curdoc().add_root(layout(
     [ # First line
         column(
             s.clueParamSelector.widget, s.datatype_selector.widget, s.beamEnergySelector.widget,
-            s.layerSelector.widget, s.toggleProfile.widget
+            s.layerSelector.widget, s.histKindSelector.widget
         ),
         MultiBokehHistogram2D(s.MakeView(histName="RechitsPositionXY")).figure,
         BokehHistogram(s.MakeView(histName="RechitsPositionZ"), xGridTicks=layers_z).figure,

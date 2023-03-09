@@ -10,7 +10,7 @@ curdoc().add_root(layout(
     [ # First line
         column(
             s.clueParamSelector.widget, s.datatype_selector.widget, s.beamEnergySelector.widget,
-            s.layerSelector.widget, s.toggleProfile.widget
+            s.layerSelector.widget, s.histKindSelector.widget
         ),
         BokehHistogram(s.MakeView(histName="EnergyClustered2DPerLayer")).figure,
         BokehHistogram(s.MakeView(histName="LayerWithMaximumClustered2DEnergy")).figure,

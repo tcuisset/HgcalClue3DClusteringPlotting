@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from collections import namedtuple
 from typing import List
+from enum import Enum, auto
 import hist
 import hist.axis
 import pandas as pd
 import boost_histogram as bh
 
-ProfileVariable = namedtuple('ProfileVariable', ['name', 'label'])
+HistogramVariable = namedtuple('HistogramVariable', ['name', 'label'])
 
 
 
@@ -51,23 +52,85 @@ class ProjectHistogramSlice(HistogramSlice):
         return True
 
 
+class HistogramKind(Enum):
+    COUNT = auto()
+    WEIGHT = auto() # Histogram with Weight storage
+    PROFILE = auto() # Histogram with Mean storage
 
 
-class MyHistogram(hist.Hist, family=None): # see https://hist.readthedocs.io/en/latest/user-guide/subclassing.html
+class MyHistogram():
+    label:str = "Histogram"
     binCountLabel:str = "Count" # Label that is plotted on y axis of 1D histogram (or colorbar of 2D) when profile is disabled. Usually "Event count".
-    profileOn:ProfileVariable|None = None
+    profileOn:HistogramVariable|None = None
+    weightOn:HistogramVariable|None = None
+
+    histDict:dict
 
     def __init__(self, *args, **kwargs) -> None:
-        self.profileOn = kwargs.pop('profileOn', None)
-        if self.profileOn is not None and "storage" not in kwargs:
-            # In case we want a profile histogram
-            kwargs["storage"] = hist.storage.Mean()
+        self.label = kwargs.pop('label', "Histogram")
         self.binCountLabel = kwargs.pop('binCountLabel', self.binCountLabel)
-        super().__init__(*args, **kwargs)
+        self.profileOn = kwargs.pop('profileOn', None)
+        self.weightOn = kwargs.pop('weightOn', None)
+        self.histDict = {}
+        
+        #Note : Weight storage does not have a .count view parameter so we need to have a second histogram for counts
+        # Mean storage however does have a .count view
+        if self.profileOn is not None:
+            # In case we want a profile histogram
+            kwargs_profile = kwargs.copy()
+            kwargs_profile["storage"] = hist.storage.Mean()
+            self.histDict[HistogramKind.PROFILE] = hist.Hist(*args, **kwargs_profile)
+        if self.weightOn is not None:
+            # We want a weight histogram
+            kwargs_weight = kwargs.copy()
+            kwargs_weight["storage"] = hist.storage.Weight()
+            self.histDict[HistogramKind.WEIGHT] = hist.Hist(*args, **kwargs_weight)
+        if HistogramKind.COUNT not in self.histDict.keys():
+            # We need a regular count histogram
+            self.histDict[HistogramKind.COUNT] = hist.Hist(*args, **kwargs)
+ 
+    def getHistogram(self, kind:HistogramKind):
+        if kind in self.histDict:
+            return self.histDict[kind]
+        elif HistogramKind.PROFILE in self.histDict:
+            return self.histDict[HistogramKind.PROFILE]
+        else:
+            raise ValueError("Histogram kind could not be found")
     
-    def isProfile(self):
-        #return self.profileOn is not None
-        return self.kind is not bh.Kind.COUNT
+    def hasHistogramType(self, kind:HistogramKind):
+        return kind in self.histDict or (kind is HistogramKind.COUNT and HistogramKind.PROFILE in self.histDict)
+
+    def getHistogramAndViewLambda(self, kind:HistogramKind):
+        """ Get the histogram for the requested HistogramKind as well as a lambda to apply to the histogram to get the relevant view"""
+        h:hist.Hist = self.getHistogram(kind)
+        if kind is HistogramKind.PROFILE or kind is HistogramKind.WEIGHT:
+            l = lambda h : h.view().value
+        elif kind is HistogramKind.COUNT:
+            if issubclass(h.storage_type, bh.storage.Mean):
+                l = lambda h : h.view().count
+            elif issubclass(h.storage_type, bh.storage.Weight) or issubclass(h.storage_type, bh.storage.WeightedMean):
+                raise ValueError("Weight and WeightedMean storages do not have a count field")
+            else:
+                #Just assume the view is a "dumb" view with only counts
+                l = lambda h : h.view()
+        else:
+            raise ValueError("Invalid HistogramKind") 
+        return (h, l)
+
+    def getHistogramBinCountLabel(self, kind:HistogramKind) -> str:
+        """ Get the label of the bin contents of histogram, depending on profile (-> profile variable label) or count (-> stored in MyHistogram, usually "Event count")"""
+        if kind is HistogramKind.COUNT:
+            return self.binCountLabel
+        elif kind is HistogramKind.PROFILE:
+            return self.profileOn.label
+        elif kind is HistogramKind.WEIGHT:
+            return self.weightOn.label
+        else:
+            raise ValueError("Wrong histogram kind")
+
+    @property
+    def axes(self) -> hist.axis.NamedAxesTuple:
+        return self.getHistogram(HistogramKind.COUNT).axes
 
     def fillFromDf(self, df:pd.DataFrame, mapping:dict={}, valuesNotInDf:dict={}):
         """
@@ -87,13 +150,14 @@ class MyHistogram(hist.Hist, family=None): # see https://hist.readthedocs.io/en/
                 dict_fill[ax.name] = valuesNotInDf[ax.name]
             else:
                 dict_fill[ax.name] = df[mapAxisName(ax.name)]
-        
-        if self.profileOn is not None:
-            sample = df[mapAxisName(self.profileOn.name)]
-        else:
-            sample = None
 
-        self.fill(**dict_fill, sample=sample)
+        for kind, h in self.histDict.items():
+            if kind is HistogramKind.PROFILE:
+                h.fill(**dict_fill, sample=df[mapAxisName(self.profileOn.name)])
+            elif kind is HistogramKind.WEIGHT:
+                h.fill(**dict_fill, weight=df[mapAxisName(self.weightOn.name)])
+            elif kind is HistogramKind.COUNT:
+                h.fill(**dict_fill)
 
     def axisNames(self):
         return [axis.name for axis in self.axes]

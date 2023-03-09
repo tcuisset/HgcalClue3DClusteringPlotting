@@ -51,7 +51,6 @@ class PlaceholderAxisSelector(ProjectionAxisSelector):
         return self.slice
 
 
-
 class BokehHistogram:
     def __init__(self, histProvider:HistogramProjectedView, xGridTicks=None, **kwargs_figure) -> None:
         """ xGridTicks : Put x grid lines at these x values """
@@ -62,7 +61,7 @@ class BokehHistogram:
         self.figure = bokeh.plotting.figure(**kwargs_figure)
         self.histProvider = histProvider
         
-        self.figure.title = histProvider.hist.label
+        self.figure.title = histProvider.myHist.label
         self.figure.xaxis.axis_label = self.histProvider.projectedHist.axes[0].label
         if xGridTicks:
             self.figure.xgrid.ticker = FixedTicker(ticks=xGridTicks)
@@ -92,7 +91,7 @@ class MultiBokehHistogram2D:
 
         h_proj = self.histProvider.projectedHist
 
-        self.figure.title = histProvider.hist.label
+        self.figure.title = histProvider.myHist.label
         self.figure.xaxis.axis_label = h_proj.axes[0].label
         self.figure.yaxis.axis_label = h_proj.axes[1].label
 
