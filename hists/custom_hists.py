@@ -16,13 +16,9 @@ layerAxis_custom = partial(hist.axis.Integer, start=0, stop=30, name="layer", la
 #ntupleNumberAxis = hist.axis.IntCategory([], growth=True, name="ntupleNumber", label="ntuple number")
 
 #Bind commonly used parameters of hist axis construction using functools.partial
-xyPosition_axis = partial(hist.axis.Regular, bins=200, start=-10., stop=10.)
-zPosition_axis = partial(hist.axis.Regular, bins=200, start=0., stop=60.)
+xyPosition_axis = partial(hist.axis.Regular, bins=150, start=-10., stop=10.)
+zPosition_axis = partial(hist.axis.Regular, bins=150, start=0., stop=60.)
 
-#For rho use a transform to have more bins at low rho. For now use sqrt, but log would be better (though needs to find a way to include start=0)
-rechits_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=20., transform=hist.axis.transform.sqrt,
-    name="rechits_rho", label="RecHit rho (local energy density)")
-rechits_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="rechits_delta", label="RecHit delta (distance to nearest higher)")
 seed_axis = partial(hist.axis.IntCategory, [0, 1]) #0: not a seed, 1: is a seed
 
 cluster2D_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=100., transform=hist.axis.transform.sqrt,
@@ -60,6 +56,23 @@ class ImpactXY(MyHistogram):
 ############ RECHITS
 rechits_energy_profileVariable = HistogramVariable('rechits_energy', 'Mean reconstructed hit energy in a bin')
 rechits_energy_weightVariable = HistogramVariable('rechits_energy', 'Sum of all rechits energies in a bin')
+
+#For rho use a transform to have more bins at low rho. For now use sqrt, but log would be better (though needs to find a way to include start=0)
+rechits_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=20., transform=hist.axis.transform.sqrt,
+    name="rechits_rho", label="RecHit rho (local energy density)")
+rechits_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="rechits_delta", label="RecHit delta (distance to nearest higher)")
+
+class RechitsEnergy(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis, layerAxis,
+            hist.axis.Regular(bins=500, start=0.002, stop=20., transform=hist.axis.transform.log,
+                name="rechits_energy", label="Rechits energy"),
+            label="RecHits energy",
+            binCountLabel="RecHits count",
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})
 
 class RechitsPositionXY(MyHistogram):
     def __init__(self) -> None:

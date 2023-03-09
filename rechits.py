@@ -12,6 +12,7 @@ curdoc().add_root(layout(
             s.clueParamSelector.widget, s.datatype_selector.widget, s.beamEnergySelector.widget,
             s.layerSelector.widget, s.histKindSelector.widget
         ),
+        BokehHistogram(s.MakeView(histName="RechitsEnergy")).figure,
         MultiBokehHistogram2D(s.MakeView(histName="RechitsPositionXY")).figure,
         BokehHistogram(s.MakeView(histName="RechitsPositionZ"), xGridTicks=layers_z).figure,
     ],
