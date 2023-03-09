@@ -29,7 +29,7 @@ This fills multidimensional histograms using pandas from the output of CLUE3D (`
 
     conda activate clustering-analysis
 
-    bokeh serve --allow-websocket-origin=localhost:5006 --allow-websocket-origin=llruicms01:5006 --dev --args --hist-folder=/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d/v3/ -- bokeh_apps/cluster3D.py
+    bokeh serve --allow-websocket-origin=localhost:5006 --allow-websocket-origin=llruicms01:5006 --args --hist-folder=/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d/v8/ -- impact.py rechits.py cluster2D.py cluster3D.py
 
 Change the hist folder if needed (you should probably update the version number)
 
