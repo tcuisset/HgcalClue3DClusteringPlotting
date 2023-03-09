@@ -77,10 +77,7 @@ class BokehHistogram:
         h_proj = self.histProvider.projectedHist
         self.source.data = {"top":self.histProvider.getProjectedHistogramView(), "left":h_proj.axes[0].edges[:-1], "right":h_proj.axes[0].edges[1:]}
 
-        if self.histProvider.isProfileEnabled():
-            self.figure.yaxis.axis_label = self.histProvider.hist.profileOn.label
-        else:
-            self.figure.yaxis.axis_label = 'Event count'
+        self.figure.yaxis.axis_label = self.histProvider.getHistogramBinCountLabel()
 
 
 class MultiBokehHistogram2D:
@@ -120,10 +117,7 @@ class MultiBokehHistogram2D:
         # It would seem that the histogram x, y view is the transpose of what is expected by bokeh, though it needs to be checked
         self.source.data = {"histogram_2D_view":[np.transpose(self.histProvider.getProjectedHistogramView())]}
 
-        if self.histProvider.isProfileEnabled():
-            self.plottedValueTitle.text = self.histProvider.hist.profileOn.label
-        else:
-            self.plottedValueTitle.text = 'Event count'
+        self.plottedValueTitle.text = self.histProvider.getHistogramBinCountLabel()
 
 
 

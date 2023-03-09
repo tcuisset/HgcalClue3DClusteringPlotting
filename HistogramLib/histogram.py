@@ -54,6 +54,7 @@ class ProjectHistogramSlice(HistogramSlice):
 
 
 class MyHistogram(hist.Hist, family=None): # see https://hist.readthedocs.io/en/latest/user-guide/subclassing.html
+    binCountLabel:str = "Count" # Label that is plotted on y axis of 1D histogram (or colorbar of 2D) when profile is disabled. Usually "Event count".
     profileOn:ProfileVariable|None = None
 
     def __init__(self, *args, **kwargs) -> None:
@@ -61,6 +62,7 @@ class MyHistogram(hist.Hist, family=None): # see https://hist.readthedocs.io/en/
         if self.profileOn is not None and "storage" not in kwargs:
             # In case we want a profile histogram
             kwargs["storage"] = hist.storage.Mean()
+        self.binCountLabel = kwargs.pop('binCountLabel', self.binCountLabel)
         super().__init__(*args, **kwargs)
     
     def isProfile(self):

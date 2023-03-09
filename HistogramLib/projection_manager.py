@@ -92,6 +92,13 @@ class HistogramProjectedView:
     def isProfileEnabled(self) -> bool:
         return self.toggleProfile.shouldProfile() and self.hist.isProfile()
 
+    def getHistogramBinCountLabel(self) -> str:
+        """ Get the label of the bin contents of histogram, depending on profile (-> profile variable label) or count (-> stored in MyHistogram, usually "Event count")"""
+        if self.isProfileEnabled():
+            return self.hist.profileOn.label
+        else:
+            return self.hist.binCountLabel
+
     def getProjectedHistogramView(self):
         """ Get the view to plot, according to toggleProfile"""
         if self.toggleProfile.shouldProfile() and self.hist.isProfile():
