@@ -15,7 +15,7 @@ class DataframeComputations:
             levelname=lambda i : {0 : "event", 1:"clus3D_id"}[i])
         )
 
-    @cached_property
+    @property
     def impact(self) -> pd.DataFrame:
         """ 
         Columns : event   layer   impactX  impactY  
@@ -25,6 +25,16 @@ class DataframeComputations:
             ["impactX", "impactY"]],
             levelname=lambda i : {0 : "event", 1:"layer"}[i])
     
+    @property
+    def impactWithBeamEnergy(self) -> pd.DataFrame:
+        """ 
+        Columns : event   layer beamEnergy  impactX  impactY  
+        MultiIndex : (event, layer)
+        """
+        return ak.to_dataframe(self.array[
+            ["beamEnergy", "impactX", "impactY"]],
+            levelname=lambda i : {0 : "event", 1:"layer"}[i])
+
     @cached_property
     def rechits(self) -> pd.DataFrame:
         """

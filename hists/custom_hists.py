@@ -42,6 +42,21 @@ clus3D_mainOrAllTracksters_axis = hist.axis.StrCategory(["allTracksters", "mainT
     label="For 3D clusters, whether to consider for each event all 3D clusters (allTracksters) or only the highest energy 3D cluster (mainTrackster)")
 
 
+
+############# IMPACT
+class ImpactXY(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis, 
+            xyPosition_axis(name="impactX", label="RecHit x position"),
+            xyPosition_axis(name="impactY", label="RecHit y position"),
+
+            label="Impact position (x-y)",
+            binCountLabel="Event count",
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.impactWithBeamEnergy)
+
 ############ RECHITS
 rechits_energy_profileVariable = HistogramVariable('rechits_energy', 'Mean reconstructed hit energy in a bin')
 rechits_energy_weightVariable = HistogramVariable('rechits_energy', 'Sum of all rechits energies in a bin')
