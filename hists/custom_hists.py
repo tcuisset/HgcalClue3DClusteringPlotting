@@ -142,6 +142,33 @@ class RechitsRhoDelta(MyHistogram):
         self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})
 
 ############# 2D clusters ######################
+class Clus2DPositionXY(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis, 
+            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_x", label="2D cluster x position"), 
+            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_y", label="2D cluster y position"),
+            label = "2D cluster X-Y position",
+            binCountLabel="2D clusters count",
+            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster energies in each bin'),
+            weightOn=HistogramVariable('clus2D_energy', 'Sum of 2D cluster energies in each bin')
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.clusters2D)
+
+class Clus2DPositionZ(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis, 
+            zPosition_axis(name="clus2D_z", label="3D cluster z position"),
+            label = "2D cluster Z position",
+            binCountLabel="2D clusters count",
+            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster total reconstructed energy in each z bin'),
+            weightOn=HistogramVariable('clus2D_energy', 'Sum of 2D cluster energies in each z bin')
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.clusters2D)
+
 # Note : here layer is meant as a plot axis (not to be used with a slider), thus we change its name
 class EnergyClustered2DPerLayer(MyHistogram):
     def __init__(self) -> None:
