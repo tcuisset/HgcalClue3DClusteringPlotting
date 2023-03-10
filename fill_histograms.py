@@ -48,12 +48,13 @@ for name in dir(custom_hists):
     if isinstance(potentialClass, type) and issubclass(potentialClass, MyHistogram) and potentialClass is not MyHistogram:
         hist_dict[potentialClass.__name__] = potentialClass()
 
+print("Opening files...", flush=True)
 with HistogramStore(output_dir, 'n', makedirs=True) as store:
     try:
         # step_size of 50MB stranslates to about 5GB of memory usage by python, and about 4k events at a time
         # 500MB leads to 50k events at a time, and memory usage of of around 10 GB (partly due to big histograms)
         for (array, report) in uproot.iterate(input_file + ":clusters", step_size="500MB", library="ak", report=True):
-            print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[")
+            print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[", flush=True)
 
             comp = DataframeComputations(array)
             for histogram in hist_dict.values():
@@ -66,11 +67,11 @@ with HistogramStore(output_dir, 'n', makedirs=True) as store:
         print("The exception was : ")
         print(e)
     
-    print("Writing histograms to file...")
+    print("Writing histograms to file...", flush=True)
     shelf = store.getShelf(ShelfId(args.clue_params, args.datatype))
     for h_name, h in hist_dict.items():
         shelf[h_name] = h
-    print("Syncing...")
+    print("Syncing...", flush=True)
 print("Done")
 
 # if hist_dict["rechits_position"].empty():
