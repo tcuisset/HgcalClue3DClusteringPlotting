@@ -37,9 +37,9 @@ diffY_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_i
 ############# IMPACT
 class ImpactXY(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, 
-            xyPosition_axis(name="impactX", label="RecHit x position"),
-            xyPosition_axis(name="impactY", label="RecHit y position"),
+        super().__init__(beamEnergiesAxis, layerAxis,
+            xyPosition_axis(name="impactX", label="Impact x position"),
+            xyPosition_axis(name="impactY", label="Impact y position"),
 
             label="Impact position (x-y)",
             binCountLabel="Event count",

@@ -29,11 +29,11 @@ class DataframeComputations:
     def impactWithBeamEnergy(self) -> pd.DataFrame:
         """ 
         Columns : event   layer beamEnergy  impactX  impactY  
-        MultiIndex : (event, layer)
+        Index : event
         """
         return ak.to_dataframe(self.array[
             ["beamEnergy", "impactX", "impactY"]],
-            levelname=lambda i : {0 : "event", 1:"layer"}[i])
+            levelname=lambda i : {0 : "event", 1:"layer"}[i]).reset_index(level="layer")
 
     @cached_property
     def rechits(self) -> pd.DataFrame:
