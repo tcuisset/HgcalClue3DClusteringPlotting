@@ -1,5 +1,8 @@
+from typing import Dict
+import itertools
 import bokeh.models
 import bokeh.plotting
+import bokeh.palettes
 import boost_histogram as bh
 import numpy as np
 from bokeh.models import ColumnDataSource, FixedTicker
@@ -56,12 +59,6 @@ class SliderMinWithOverflowAxisSelector(ProjectionAxisSelector):
     def registerCallback(self, callback):
         #Use value_throttled so that it updates only on mouse release to avoid recomputing all the time when dragging
         self.widget.on_change('value_throttled', callback)
-
-class PlaceholderAxisSelector(ProjectionAxisSelector):
-    def __init__(self, slice) -> None:
-        self.slice = slice
-    def getSlice(self):
-        return self.slice
 
 
 class BokehHistogram:
@@ -132,4 +129,123 @@ class MultiBokehHistogram2D:
         self.plottedValueTitle.text = self.histProvider.getHistogramBinCountLabel()
 
 
+class BokehMultiLine:
+    def __init__(self, histProviders:Dict[str, HistogramProjectedView], **kwargs_figure) -> None:
+        """ 
+        Line plots with multiple lines, one per provided HistogramProjectedView
+        histProviders : dict legendName:str -> HistogramProjectedView 
+        """
+        self.histProviders = histProviders
 
+        if len(self.firstProvider.projectedHist.axes) != 1:
+            raise ValueError("You are trying to plot a 1D histogram using multidimensional data, you are missing a projection. Histogram axes : " 
+                + ", ".join([axis.name for axis in self.firstProvider.projectedHist.axes]))
+
+        self.figure = bokeh.plotting.figure(**kwargs_figure)
+        
+        
+        self.figure.title = self.firstProvider.myHist.label
+        self.figure.xaxis.axis_label = self.firstProvider.projectedHist.axes[0].label
+
+
+        self.source = ColumnDataSource()
+        projHist = self.firstProvider.projectedHist
+        xAxis = projHist.axes[0]
+        if issubclass(type(xAxis), bh.axis.IntCategory): #or issubclass(type(xAxis), bh.axis.StrCategory)
+            # int category axis : we need to map bin indices to their values
+            # using xAxis.size() does not include overflow/undeflow
+            self.source.data["x_bins_edges"] = [xAxis.bin(index) for index in range(xAxis.size)]
+        else:
+            # continuous axis : just use bin edges
+            self.source.data["x_bins_edges"] = projHist.axes[0].edges[:-1]
+        self.update()
+
+        colors = itertools.cycle(bokeh.palettes.Category10[10])
+        for legend_name, color in zip(self.histProviders.keys(), colors): 
+            self.figure.line(source=self.source, x="x_bins_edges", y=legend_name,
+                legend_label=legend_name, color=color)
+            self.figure.circle(source=self.source, x="x_bins_edges", y=legend_name, legend_label=legend_name,
+                fill_color="white", size=8, color=color)
+
+        self.figure.legend.location = "top_left"
+        self.figure.legend.click_policy = "hide" # So we can click on legend to make line disappear
+
+        # We need to register on all histProvider as otherwise self.update will be called by the first histProvider to be updated
+        # whilst the other ones will still have the old projections 
+        # So self.update will be called lots of time, leading to mixed histograms until the last call where all histProvider have updated
+        # TODO this is very inefficient
+        for histProvider in self.histProviders.values():
+            histProvider.registerUpdateCallback(self.update)
+        
+    
+    @property
+    def firstProvider(self) -> HistogramProjectedView:
+        return next(iter(self.histProviders.values()))
+
+    def update(self):
+        for legend_name, histProvider in self.histProviders.items():
+            self.source.data[legend_name] = histProvider.getProjectedHistogramView()
+
+        self.figure.yaxis.axis_label = self.firstProvider.getHistogramBinCountLabel()
+
+class BokehMultiStep:
+    def __init__(self, histProviders:Dict[str, HistogramProjectedView], **kwargs_figure) -> None:
+        """ 
+        Step plots (histograms) with multiple lines, one per provided HistogramProjectedView
+        histProviders : dict legendName:str -> HistogramProjectedView 
+        """
+        self.histProviders = histProviders
+
+        if len(self.firstProvider.projectedHist.axes) != 1:
+            raise ValueError("You are trying to plot a 1D histogram using multidimensional data, you are missing a projection. Histogram axes : " 
+                + ", ".join([axis.name for axis in self.firstProvider.projectedHist.axes]))
+
+        self.figure = bokeh.plotting.figure(**kwargs_figure)
+        
+        
+        self.figure.title = self.firstProvider.myHist.label
+        self.figure.xaxis.axis_label = self.firstProvider.projectedHist.axes[0].label
+
+
+        self.source = ColumnDataSource()
+        projHist = self.firstProvider.projectedHist
+        xAxis = projHist.axes[0]
+        if issubclass(type(xAxis), bh.axis.IntCategory): #or issubclass(type(xAxis), bh.axis.StrCategory)
+            # int category axis : we need to map bin indices to their values
+            # using xAxis.size() does not include overflow/undeflow
+            raise ValueError("Category axes not supported yet")
+            self.source.data["x_bins_left"] = [xAxis.bin(index) for index in range(xAxis.size)]
+        else:
+            # continuous axis : just use bin edges
+            x_bins = np.insert(projHist.axes[0].edges, 0, projHist.axes[0].edges[0])# We duplicate the first bin edge so we can draw a vertical line extending to y=0
+            self.source.data["x_bins_left"] = x_bins
+        self.update()
+
+        colors = itertools.cycle(bokeh.palettes.Category10[10])
+        for legend_name, color in zip(self.histProviders.keys(), colors): 
+            self.figure.step(source=self.source, x="x_bins_left", y=legend_name, legend_label=legend_name, color=color)
+            
+
+        self.figure.legend.location = "top_left"
+        self.figure.legend.click_policy = "hide" # So we can click on legend to make line disappear
+
+        # We need to register on all histProvider as otherwise self.update will be called by the first histProvider to be updated
+        # whilst the other ones will still have the old projections 
+        # So self.update will be called lots of time, leading to mixed histograms until the last call where all histProvider have updated
+        # TODO this is very inefficient
+        for histProvider in self.histProviders.values():
+            histProvider.registerUpdateCallback(self.update)
+        
+    
+    @property
+    def firstProvider(self) -> HistogramProjectedView:
+        return next(iter(self.histProviders.values()))
+
+    def update(self):
+        for legend_name, histProvider in self.histProviders.items():
+            #Insert 0 at beginning and end so that we have vertical lines extending to y=0 at the beginning and end of histogram
+            copied_view = np.insert(histProvider.getProjectedHistogramView(), 0, 0.)
+            copied_view = np.append(copied_view, 0.)
+            self.source.data[legend_name] = copied_view
+
+        self.figure.yaxis.axis_label = self.firstProvider.getHistogramBinCountLabel()

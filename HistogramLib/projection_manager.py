@@ -18,12 +18,23 @@ class ProjectionAxisSelector:
     def registerCallback(self, callback):
         pass
 
+class PlaceholderAxisSelector(ProjectionAxisSelector):
+    def __init__(self, slice) -> None:
+        self.slice = slice
+    def getSlice(self):
+        return self.slice
 
 class HistKindSelector:
     def registerCallback(self, callback):
         pass
     def getSelection(self) -> HistogramKind:
         return HistogramKind.COUNT
+
+class FixedHistKindSelector(HistKindSelector):
+    def __init__(self, kind:HistogramKind) -> None:
+        self.kind = kind
+    def getSelection(self) -> HistogramKind:
+        return self.kind
 
 class HistogramProjectedView:
     store:HistogramStore
