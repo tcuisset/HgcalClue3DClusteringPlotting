@@ -9,7 +9,7 @@ curdoc().add_root(layout(
 [
     [ # First line
         column(
-            s.clueParamSelector.widget, s.datatype_selector.widget, s.beamEnergySelector.widget,
+            s.clueParamSelector.widget, s.datatype_selector.widget, s.beamEnergySelector.widget, s.layerSelector.widget
             
         ),
         MultiBokehHistogram2D(s.MakeView(histName="ImpactXY")).figure,
