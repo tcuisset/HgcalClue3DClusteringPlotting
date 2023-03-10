@@ -16,7 +16,7 @@ class RangeAxisSelector(ProjectionAxisSelector):
 
     def getSlice(self):
         (min, max) = self.widget.value
-        return RangeHistogramSlice(self.axisName, int(min), int(max)+1)
+        return RangeHistogramSlice(self.axisName, int(min), int(max))
     
     def registerCallback(self, callback):
         #Use value_throttled so that it updates only on mouse release to avoid recomputing all the time when dragging
