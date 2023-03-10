@@ -12,13 +12,8 @@ curdoc().add_root(layout(
             s.clueParamSelector.widget, s.datatype_selector.widget, s.beamEnergySelector.widget,
             s.layerSelector.widget, s.clus3DSizeSelector.widget, s.histKindSelector.widget, s.mainOrAllTrackstersSelector.widget
         ),
-        BokehHistogram(s.MakeViewClue3D(histName="Clus3DPositionZ")).figure,
-        BokehHistogram(s.MakeViewClue3D(histName="Clus3DNumberOf2DClustersPerLayer")).figure,
+        MultiBokehHistogram2D(s.MakeViewClue3D(histName="Clus3DSpatialResolution")).figure,
+        MultiBokehHistogram2D(s.MakeViewClue3D(histName="Clus3DPositionXY")).figure
     ],
-    [ # Second line 
-        BokehHistogram(s.MakeViewClue3D(histName="Clus3DFirstLayerOfCluster")).figure,
-        BokehHistogram(s.MakeViewClue3D(histName="Clus3DLastLayerOfCluster")).figure,
-        
-    ]
-    
+
 ]))
