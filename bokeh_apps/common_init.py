@@ -16,6 +16,7 @@ class Selectors:
         #self.clueParamSelector = PlaceholderClueParamsSelector()
         self.layerSelector = makeLayerSelector()
         self.beamEnergySelector = makeBeamEnergySelector()
+        self.clus3DSizeSelector = makeCluster3DSizeSelector()
         self.histKindSelector = HistogramKindRadioButton()
         self.mainOrAllTrackstersSelector = makeMainOrAllTrackstersSelector() 
 
@@ -26,5 +27,6 @@ class Selectors:
 
         self.MakeViewClue3D = partial(HistogramProjectedView, histStore, 
             shelfIdProviders=[self.datatype_selector, self.clueParamSelector],
-            projectionProviders={'beamEnergy': self.beamEnergySelector, 'layer': self.layerSelector, 'mainOrAllTracksters': self.mainOrAllTrackstersSelector},
+            projectionProviders={'beamEnergy': self.beamEnergySelector, 'layer': self.layerSelector,
+                'mainOrAllTracksters': self.mainOrAllTrackstersSelector, 'clus3D_size' : self.clus3DSizeSelector},
             histKindSelector=self.histKindSelector)

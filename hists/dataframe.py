@@ -254,12 +254,21 @@ class DataframeComputations:
         MultiIndex : event, clus3D_id
         Columns : beamEnergy, clus3D_energy, clus2D_minLayer, clus2D_maxLayer
         """
-        return (self.clusters3D_merged_2D[["beamEnergy", "clus3D_energy", "clus2D_layer"]]
+        return (self.clusters3D_merged_2D[["beamEnergy", "clus3D_energy", "clus3D_size", "clus2D_layer"]]
             .groupby(level=["event", "clus3D_id"])
             .agg(
                 clus2D_minLayer=pd.NamedAgg(column="clus2D_layer", aggfunc="min"),
                 clus2D_maxLayer=pd.NamedAgg(column="clus2D_layer", aggfunc="max"),
                 beamEnergy=pd.NamedAgg(column="beamEnergy", aggfunc="first"),
-                clus3D_energy=pd.NamedAgg(column="clus3D_energy", aggfunc="first")
+                clus3D_energy=pd.NamedAgg(column="clus3D_energy", aggfunc="first"),
+                clus3D_size=pd.NamedAgg(column="clus3D_size", aggfunc="first")
             )
         )
+    
+    def clusters3D_indexOf3DClustersPassingMinNumLayerCut(self, minNumLayerCluster):
+        df = self.clusters3D_merged_2D[["clus2D_layer"]].groupby(["event", "clus3D_id"]).agg(
+            clus2D_layer_min=pd.NamedAgg(column="clus2D_layer", aggfunc="min"),
+            clus2D_layer_max=pd.NamedAgg(column="clus2D_layer", aggfunc="max"),
+        )
+        df["clus3D_numLayers"] = df["clus2D_layer_max"] - df["clus2D_layer_min"]+1
+        return df["clus3D_numLayers"] < minNumLayerCluster

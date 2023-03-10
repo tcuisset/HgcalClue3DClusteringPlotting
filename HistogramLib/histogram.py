@@ -33,6 +33,13 @@ class RangeHistogramSlice(HistogramSlice):
         return slice(hist.loc(self.minRange), hist.loc(self.maxRange+1), sum)
 
 @dataclass
+class MinWithOverflowHistogramSlice(HistogramSlice):
+    """ Slices the histogram from min (included) to the overflow bin (included)"""
+    min:int
+    def getSliceObject(self):
+        return slice(hist.loc(self.min), None, sum)
+
+@dataclass
 class ListHistogramSlice(HistogramSlice):
     valueList:list
     def getSliceObject(self):

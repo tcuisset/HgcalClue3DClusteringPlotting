@@ -25,17 +25,12 @@ cluster2D_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=100., tr
     name="clus2D_rho", label="2D cluster rho (local energy density)")
 cluster2D_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="clus2D_delta", label="2D cluster delta (distance to nearest higher)")
 
-cluster3D_size_axis = hist.axis.Integer(1, 40, name="cluster3dSize", label="3D cluster size")
-
-
 # An axis for difference in position (for example cluster spatial resolution)
 # 200 bins takes about 500MB of space with all the other axises (200 * 200 * 10 (beamEnergy) * 30 (layer) * 2 (mainTrackster) * 8 (double storage) = 0.2 GB)
 diffX_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_x", label="x position difference")
 diffY_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_y", label="y position difference")
 
 
-clus3D_mainOrAllTracksters_axis = hist.axis.StrCategory(["allTracksters", "mainTrackster"], name="mainOrAllTracksters",
-    label="For 3D clusters, whether to consider for each event all 3D clusters (allTracksters) or only the highest energy 3D cluster (mainTrackster)")
 
 
 
@@ -229,10 +224,18 @@ class Cluster2DRhoDelta(MyHistogram):
 
 
 ###################   3D clusters  ##################
+clus3D_mainOrAllTracksters_axis = hist.axis.StrCategory(["allTracksters", "mainTrackster"], name="mainOrAllTracksters",
+    label="For 3D clusters, whether to consider for each event all 3D clusters (allTracksters) or only the highest energy 3D cluster (mainTrackster)")
+
+#clus3D_minNumLayerCluster_axis = hist.axis.Integer(start=0, stop=10, name="clus3D_minNumLayerCluster", 
+#    label="Minimum number of 2D clusters to make a 3D cluster (not inclusive, ie 5 keeps clusters with 5 2D clusters but not 4 layers)")
+cluster3D_size_axis = hist.axis.Integer(start=1, stop=10, name="clus3D_size", label="3D cluster size ie number of 2D clusters that make out this 3D cluster")
+
+# Warning : Takes a lot of memory (~15 GB)
 class Clus3DPositionXY(MyHistogram):
     def __init__(self) -> None:
         super().__init__(
-            beamEnergiesAxis, clus3D_mainOrAllTracksters_axis,
+            beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
             hist.axis.Regular(bins=100, start=-10., stop=10., name="clus3D_x", label="3D cluster x position"), 
             hist.axis.Regular(bins=100, start=-10., stop=10., name="clus3D_y", label="3D cluster y position"),
             label = "3D cluster X-Y position",
@@ -247,7 +250,7 @@ class Clus3DPositionXY(MyHistogram):
 
 class Clus3DPositionZ(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis,
+        super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
             zPosition_axis(name="clus3D_z", label="3D cluster z position"),
             label = "3D cluster Z position",
             binCountLabel="3D clusters count",
@@ -261,7 +264,7 @@ class Clus3DPositionZ(MyHistogram):
 
 class Clus3DSpatialResolution(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis, clus3D_mainOrAllTracksters_axis,
+        super().__init__(beamEnergiesAxis, layerAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
             diffX_axis, diffY_axis,
             label = "Spatial resolution of 2D clusters that are part of a 3D cluster",
             binCountLabel="3D clusters count",
@@ -278,7 +281,7 @@ class Clus3DSpatialResolution(MyHistogram):
 # Note : layer is meant as an axis (not a slider to project on)
 class Clus3DFirstLayerOfCluster(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis,
+        super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
             layerAxis_custom(name="clus2D_minLayer", label="First layer clustered in CLUE3D"),
             label = "First layer used by CLUE3D",
             binCountLabel="3D clusters count",
@@ -295,7 +298,7 @@ class Clus3DFirstLayerOfCluster(MyHistogram):
 # Note : layer is meant as an axis (not a slider to project on)
 class Clus3DLastLayerOfCluster(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis,
+        super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
             layerAxis_custom(name="clus2D_maxLayer", label="Last layer clustered in CLUE3D"),
             label = "Last layer used by CLUE3D",
             binCountLabel="3D clusters count",
@@ -314,7 +317,7 @@ class Clus3DLastLayerOfCluster(MyHistogram):
 # Note : here layer is meant as a plot axis (not to be used with a slider)
 class Clus3DNumberOf2DClustersPerLayer(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis,
+        super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
             layerAxis_custom(name="clus2D_layer"), 
             label="Number of 2D clusters per layer clustered by CLUE3D",
             profileOn=HistogramVariable('clus2D_energy', 'Mean of clus2D energy of all the 2D clusters member of a 3D cluster that are in this layer'),

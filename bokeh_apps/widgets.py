@@ -32,6 +32,14 @@ def makeMainOrAllTrackstersSelector():
         active=0
     )
 
+def makeCluster3DSizeSelector():
+    return SliderMinWithOverflowAxisSelector("clus3D_size",
+        title="Min 3D cluster size (ie nb of 2D clusters)",
+        start=1,
+        end=10,
+        value=1
+    )
+
 class DatatypeSelector(ShelfIdSelector):
     def __init__(self) -> None:
         self.labels = ["data", "sim_proton", "sim_noproton"]

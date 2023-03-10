@@ -43,6 +43,19 @@ class RadioButtonGroupAxisSelector(ProjectionAxisSelector):
     def registerCallback(self, callback):
         self.widget.on_change('active', callback)
 
+class SliderMinWithOverflowAxisSelector(ProjectionAxisSelector):
+    """ Projects on [value:] with upper overflow bin included (undeflow excluded)"""
+    def __init__(self, axisName:str, **kwargs) -> None:
+        self.axisName = axisName
+        self.widget = bokeh.models.Slider(**kwargs)
+
+    def getSlice(self):
+        min = self.widget.value
+        return MinWithOverflowHistogramSlice(self.axisName, int(min))
+    
+    def registerCallback(self, callback):
+        #Use value_throttled so that it updates only on mouse release to avoid recomputing all the time when dragging
+        self.widget.on_change('value_throttled', callback)
 
 class PlaceholderAxisSelector(ProjectionAxisSelector):
     def __init__(self, slice) -> None:
