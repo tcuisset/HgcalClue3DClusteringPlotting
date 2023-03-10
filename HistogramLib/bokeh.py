@@ -69,7 +69,7 @@ class BokehHistogram:
         """ xGridTicks : Put x grid lines at these x values """
         if len(histProvider.projectedHist.axes) != 1:
             raise ValueError("You are trying to plot a 1D histogram using multidimensional data, you are missing a projection. Histogram axes : " 
-                + ", ".join(histProvider.projectedHist.axisNames))
+                + ", ".join([axis.name for axis in histProvider.projectedHist]))
 
         self.figure = bokeh.plotting.figure(**kwargs_figure)
         self.histProvider = histProvider
@@ -96,7 +96,7 @@ class MultiBokehHistogram2D:
     def __init__(self, histProvider:HistogramProjectedView, **kwargs) -> None:
         if len(histProvider.projectedHist.axes) != 2:
             raise ValueError("You are trying to plot a 2D histogram with the wrong number of axes. Histogram axes : " 
-                + ", ".join(histProvider.projectedHist.axisNames()))
+                + ", ".join([axis.name for axis in histProvider.projectedHist]))
 
         self.figure = bokeh.plotting.figure(**kwargs)
 
