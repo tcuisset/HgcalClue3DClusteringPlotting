@@ -40,7 +40,7 @@ def makeCluster3DSizeSelector():
         value=1
     )
 
-class DatatypeSelector(ShelfIdSelector):
+class DatatypeSelector(HistogramIdSelector):
     def __init__(self) -> None:
         self.labels = ["data", "sim_proton", "sim_noproton"]
         self.widget = bokeh.models.RadioButtonGroup(
@@ -49,21 +49,21 @@ class DatatypeSelector(ShelfIdSelector):
             active=0
         )
 
-    def fillShelfId(self, shelfId:ShelfId):
+    def fillHistId(self, shelfId:ShelfId):
         # self.radio.value is the button number that is pressed -> map it to label
         shelfId.datatype = self.labels[self.widget.active]
     
     def registerCallback(self, callback):
         self.widget.on_change('active', callback)
 
-class PlaceholderDatatypeSelector(ShelfIdSelector):
-    def fillShelfId(self, shelfId:ShelfId):
+class PlaceholderDatatypeSelector(HistogramIdSelector):
+    def fillHistId(self, shelfId:ShelfId):
         # self.radio.value is the button number that is pressed -> map it to label
         shelfId.datatype = "data"
     def registerCallback(self, callback):
         pass
 
-class ClueParamsSelector(ShelfIdSelector):
+class ClueParamsSelector(HistogramIdSelector):
     def __init__(self, clueParamList) -> None:
         self.widget = bokeh.models.RadioButtonGroup(
             name="clue_params",
@@ -71,15 +71,15 @@ class ClueParamsSelector(ShelfIdSelector):
             active=0
         )
     
-    def fillShelfId(self, shelfId:ShelfId):
-        shelfId.clue_param_name = self.widget.labels[self.widget.active]
+    def fillHistId(self, shelfId:ShelfId):
+        shelfId.clueParamName = self.widget.labels[self.widget.active]
 
     def registerCallback(self, callback):
         self.widget.on_change('active', callback)
 
-class PlaceholderClueParamsSelector(ShelfIdSelector):
-    def fillShelfId(self, shelfId:ShelfId):
-        shelfId.clue_param_name = "default"
+class PlaceholderClueParamsSelector(HistogramIdSelector):
+    def fillHistId(self, shelfId:ShelfId):
+        shelfId.clueParamName = "default"
 
 class HistogramKindRadioButton(HistKindSelector):
     labels_dict = {"Count" : HistogramKind.COUNT,

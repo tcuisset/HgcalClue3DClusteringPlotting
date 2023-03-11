@@ -7,6 +7,7 @@ import hist
 from HistogramLib.histogram import MyHistogram
 from HistogramLib.store import HistogramStore, ShelfId
 from hists.dataframe import *
+from hists.store import *
 from hists import custom_hists
 
 default_tag = 'v4'
@@ -48,30 +49,30 @@ for name in dir(custom_hists):
     if isinstance(potentialClass, type) and issubclass(potentialClass, MyHistogram) and potentialClass is not MyHistogram:
         hist_dict[potentialClass.__name__] = potentialClass()
 
-print("Opening files...", flush=True)
-with HistogramStore(output_dir, 'n', makedirs=True) as store:
-    try:
-        # step_size of 50MB stranslates to about 5GB of memory usage by python, and about 4k events at a time
-        # 500MB leads to 50k events at a time, and memory usage of of around 10 GB (partly due to big histograms)
-        for (array, report) in uproot.iterate(input_file + ":clusters", step_size="500MB", library="ak", report=True):
-            print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[", flush=True)
+print("Opening input file", flush=True)
+store = HistogramStore(output_dir, HistogramId)
+try:
+    # step_size of 50MB stranslates to about 5GB of memory usage by python, and about 4k events at a time
+    # 500MB leads to 50k events at a time, and memory usage of of around 10 GB (partly due to big histograms)
+    for (array, report) in uproot.iterate(input_file + ":clusters", step_size="500MB", library="ak", report=True):
+        print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[", flush=True)
 
-            comp = DataframeComputations(array)
-            for histogram in hist_dict.values():
-                histogram.loadFromComp(comp)
-            del comp
+        comp = DataframeComputations(array)
+        for histogram in hist_dict.values():
+            histogram.loadFromComp(comp)
+        del comp
 
-    except IndexError as e:
-        print("WARNING : an IndexError exception ocurred. This can happen for improperly closed ROOT files.")
-        print("WARNING : the last batch of entries may not have been processed, but the histograms will be written anyway")
-        print("The exception was : ")
-        print(e)
-    
-    print("Writing histograms to file...", flush=True)
-    shelf = store.getShelf(ShelfId(args.clue_params, args.datatype))
-    for h_name, h in hist_dict.items():
-        shelf[h_name] = h
-    print("Syncing...", flush=True)
+except IndexError as e:
+    print("WARNING : an IndexError exception ocurred. This can happen for improperly closed ROOT files.")
+    print("WARNING : the last batch of entries may not have been processed, but the histograms will be written anyway")
+    print("The exception was : ")
+    print(e)
+
+print("Writing histograms to file...", flush=True)
+for h_name, h in hist_dict.items():
+    print(h_name, flush=True)
+    histId = HistogramId(clueParamName=args.clue_params, datatype=args.datatype, histName=h_name)
+    store.save(histId, h, makedirs=True)
 print("Done")
 
 # if hist_dict["rechits_position"].empty():

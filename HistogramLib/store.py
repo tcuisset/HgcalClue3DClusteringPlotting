@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import os
 import glob
-import shelve
+import pickle
 import copy
 
 @dataclass(unsafe_hash=True)
@@ -13,6 +13,13 @@ class ShelfId:
     @property
     def path(self):
         return os.path.join(self.clue_param_name, self.datatype, self.shelfFileName)
+
+class AbstractHistogramId:
+    @property
+    def path(self) -> str:
+        """ get relative path from version folder (excluded) to pickle file name (included)"""
+        return ""
+
 
 def discoverShelves(hist_folder):
     shelfIdList = []
@@ -26,57 +33,38 @@ def discoverShelves(hist_folder):
 
 
 class HistogramStore:
-    """
-    clue_param_name / datatype / hists.shelf ->  hist_name : MyHistogram
-    """
-    openShelves = {}
-    dbmFlag:str
-    makeDirs:bool
-
-    def __init__(self, hist_folder, dbmFlag='r', makedirs=False) -> None:
+    def __init__(self, hist_folder, histIdClass) -> None:
         """
-        hist_folder is the path to the tag folder, ie it has to be a folder where there is clue_param_name/datatype/hists.shelf.* subsirectory and files
-        dbmFlag meaning  :
-        'r' Open existing database for reading only (default)
-        'w' Open existing database for reading and writing
-        'c' Open database for reading and writing, creating it if it doesn’t exist
-        'n' Always create a new, empty database, open for reading and writing
+        hist_folder is the path to the tag folder (included), ie it has to be a folder where there is clue_param_name/datatype/... subdirectory and files
+        histIdClass is the *class* (not object) to use for indexing histograms, should implement the interface AbstractHistogramId
         """
+        self.loadedHists = {}
         self.hist_folder = hist_folder
-        self.dbmFlag = dbmFlag
-        self.makeDirs = makedirs
-        pass
+        self.histIdClass = histIdClass
 
-    def __enter__(self):
-        return self
-    
-    def __exit__(self, type, value, traceback):
-        self._closeAllShelves()
-        pass
+    def get(self, id:AbstractHistogramId):
+        if id not in self.loadedHists:
+            self._loadHist(id)
+        return self.loadedHists[id] 
 
-    def _openShelf(self, shelfId:ShelfId):
-        """
-        Precondition: shelf not already open
-        raises dbm.error
-        """
-        # if shelfId in self.openShelves:
-        #     raise ValueError("Shelf already open " + repr(shelfId))
-        pathToFile = os.path.join(self.hist_folder, shelfId.path)
-        if self.makeDirs:
+    def save(self, id:AbstractHistogramId, hist, makedirs=True):
+        pathToFile = os.path.join(self.hist_folder, id.path)
+        if makedirs:
             os.makedirs(os.path.dirname(pathToFile), exist_ok=True)
-        # We need to copy shelfId
-        self.openShelves[copy.copy(shelfId)] = shelve.open(pathToFile, flag=self.dbmFlag)
+        with open(pathToFile, mode='wb') as f:
+            pickle.dump(hist, f)
 
-    def _closeAllShelves(self):
-        for shelf in self.openShelves.values():
-            shelf.close()
-
-    def getShelf(self, shelfId:ShelfId):
-        if shelfId not in self.openShelves:
-            self._openShelf(shelfId)
-        return self.openShelves[shelfId]
+    def _loadHist(self, id:AbstractHistogramId):
+        # Copy the id otherwise it could be changed by the caller and break the dictionnary
+        with open(os.path.join(self.hist_folder, id.path), "rb") as f:
+            self.loadedHists[copy.copy(id)] = pickle.load(f)
     
     def getPossibleClueParameters(self):
-        # Make a set to remove duplicates
-        return list({shelfId.clue_param_name for shelfId in discoverShelves(self.hist_folder)})
-
+        #                           clueParams/datatype/histogram_name.pickle
+        paths = glob.glob(os.path.join('*',      '*',  '*.pickle'), root_dir=self.hist_folder)
+        clueParams = set() # Make a set to remove duplicates
+        for path in paths:
+            folderPath, _ = os.path.split(path) # clueParams/datatype
+            clueParam, datatype = os.path.split(folderPath)
+            clueParams.add(clueParam)
+        return list(clueParams)
