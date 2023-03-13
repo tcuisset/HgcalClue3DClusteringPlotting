@@ -22,13 +22,13 @@ zPosition_axis = partial(hist.axis.Regular, bins=150, start=0., stop=60.)
 seed_axis = partial(hist.axis.IntCategory, [0, 1]) #0: not a seed, 1: is a seed
 
 cluster2D_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=100., transform=hist.axis.transform.sqrt,
-    name="clus2D_rho", label="2D cluster rho (local energy density)")
-cluster2D_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="clus2D_delta", label="2D cluster delta (distance to nearest higher)")
+    name="clus2D_rho", label="2D cluster rho (local energy density) (MeV)")
+cluster2D_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="clus2D_delta", label="2D cluster delta (distance to nearest higher) (cm)")
 
 # An axis for difference in position (for example cluster spatial resolution)
 # 200 bins takes about 500MB of space with all the other axises (200 * 200 * 10 (beamEnergy) * 30 (layer) * 2 (mainTrackster) * 8 (double storage) = 0.2 GB)
-diffX_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_x", label="x position difference")
-diffY_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_y", label="y position difference")
+diffX_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_x", label="x position difference (cm)")
+diffY_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_y", label="y position difference (cm)")
 
 
 
@@ -38,8 +38,8 @@ diffY_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_i
 class ImpactXY(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis,
-            xyPosition_axis(name="impactX", label="Impact x position"),
-            xyPosition_axis(name="impactY", label="Impact y position"),
+            xyPosition_axis(name="impactX", label="Impact x position (cm)"),
+            xyPosition_axis(name="impactY", label="Impact y position (cm)"),
 
             label="Impact position (x-y)",
             binCountLabel="Event count",
@@ -49,13 +49,13 @@ class ImpactXY(MyHistogram):
         self.fillFromDf(comp.impactWithBeamEnergy)
 
 ############ RECHITS
-rechits_energy_profileVariable = HistogramVariable('rechits_energy', 'Mean reconstructed hit energy in a bin')
-rechits_energy_weightVariable = HistogramVariable('rechits_energy', 'Sum of all rechits energies in a bin')
+rechits_energy_profileVariable = HistogramVariable('rechits_energy', 'Mean reconstructed hit energy in a bin (MeV)')
+rechits_energy_weightVariable = HistogramVariable('rechits_energy', 'Sum of all rechits energies in a bin (MeV)')
 
 #For rho use a transform to have more bins at low rho. For now use sqrt, but log would be better (though needs to find a way to include start=0)
 rechits_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=20., transform=hist.axis.transform.sqrt,
-    name="rechits_rho", label="RecHit rho (local energy density)")
-rechits_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="rechits_delta", label="RecHit delta (distance to nearest higher)")
+    name="rechits_rho", label="RecHit rho (local energy density) (MeV)")
+rechits_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="rechits_delta", label="RecHit delta (distance to nearest higher) (cm)")
 
 class RechitsEnergy(MyHistogram):
     def __init__(self) -> None:
@@ -72,8 +72,8 @@ class RechitsEnergy(MyHistogram):
 class RechitsPositionXY(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis, 
-            xyPosition_axis(name="rechits_x", label="RecHit x position"),
-            xyPosition_axis(name="rechits_y", label="RecHit y position"),
+            xyPosition_axis(name="rechits_x", label="RecHit x position (cm)"),
+            xyPosition_axis(name="rechits_y", label="RecHit y position (cm)"),
 
             label="RecHits position (x-y)",
             binCountLabel="RecHits count",
@@ -87,7 +87,7 @@ class RechitsPositionXY(MyHistogram):
 class RechitsPositionZ(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis,
-            zPosition_axis(name="rechits_z", label="RecHit z position"),
+            zPosition_axis(name="rechits_z", label="RecHit z position (cm)"),
 
             label="RecHits z position",
             binCountLabel="RecHits count",
@@ -145,12 +145,12 @@ class RechitsRhoDelta(MyHistogram):
 class Clus2DPositionXY(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, 
-            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_x", label="2D cluster x position"), 
-            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_y", label="2D cluster y position"),
+            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_x", label="2D cluster x position (cm)"), 
+            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_y", label="2D cluster y position (cm)"),
             label = "2D cluster X-Y position",
             binCountLabel="2D clusters count",
-            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster energies in each bin'),
-            weightOn=HistogramVariable('clus2D_energy', 'Sum of 2D cluster energies in each bin')
+            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster energies in each bin (MeV)'),
+            weightOn=HistogramVariable('clus2D_energy', 'Sum of 2D cluster energies in each bin (MeV)')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -162,8 +162,8 @@ class Clus2DPositionZ(MyHistogram):
             zPosition_axis(name="clus2D_z", label="3D cluster z position"),
             label = "2D cluster Z position",
             binCountLabel="2D clusters count",
-            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster total reconstructed energy in each z bin'),
-            weightOn=HistogramVariable('clus2D_energy', 'Sum of 2D cluster energies in each z bin')
+            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster total reconstructed energy in each z bin (MeV)'),
+            weightOn=HistogramVariable('clus2D_energy', 'Sum of 2D cluster energies in each z bin (MeV)')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -175,8 +175,8 @@ class EnergyClustered2DPerLayer(MyHistogram):
         super().__init__(beamEnergiesAxis, layerAxis_custom(name="clus2D_layer"), 
             label="Sum of 2D clusters energies per layer",
             binCountLabel="Event count",
-            profileOn=HistogramVariable('clus2D_energy_sum', 'Mean, over all events, of the sum of 2D clusters energies in each layer'),
-            weightOn=HistogramVariable('clus2D_energy_sum', 'Sum of all 2D clusters energies in each layer')
+            profileOn=HistogramVariable('clus2D_energy_sum', 'Mean, over all events, of the sum of 2D clusters energies in each layer (MeV)'),
+            weightOn=HistogramVariable('clus2D_energy_sum', 'Sum of all 2D clusters energies in each layer (MeV)')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -189,8 +189,8 @@ class LayerWithMaximumClustered2DEnergy(MyHistogram):
         super().__init__(beamEnergiesAxis, layerAxis_custom(name="clus2D_layer"), 
             label="Layer with the maximum 2D-clustered energy",
             binCountLabel="Event count",
-            profileOn=HistogramVariable('clus2D_energy_sum', 'For each layer, mean of the total 2D clustered energy on this layer for events where this layer is the one with max 2D clustered energy'),
-            weightOn=HistogramVariable('clus2D_energy_sum', 'For each layer, sum of all 2D clustered energy for events where this layer is the one with max 2D clustered energy')
+            profileOn=HistogramVariable('clus2D_energy_sum', 'For each layer, mean of the total 2D clustered energy on this layer for events where this layer is the one with max 2D clustered energy (MeV)'),
+            weightOn=HistogramVariable('clus2D_energy_sum', 'For each layer, sum of all 2D clustered energy for events where this layer is the one with max 2D clustered energy (MeV)')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -202,8 +202,8 @@ class NumberOf2DClustersPerLayer(MyHistogram):
         super().__init__(beamEnergiesAxis, layerAxis_custom(name="clus2D_layer"), 
             label="Number of 2D clusters per layer",
             binCountLabel="2D clusters count",
-            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster reconstructed energy per layer (for all events and 2D clusters in the layer)'),
-            weightOn=HistogramVariable('clus2D_energy', 'Sum of the energies of all 2D clusters in the layer')
+            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster reconstructed energy per layer (for all events and 2D clusters in the layer) (MeV)'),
+            weightOn=HistogramVariable('clus2D_energy', 'Sum of the energies of all 2D clusters in the layer (MeV)')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -215,8 +215,8 @@ class Cluster2DRho(MyHistogram):
             cluster2D_rho_axis(),
             label="2D cluster rho (local energy density)",
             binCountLabel="2D clusters count",
-            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster reconstructed energy over all 2D clusters which have rho in this bin'),
-            weightOn=HistogramVariable('clus2D_energy', 'Sum of the energies of all 2D clusters in each rho bin')
+            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster reconstructed energy over all 2D clusters which have rho in this bin (MeV)'),
+            weightOn=HistogramVariable('clus2D_energy', 'Sum of the energies of all 2D clusters in each rho bin (MeV)')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -228,8 +228,8 @@ class Cluster2DDelta(MyHistogram):
             cluster2D_delta_axis(),
             label="2D cluster delta (distance to nearest higher)",
             binCountLabel="2D clusters count",
-            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster reconstructed energy over all 2D clusters which have delta in this bin'),
-            weightOn=HistogramVariable('clus2D_energy', 'Sum of the energies of all 2D clusters in each delta bin')
+            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster reconstructed energy over all 2D clusters which have delta in this bin (MeV)'),
+            weightOn=HistogramVariable('clus2D_energy', 'Sum of the energies of all 2D clusters in each delta bin (MeV)')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -242,8 +242,8 @@ class Cluster2DRhoDelta(MyHistogram):
             cluster2D_delta_axis(),
             label="2D cluster rho-delta",
             binCountLabel="2D clusters count",
-            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster reconstructed energy over all 2D clusters which have rho&delta in this bin'),
-            weightOn=HistogramVariable('clus2D_energy', 'Sum of the energies of all 2D clusters in each rho&delta bin')
+            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster reconstructed energy over all 2D clusters which have rho&delta in this bin (MeV)'),
+            weightOn=HistogramVariable('clus2D_energy', 'Sum of the energies of all 2D clusters in each rho&delta bin (MeV)')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -263,12 +263,12 @@ class Clus3DPositionXY(MyHistogram):
     def __init__(self) -> None:
         super().__init__(
             beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
-            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus3D_x", label="3D cluster x position"), 
-            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus3D_y", label="3D cluster y position"),
+            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus3D_x", label="3D cluster x position (cm)"), 
+            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus3D_y", label="3D cluster y position (cm)"),
             label = "3D cluster X-Y position",
             binCountLabel="3D clusters count",
-            profileOn=HistogramVariable('clus3D_energy', 'Mean of 3D cluster energies in each bin'),
-            weightOn=HistogramVariable('clus3D_energy', 'Sum of 3D cluster energies in each bin')
+            profileOn=HistogramVariable('clus3D_energy', 'Mean of 3D cluster energies in each bin (MeV)'),
+            weightOn=HistogramVariable('clus3D_energy', 'Sum of 3D cluster energies in each bin (MeV)')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -278,11 +278,11 @@ class Clus3DPositionXY(MyHistogram):
 class Clus3DPositionZ(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
-            zPosition_axis(name="clus3D_z", label="3D cluster z position"),
+            zPosition_axis(name="clus3D_z", label="3D cluster z position (cm)"),
             label = "3D cluster Z position",
             binCountLabel="3D clusters count",
-            profileOn=HistogramVariable('clus3D_energy', 'Mean of 3D cluster total reconstructed energy in each z bin'),
-            weightOn=HistogramVariable('clus3D_energy', 'Sum of 3D cluster energies in each z bin')
+            profileOn=HistogramVariable('clus3D_energy', 'Mean of 3D cluster total reconstructed energy in each z bin (MeV)'),
+            weightOn=HistogramVariable('clus3D_energy', 'Sum of 3D cluster energies in each z bin (MeV)')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -295,8 +295,8 @@ class Clus3DSpatialResolution(MyHistogram):
             diffX_axis, diffY_axis,
             label = "Spatial resolution of 2D clusters that are part of a 3D cluster",
             binCountLabel="3D clusters count",
-            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster energies in each bin (only 2D clusters that are in a 3D cluster)'),
-            weightOn=HistogramVariable('clus2D_energy', 'Sum of 2D cluster energies in each bin (only 2D clusters that are in a 3D cluster)'),
+            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster energies in each bin (only 2D clusters that are in a 3D cluster) (MeV)'),
+            weightOn=HistogramVariable('clus2D_energy', 'Sum of 2D cluster energies in each bin (only 2D clusters that are in a 3D cluster) (MeV)'),
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -312,8 +312,8 @@ class Clus3DFirstLayerOfCluster(MyHistogram):
             layerAxis_custom(name="clus2D_minLayer", label="First layer clustered in CLUE3D"),
             label = "First layer used by CLUE3D",
             binCountLabel="3D clusters count",
-            profileOn=HistogramVariable('clus3D_energy', 'Mean of the 3D cluster total reconstructed energy whose first layer is in the layer bin'),
-            weightOn=HistogramVariable('clus3D_energy', 'Sum of the 3D cluster total reconstructed energy for all clusters whose first layer is in the layer bin'),
+            profileOn=HistogramVariable('clus3D_energy', 'Mean of the 3D cluster total reconstructed energy whose first layer is in the layer bin (MeV)'),
+            weightOn=HistogramVariable('clus3D_energy', 'Sum of the 3D cluster total reconstructed energy for all clusters whose first layer is in the layer bin (MeV)'),
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -329,8 +329,8 @@ class Clus3DLastLayerOfCluster(MyHistogram):
             layerAxis_custom(name="clus2D_maxLayer", label="Last layer clustered in CLUE3D"),
             label = "Last layer used by CLUE3D",
             binCountLabel="3D clusters count",
-            profileOn=HistogramVariable('clus3D_energy', 'Mean of the 3D cluster total reconstructed energy whose last layer is in the layer bin'),
-            weightOn=HistogramVariable('clus3D_energy', 'Sum of the 3D cluster total reconstructed energy for all clusters whose last layer is in the layer bin'),
+            profileOn=HistogramVariable('clus3D_energy', 'Mean of the 3D cluster total reconstructed energy whose last layer is in the layer bin (MeV)'),
+            weightOn=HistogramVariable('clus3D_energy', 'Sum of the 3D cluster total reconstructed energy for all clusters whose last layer is in the layer bin (MeV)'),
         )
 
     def loadFromComp(self, comp:DataframeComputations):
@@ -347,8 +347,8 @@ class Clus3DNumberOf2DClustersPerLayer(MyHistogram):
         super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
             layerAxis_custom(name="clus2D_layer"), 
             label="Number of 2D clusters per layer clustered by CLUE3D",
-            profileOn=HistogramVariable('clus2D_energy', 'Mean of clus2D energy of all the 2D clusters member of a 3D cluster that are in this layer'),
-            weightOn=HistogramVariable('clus2D_energy', 'Sum of clus2D energy of all the 2D clusters member of a 3D cluster that are in this layer'),
+            profileOn=HistogramVariable('clus2D_energy', 'Mean of clus2D energy of all the 2D clusters member of a 3D cluster that are in this layer (MeV)'),
+            weightOn=HistogramVariable('clus2D_energy', 'Sum of clus2D energy of all the 2D clusters member of a 3D cluster that are in this layer (MeV)'),
         )
 
     def loadFromComp(self, comp:DataframeComputations):
