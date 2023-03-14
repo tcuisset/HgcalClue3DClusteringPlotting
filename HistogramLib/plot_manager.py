@@ -3,14 +3,15 @@ from itertools import product
 import copy
 
 from hist.axestuple import NamedAxesTuple
-from bokeh.models import Row, Model
+from bokeh.models import Row
+from bokeh.plotting import figure
 
 from HistogramLib.selectors import *
 from HistogramLib.projection_manager import *
 
 
 class AbstractPlotClass:
-    model:Model
+    #figure:Figure
     def update(self) -> None:
         pass
 
@@ -54,6 +55,7 @@ class PlotManager:
     def makeEverything(self):
         overlaySelector, allSelections = self._explode()
         self.plots = []
+        firstFigure:figure = None
         for selectionTuple in allSelections:
             if overlaySelector is not None:
                 #Use for metadata the first overlay (otherwise the overlay axis is kept in metadata which is not wanted)
@@ -67,11 +69,21 @@ class PlotManager:
                     }
                 ))
             else:
+                figure_kwargs = {}
+                if firstFigure is not None:
+                    # Enable linked panning and zooming : https://docs.bokeh.org/en/latest/docs/user_guide/interaction/linking.html#linked-panning
+                    figure_kwargs["x_range"] = firstFigure.x_range
+                    figure_kwargs["y_range"] = firstFigure.y_range
+                
                 self.plots.append(self.singlePlotClass(metadata=self.makeMetadata(selectionTuple),
                     projectedView=HistogramView(
                         self.store,
                         list(selectionTuple)
-                )))
+                    ),
+                    **figure_kwargs
+                ))
+                if firstFigure is None:
+                    firstFigure = self.plots[0].figure
         
         self._updateModel()
 
