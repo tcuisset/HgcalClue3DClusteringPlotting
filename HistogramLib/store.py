@@ -4,6 +4,8 @@ import glob
 import pickle
 import copy
 
+from .histogram import HistogramMetadata
+
 @dataclass(unsafe_hash=True)
 class ShelfId:
     clue_param_name:str
@@ -15,6 +17,7 @@ class ShelfId:
         return os.path.join(self.clue_param_name, self.datatype, self.shelfFileName)
 
 class AbstractHistogramId:
+    histName:str = ""
     @property
     def path(self) -> str:
         """ get relative path from version folder (excluded) to pickle file name (included)"""
@@ -39,6 +42,7 @@ class HistogramStore:
         histIdClass is the *class* (not object) to use for indexing histograms, should implement the interface AbstractHistogramId
         """
         self.loadedHists = {}
+        self.metadataDict = {}
         self.hist_folder = hist_folder
         self.histIdClass = histIdClass
 
@@ -47,12 +51,24 @@ class HistogramStore:
             self._loadHist(id)
         return self.loadedHists[id] 
 
-    def save(self, id:AbstractHistogramId, hist, makedirs=True):
+    def getMetadata(self, histName:str) -> HistogramMetadata:
+        if not self.metadataDict: # Empty dict
+            with open(os.path.join(self.hist_folder, "metadata.pickle"), "rb") as f:
+                self.metadataDict = pickle.load(f)
+        return self.metadataDict[histName]
+
+    def save(self, id:AbstractHistogramId, hist, makedirs=True, saveMetadata=False):
         pathToFile = os.path.join(self.hist_folder, id.path)
         if makedirs:
             os.makedirs(os.path.dirname(pathToFile), exist_ok=True)
         with open(pathToFile, mode='wb') as f:
             pickle.dump(hist, f)
+        if saveMetadata:
+            self.metadataDict[id.histName] = hist.metadata
+    
+    def saveMetadataDict(self):
+        with open(os.path.join(self.hist_folder, "metadata.pickle"),  mode='wb') as f:
+            pickle.dump(self.metadataDict, f)
 
     def _loadHist(self, id:AbstractHistogramId):
         # Copy the id otherwise it could be changed by the caller and break the dictionnary

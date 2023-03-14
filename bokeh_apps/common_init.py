@@ -1,8 +1,23 @@
 from functools import partial
+from bokeh.layouts import column
+from bokeh.models import Tabs, TabPanel
 
-from HistogramLib.projection_manager import HistogramProjectedView
-from bokeh_apps.widgets import *
+from HistogramLib.store import HistogramStore
+from HistogramLib.plot_manager import PlotManager
+from HistogramLib.bokeh.histogram_widget import *
 from hists.store import HistogramId
+from bokeh_apps.widgets import *
+
+
+import argparse
+
+def parseArgs():
+    parser = argparse.ArgumentParser(description="Plotting code to be run using Bokeh server, use bokeh serve SCRIPT.py --args ARGS")
+    parser.add_argument("--hist-folder", dest="hist_folder",
+        help="path to folder holding all histograms. Will load recursively all clueparams and datatypes inside this folder")
+    parser.add_argument("--single-file", dest='single_file',
+        help="Only load a single pickle file (for debugging), given by this full path to the file")
+    return parser.parse_args()
 
 args = parseArgs()
 histStore = HistogramStore(args.hist_folder, HistogramId)
@@ -12,7 +27,7 @@ layers_z = [13.877500, 14.767500, 16.782499, 17.672501, 19.687500, 20.577499, 22
 
 class Selectors:
     def __init__(self) -> None:
-        self.datatype_selector = DatatypeSelector()
+        self.datatype_selector = makeDatatypeSelector()
         self.clueParamSelector = ClueParamsSelector(histStore.getPossibleClueParameters())
         #self.clueParamSelector = PlaceholderClueParamsSelector()
         self.layerSelector = makeLayerSelector()
@@ -21,18 +36,40 @@ class Selectors:
         self.histKindSelector = HistogramKindRadioButton()
         self.mainOrAllTrackstersSelector = makeMainOrAllTrackstersSelector() 
 
-    def MakeView(self, histName:str, **kwargs):
-        return HistogramProjectedView(histStore, 
-            histIdProviders=[HistogramIdNameSelector(histName), self.datatype_selector, self.clueParamSelector],
-            projectionProviders={'beamEnergy': self.beamEnergySelector, 'layer': self.layerSelector},
-            histKindSelector=self.histKindSelector,
-            **kwargs)
+        self.selectorsStandard = [self.datatype_selector, self.clueParamSelector, 
+                self.beamEnergySelector, self.layerSelector, self.histKindSelector]
+        self.selectorsClue3D = [self.datatype_selector, self.clueParamSelector, 
+                self.beamEnergySelector, self.layerSelector, self.mainOrAllTrackstersSelector, self.clus3DSizeSelector,
+                self.histKindSelector]
+        
+        self.MakePlotStandard = partial(self.MakePlot, selectors=self.selectorsStandard)
+        self.MakePlotClue3D = partial(self.MakePlot, selectors=self.selectorsClue3D)
 
-    def MakeViewClue3D(self, histName:str, **kwargs):
-        return HistogramProjectedView(histStore, 
-            histIdProviders=[HistogramIdNameSelector(histName), self.datatype_selector, self.clueParamSelector],
-            projectionProviders={'beamEnergy': self.beamEnergySelector, 'layer': self.layerSelector,
-                'mainOrAllTracksters': self.mainOrAllTrackstersSelector, 'clus3D_size' : self.clus3DSizeSelector},
-            histKindSelector=self.histKindSelector,
-            **kwargs)
+    def MakePlot(self, histName:str, selectors, plotType:str="1d", **kwargs):
+        if plotType == "1d":
+            singlePlotClass=QuadHistogram1D
+            multiPlotClass=StepHistogram1D
+        elif plotType == "2d":
+            singlePlotClass=QuadHistogram2D
+            multiPlotClass=None
+        return PlotManager(store=histStore, 
+            selectors=selectors + [HistogramIdNameSelector(histName)],
+            singlePlotClass=singlePlotClass, multiPlotClass=multiPlotClass,
+            **kwargs).model
 
+
+    def tabStandard(self, tabTitle:str, *args, **kwargs):
+        return TabPanel(title=tabTitle, child=self.MakePlotStandard(*args, **kwargs))
+    def tabClue3D(self, tabTitle:str, *args, **kwargs):
+        return TabPanel(title=tabTitle, child=self.MakePlotClue3D(*args, **kwargs))
+
+    def makeWidgetColumnStandard(self):
+        return column(
+            self.clueParamSelector.model, self.datatype_selector.model, self.beamEnergySelector.model,
+            self.layerSelector.model, self.histKindSelector.model
+        )
+    def makeWidgetColumnClue3D(self):
+        return column(
+            self.clueParamSelector.model, self.datatype_selector.model, self.beamEnergySelector.model,
+            self.layerSelector.model, self.clus3DSizeSelector.model, self.histKindSelector.model, self.mainOrAllTrackstersSelector.model
+        )

@@ -5,15 +5,10 @@ from bokeh_apps.common_init import *
 
 s = Selectors()
 
-curdoc().add_root(layout(
-[
-    [ # First line
-        column(
-            s.clueParamSelector.widget, s.datatype_selector.widget, s.beamEnergySelector.widget,
-            s.layerSelector.widget, s.clus3DSizeSelector.widget, s.histKindSelector.widget, s.mainOrAllTrackstersSelector.widget
-        ),
-        MultiBokehHistogram2D(s.MakeViewClue3D(histName="Clus3DSpatialResolution")).figure,
-        MultiBokehHistogram2D(s.MakeViewClue3D(histName="Clus3DPositionXY")).figure
-    ],
-
-]))
+curdoc().add_root(row(
+    s.makeWidgetColumnClue3D(),
+    Tabs(tabs=[
+        s.tabClue3D("Spatial resolution", "Clus3DSpatialResolution", plotType="2d"),
+        s.tabClue3D("Position X-Y", "Clus3DPositionXY",  plotType="2d"),
+    ])
+))

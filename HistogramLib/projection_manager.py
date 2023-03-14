@@ -5,132 +5,101 @@ import hist
 
 from .store import *
 from .histogram import *
+from .selectors import *
 
-class HistogramIdSelector:
-    def fillHistId(self, histId:AbstractHistogramId):
-        pass
-    def registerCallback(self, callback):
-        pass
-class HistogramIdNameSelector(HistogramIdSelector):
-    def __init__(self, histName) -> None:
-        self.histName = histName
-    def fillHistId(self, histId):
-        histId.histName = self.histName
 
-class ProjectionAxisSelector:
-    axisName:str
-    def getSlice(self) -> HistogramSlice:
-        return None
-    def registerCallback(self, callback):
-        pass
+class HistogramLoadError(Exception):
+    pass
 
-class PlaceholderAxisSelector(ProjectionAxisSelector):
-    def __init__(self, slice) -> None:
-        self.slice = slice
-    def getSlice(self):
-        return self.slice
+class HistogramView:
+    def __init__(self, store:HistogramStore, selections:List[Selection], forcePlotAxises:List[str]|None=None) -> None:
+        self.store:HistogramStore = store
+        self.selections = selections
+        self.forcePlotAxises = forcePlotAxises
+        self._reset()
 
-class HistKindSelector:
-    def registerCallback(self, callback):
-        pass
-    def getSelection(self) -> HistogramKind:
-        return HistogramKind.COUNT
+        self.update()
 
-class FixedHistKindSelector(HistKindSelector):
-    def __init__(self, kind:HistogramKind) -> None:
-        self.kind = kind
-    def getSelection(self) -> HistogramKind:
-        return self.kind
+    def _reset(self):
+        self.myHist:MyHistogram = None
+        self.projectedHist:hist.Hist = None
+        self.histId:AbstractHistogramId = None
+        self.histKind:HistogramKind = None
+        self.histLambdaView = None # A lambda to apply to projectedHist that returns the relevant view for the current histogram kind
+        self.slice_args_dict = None
 
-class HistogramProjectedView:
-    store:HistogramStore
-    myHist:MyHistogram
-    projectedHist:hist.Hist
-    histLambdaView = None # A lambda to apply to projectedHist that returns the relevant view for the current histogram kind
-    histIdProviders:List[HistogramIdSelector]
-    projectionProviders:dict
+    def _resetProjection(self):
+        self.myHist = self.myHist.getEmptyCopy() # make an empty copy so we keep the labels but remove the data
 
-    plotAxises:List[str]|None = None
-    histKindSelector:HistKindSelector
-
-    def __init__(self, store:HistogramStore, histIdProviders:List[HistogramIdSelector], projectionProviders,
-        forcePlotAxis:List[str]|None=None, histKindSelector:HistKindSelector=HistKindSelector()) -> None:
-        self.store = store
-        self.myHist = None
-        self.histIdProviders = histIdProviders
-        self.projectionProviders = projectionProviders
-        self.plotAxises = forcePlotAxis
-        self.histKindSelector = histKindSelector
-        self.histId = ShelfId('default', 'data')
-        self.callbacks = []
-        self
-        
-        for histIdProvider in self.histIdProviders:
-            histIdProvider.registerCallback(self.updateHistogram)
-        for projectionProvider in self.projectionProviders.values():
-            projectionProvider.registerCallback(self.updateProjection)
-        self.histKindSelector.registerCallback(self.updateProjection)
-        
-        self.updateHistogram(None, None, None)
-
-    def registerUpdateCallback(self, callback):
-        self.callbacks.append(callback)
-
-    def updateHistogram(self, attr, old, new):
+    def _buildParams(self):
         histId = self.store.histIdClass()
-        for histIdProvider in self.histIdProviders:
-            histIdProvider.fillHistId(histId)
-        
-        newHist = None
-        try:
-            newHist = self.store.get(histId)
-        except Exception as e:
-            print(e)
-        
-        if newHist is None and self.myHist is not None:
-            self.myHist = self.myHist.getEmptyCopy() # make an empty copy so we keep the labels but remove the data
-        else:
-            self.myHist = newHist
-        
-        self.updateProjection(None, None, None)
-
-    def updateProjection(self, attr, old, new):
-        if self.myHist is not None:
-            slice_args_dict = {}
-            unprojected_axes = []
+        slice_args_dict = {}
+        histogramKind = None
+        for selection in self.selections:
+            histIdTuple = selection.histId()
+            slice = selection.slice()
             
-            for axisName in self.myHist.axisNames():
-                if axisName in self.projectionProviders:
-                    histogramSlice = self.projectionProviders[axisName].getSlice()
-                    if histogramSlice is not None:
-                        slice_args_dict[axisName] = histogramSlice.getSliceObject()
-                else:
-                    unprojected_axes.append(axisName)
-
-            if self.plotAxises is None:
-                # First call to updateProjection, figure out automatically the plotting axes and cache them
-                self.plotAxises = unprojected_axes
-            
-            unprojected_hist, self.histLambdaView = self.myHist.getHistogramAndViewLambda(self.getHistKindSelection())
-            # The project call might do nothing, but see ListHistogramSlice for why we should project all the time
-            self.projectedHist = unprojected_hist[slice_args_dict].project(*self.plotAxises)
-        else:
-            self.projectedHist = None
-        for callback in self.callbacks:
-            callback()
+            if histIdTuple is not None:
+                setattr(histId, histIdTuple[0], histIdTuple[1])
+            elif slice is not None:
+                if slice.axisName in slice_args_dict:
+                    raise ValueError("Cannot specify multiple times the same axisName to project on")
+                slice_args_dict[slice.axisName] = slice.getSliceObject()
+            elif selection.histKind() is not None:
+                if histogramKind is not None:
+                    raise ValueError("Cannot specify multiple times HistogramKind")
+                histogramKind = selection.histKind()
+        return histId, slice_args_dict, histogramKind
     
-    def getHistKindSelection(self):
-        """ Get the current histKind selection, potentially falling back on COUNT if requested is not available"""
-        requestedKind = self.histKindSelector.getSelection()
-        if self.myHist.hasHistogramType(requestedKind):
-            return requestedKind
-        else:
-            return HistogramKind.COUNT
+    def _updateHist(self, newHistId):
+        self.myHist = self.store.get(newHistId)
+        self.histId = newHistId
 
-    def getHistogramBinCountLabel(self):
-        return self.myHist.getHistogramBinCountLabel(self.getHistKindSelection())
+    def _updateProjection(self):
+        if self.forcePlotAxises is not None:
+            plotAxises = self.forcePlotAxises
+        else:
+            plotAxises = []
+        
+        new_slice_args_dict = {} #Subset with only the axises that are in our histogram
+        for axisName in self.myHist.axes.name:
+            if self.forcePlotAxises is None and axisName not in self.slice_args_dict:
+                # Figure out automatically the plotting axes 
+                plotAxises.append(axisName)
+            if axisName in self.slice_args_dict:
+                new_slice_args_dict[axisName] = self.slice_args_dict[axisName]
+        
+        unprojected_hist, self.histLambdaView = self.myHist.getHistogramAndViewLambda(self.histKind)
+        # The project call might do nothing, but see ListHistogramSlice for why we should project all the time
+        self.projectedHist = unprojected_hist[new_slice_args_dict].project(*plotAxises)
+
+    def update(self):
+        histId, slice_args_dict, requestedKind = self._buildParams()
+        forceNext = False
+        try:
+            self.exception = None
+            if histId != self.histId:
+                self._updateHist(histId)
+                forceNext = True
+        except Exception as e:
+            self.exception = e
+            self._reset()
+        else:
+            if self.myHist.hasHistogramType(requestedKind):
+                newHistKind = requestedKind
+            else:
+                newHistKind = HistogramKind.COUNT # Fallback on COUNT if we selected Weight or Profile and it's not available
+
+            if slice_args_dict != self.slice_args_dict or newHistKind != self.histKind or forceNext:
+                self.histKind = newHistKind
+                self.slice_args_dict = slice_args_dict
+                self._updateProjection()
+
 
     def getProjectedHistogramView(self):
         """ Get the view to plot, according to histogram kind selector"""
-        return self.histLambdaView(self.projectedHist)
+        if self.projectedHist is not None:
+            return self.histLambdaView(self.projectedHist)
+        else:
+            raise HistogramLoadError(self.exception)
 

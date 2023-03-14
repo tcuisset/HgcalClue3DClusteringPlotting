@@ -5,20 +5,12 @@ from bokeh_apps.common_init import *
 
 s = Selectors()
 
-curdoc().add_root(layout(
-[
-    [ # First line
-        column(
-            s.clueParamSelector.widget, s.datatype_selector.widget, s.beamEnergySelector.widget,
-            s.layerSelector.widget, s.clus3DSizeSelector.widget, s.histKindSelector.widget, s.mainOrAllTrackstersSelector.widget
-        ),
-        BokehHistogram(s.MakeViewClue3D(histName="Clus3DPositionZ")).figure,
-        BokehHistogram(s.MakeViewClue3D(histName="Clus3DNumberOf2DClustersPerLayer")).figure,
-    ],
-    [ # Second line 
-        BokehHistogram(s.MakeViewClue3D(histName="Clus3DFirstLayerOfCluster")).figure,
-        BokehHistogram(s.MakeViewClue3D(histName="Clus3DLastLayerOfCluster")).figure,
-        
-    ]
-    
-]))
+curdoc().add_root(row(
+    s.makeWidgetColumnClue3D(),
+    Tabs(tabs=[
+        s.tabClue3D("Position Z", "Clus3DPositionZ"),
+        s.tabClue3D("Nb of 2D clusters per layer", "Clus3DNumberOf2DClustersPerLayer"),
+        s.tabClue3D("First layer of cluster", "Clus3DFirstLayerOfCluster"),
+        s.tabClue3D("Last layer of cluster", "Clus3DLastLayerOfCluster"), 
+    ])
+))

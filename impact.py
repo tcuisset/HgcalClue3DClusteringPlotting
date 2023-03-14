@@ -1,17 +1,15 @@
-from bokeh.layouts import layout, column
+from bokeh.layouts import layout
 from bokeh.plotting import curdoc
 
 from bokeh_apps.common_init import *
+from HistogramLib.bokeh.histogram_widget import *
 
 s = Selectors()
 
 curdoc().add_root(layout(
 [
     [ # First line
-        column(
-            s.clueParamSelector.widget, s.datatype_selector.widget, s.beamEnergySelector.widget, s.layerSelector.widget
-            
-        ),
-        MultiBokehHistogram2D(s.MakeView(histName="ImpactXY")).figure,
+        s.makeWidgetColumnStandard(),
+        s.MakePlotStandard('ImpactXY', plotType="2d")
     ],
 ]))

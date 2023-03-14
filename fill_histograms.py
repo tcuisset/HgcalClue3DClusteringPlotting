@@ -23,6 +23,8 @@ parser.add_argument("--force-input-file", dest='force_input_file',
 parser.add_argument("--force-output-directory", dest='force_output_directory',
     default=None,
     help="Complete path to folder where to store histograms (as a python shelve database, files hists.shelve.*) (for testing)")
+parser.add_argument("--save-metadata", dest="save_metadata", action=argparse.BooleanOptionalAction,
+    default=False, help="Save metadata of histograms (name, label, axes) to a pickle file")
 
 parser.add_argument("--datatype", dest="datatype", default="data",
     help="Can be data, sim_proton, sim_noproton")
@@ -72,7 +74,11 @@ print("Writing histograms to file...", flush=True)
 for h_name, h in hist_dict.items():
     print(h_name, flush=True)
     histId = HistogramId(clueParamName=args.clue_params, datatype=args.datatype, histName=h_name)
-    store.save(histId, h, makedirs=True)
+    store.save(histId, h, makedirs=True, saveMetadata=args.save_metadata)
+
+if args.save_metadata:
+    print("Saving metadata...")
+    store.saveMetadataDict()
 print("Done")
 
 # if hist_dict["rechits_position"].empty():

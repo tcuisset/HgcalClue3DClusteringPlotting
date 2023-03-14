@@ -8,6 +8,11 @@ class HistogramId(AbstractHistogramId):
     datatype:str = ""
     histName:str = ""
 
+    def __init__(self, histName="", clueParamName="", datatype="") -> None:
+        self.histName = histName
+        self.clueParamName = clueParamName
+        self.datatype = datatype
+        
     @property
     def path(self) -> str:
         """ get relative path from version folder (excluded) to pickle file name (included)"""
