@@ -144,7 +144,7 @@ class RechitsRhoDelta(MyHistogram):
 ############# 2D clusters ######################
 class Clus2DPositionXY(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, 
+        super().__init__(beamEnergiesAxis, layerAxis,
             hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_x", label="2D cluster x position (cm)"), 
             hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_y", label="2D cluster y position (cm)"),
             label = "2D cluster X-Y position",
@@ -158,7 +158,7 @@ class Clus2DPositionXY(MyHistogram):
 
 class Clus2DPositionZ(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, 
+        super().__init__(beamEnergiesAxis, layerAxis,
             zPosition_axis(name="clus2D_z", label="3D cluster z position"),
             label = "2D cluster Z position",
             binCountLabel="2D clusters count",
