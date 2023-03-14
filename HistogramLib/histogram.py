@@ -86,14 +86,14 @@ class HistogramMetadata:
 
     def getPlotLabel(self, kind:HistogramKind):
         """ Get the label of the bin contents of histogram, depending on profile (-> profile variable label) or count (-> stored in MyHistogram, usually "Event count")"""
-        if kind is HistogramKind.COUNT:
+        if kind is HistogramKind.COUNT or kind is None:
             return self.binCountLabel
         elif kind is HistogramKind.PROFILE:
             return self.profileOn.label
         elif kind is HistogramKind.WEIGHT:
             return self.weightOn.label
         else:
-            raise ValueError("Wrong histogram kind")
+            raise ValueError("Wrong histogram kind", kind)
 
 
 class MyHistogram():
