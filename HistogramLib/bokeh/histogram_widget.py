@@ -86,7 +86,7 @@ class QuadHistogram2D(AbstractSingleHistogram):
             self.source.data = {"histogram_2D_view":[np.transpose(self.histProjectedView.getProjectedHistogramView())]}
         except HistogramLoadError:
             self.source.data = {"histogram_2D_view":[]}
-        self.figure.yaxis.axis_label = self.metadata.getPlotLabel(self.histProjectedView.histKind)
+        self.figure.plottedValueTitle.text = self.metadata.getPlotLabel(self.histProjectedView.histKind)
 
 
 class AbstractMultiHistogram(AbstractHistogram):
