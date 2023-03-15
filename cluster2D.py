@@ -10,7 +10,7 @@ curdoc().add_root(row(
     s.makeWidgetColumnStandard(),
     Tabs(tabs=[
         s.tabStandard("Position XY", "Clus2DPositionXY", plotType="2d"),
-        s.tabStandard("Position Z", "Clus2DPositionZ"),
+        s.tabStandard("Position layer", "Clus2DPositionLayer"),
         s.tabStandard("Energy per layer", "EnergyClustered2DPerLayer"),
         s.tabStandard("Layer with max energy", "LayerWithMaximumClustered2DEnergy"),
         s.tabStandard("Nb of clusters per layer", "NumberOf2DClustersPerLayer"),

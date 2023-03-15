@@ -12,7 +12,7 @@ curdoc().add_root(row(
     Tabs(tabs=[
         s.tabStandard("Energy", "RechitsEnergy"),
         s.tabStandard("Position X-Y", "RechitsPositionXY", plotType="2d"),
-        s.tabStandard("Position Z", "RechitsPositionZ"),
+        s.tabStandard("Position layer", "RechitsPositionLayer"),
         s.tabStandard("Rho", "RechitsRho"),
         s.tabStandard("Delta", "RechitsDelta"),
         s.tabStandard("Rho-Delta", "RechitsRhoDelta", plotType="2d"),
