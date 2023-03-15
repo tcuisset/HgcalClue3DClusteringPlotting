@@ -289,7 +289,7 @@ class Clus3DPositionZ(MyHistogram):
         self.fillFromDf(comp.clusters3D_largestCluster, valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
 
 # Warning : Takes a lot of memory (~5GB on file)
-class Clus3DSpatialResolution(MyHistogram):
+class Clus3DSpatialResolutionOf2DClusters(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis, cluster3D_size_axis,
             diffX_axis, diffY_axis,
