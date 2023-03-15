@@ -1,5 +1,7 @@
+import math
 from bokeh.layouts import row
 import bokeh.models
+from bokeh.models.formatters import CustomJSTickFormatter
 
 from ..histogram import *
 from ..projection_manager import *
@@ -60,15 +62,32 @@ class ProjectionSelectorImpl(Selector):
         self.callbacks.append(callback)
 
 class RangeAxisSelector(ProjectionSelectorImpl, ExplodableSelector):
-    def __init__(self, axisName:str, **kwargs) -> None:
+    """ 
+    logScale : enable logScale of slider. It works by changing slider values to the log of the value, 
+    and then doing exp() when showing the value
+    """
+    def __init__(self, axisName:str, logScale=False, **kwargs) -> None:
+        self.logScale = logScale
+        if logScale:
+            kwargs["start"] = math.log(kwargs["start"])
+            kwargs["end"] = math.log(kwargs["end"])
+            kwargs["value"] = (math.log(kwargs["value"][0]), math.log(kwargs["value"][1]))
+            kwargs["format"] = CustomJSTickFormatter(code="return Math.exp(tick).toFixed(2)") # Show the regular (non-log) value on the slider
         self.model = bokeh.models.RangeSlider(**kwargs)
         #Use value_throttled so that it updates only on mouse release to avoid recomputing all the time when dragging
         super().__init__(axisName, onChangeValue='value_throttled')
-        self.allSelections = [SliceFixedSelection(SingleValueHistogramSlice(self.axisName, val)) for val in range(self.model.start, self.model.end+1, self.model.step)]
+    
+    @property
+    def allSelections(self):
+        #Note this does not work with float values for start, stop, step, in this case this should be changed to np.arange
+        return [SliceFixedSelection(SingleValueHistogramSlice(self.axisName, val)) for val in range(self.model.start, self.model.end+1, self.model.step)]
 
     def _updateSelection(self) -> None:
         (min, max) = self.model.value
-        self.selection.sliceObject = RangeHistogramSlice(self.axisName, int(min), int(max))
+        if self.logScale:
+            min = math.exp(min)
+            max = math.exp(max)
+        self.selection.sliceObject = RangeHistogramSlice(self.axisName, min, max)
 
 
 class MultiSelectAxisSelector(ProjectionSelectorImpl, ExplodableSelector):
