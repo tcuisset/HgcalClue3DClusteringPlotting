@@ -35,14 +35,10 @@ class SingleValueHistogramSlice(HistogramSlice):
 
 @dataclass
 class RangeHistogramSlice(HistogramSlice):
-    minRange:int # included
-    maxRange:int # included 
+    minRange:float # included
+    maxRange:float # included 
     def getSliceObject(self):
-        if self.maxRange == self.minRange:
-            # Special case for single values (otherwise problems on first and last bins)
-            return hist.loc(self.minRange)
-        else:
-            return slice(hist.loc(self.minRange), hist.loc(self.maxRange+1), sum) #slices are with end excluded so we add 1 to the max
+        return slice(hist.loc(self.minRange), hist.loc(self.maxRange)+1, sum) #slices are with end excluded so we add 1 to the max
 
 @dataclass
 class MinWithOverflowHistogramSlice(HistogramSlice):
