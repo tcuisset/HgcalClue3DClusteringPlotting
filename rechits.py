@@ -8,13 +8,13 @@ from HistogramLib.bokeh.histogram_widget import *
 s = Selectors()
 
 curdoc().add_root(row(
-    s.makeWidgetColumnStandard(),
+    s.makeWidgetColumnRechits(),
     Tabs(tabs=[
-        s.tabStandard("Energy", "RechitsEnergy"),
-        s.tabStandard("Position X-Y", "RechitsPositionXY", plotType="2d"),
-        s.tabStandard("Position layer", "RechitsPositionLayer"),
-        s.tabStandard("Rho", "RechitsRho"),
-        s.tabStandard("Delta", "RechitsDelta"),
-        s.tabStandard("Rho-Delta", "RechitsRhoDelta", plotType="2d"),
+        s.tabStandard("Energy", "RechitsEnergy"), # Use tabStandard otherwise rechits_energy gets projected and there is nothing left to plot
+        s.tabRechits("Position X-Y", "RechitsPositionXY", plotType="2d"),
+        s.tabRechits("Position layer", "RechitsPositionLayer"),
+        s.tabRechits("Rho", "RechitsRho"),
+        s.tabRechits("Delta", "RechitsDelta"),
+        s.tabRechits("Rho-Delta", "RechitsRhoDelta", plotType="2d"),
     ])
 ))

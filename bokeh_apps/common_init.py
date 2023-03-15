@@ -32,18 +32,22 @@ class Selectors:
         #self.clueParamSelector = PlaceholderClueParamsSelector()
         self.layerSelector = makeLayerSelector()
         self.beamEnergySelector = makeBeamEnergySelector()
+        self.rechitEnergySelector = makeRechitEnergySelector()
         self.clus3DSizeSelector = makeCluster3DSizeSelector()
         self.histKindSelector = HistogramKindRadioButton()
         self.mainOrAllTrackstersSelector = makeMainOrAllTrackstersSelector() 
 
-        self.selectorsStandard = [self.datatype_selector, self.clueParamSelector, 
-                self.beamEnergySelector, self.layerSelector, self.histKindSelector]
-        self.selectorsClue3D = [self.datatype_selector, self.clueParamSelector, 
-                self.beamEnergySelector, self.layerSelector, self.mainOrAllTrackstersSelector, self.clus3DSizeSelector,
-                self.histKindSelector]
-        
-        self.MakePlotStandard = partial(self.MakePlot, selectors=self.selectorsStandard)
-        self.MakePlotClue3D = partial(self.MakePlot, selectors=self.selectorsClue3D)
+        self.selectorsStandardBegin = [self.datatype_selector, self.clueParamSelector, 
+                self.beamEnergySelector, self.layerSelector]
+        self.selectorsStandardEnd = [self.histKindSelector]
+        self.selectorsStandard = self.selectorsStandardBegin + self.selectorsStandardEnd
+
+        self.selectorsRechitsBegin = self.selectorsStandardBegin + [self.rechitEnergySelector]
+        self.selectorsRechits = self.selectorsRechitsBegin + self.selectorsStandardEnd
+
+        self.selectorsClue3DBegin = self.selectorsStandardBegin + [self.mainOrAllTrackstersSelector,
+            self.clus3DSizeSelector]
+        self.selectorsClue3D = self.selectorsClue3DBegin + self.selectorsStandardEnd
 
     def MakePlot(self, histName:str, selectors, plotType:str="1d", **kwargs):
         if plotType == "1d":
@@ -57,19 +61,16 @@ class Selectors:
             singlePlotClass=singlePlotClass, multiPlotClass=multiPlotClass,
             **kwargs).model
 
-
     def tabStandard(self, tabTitle:str, *args, **kwargs):
-        return TabPanel(title=tabTitle, child=self.MakePlotStandard(*args, **kwargs))
+        return TabPanel(title=tabTitle, child=self.MakePlot(*args, selectors=self.selectorsStandard, **kwargs))
+    def tabRechits(self, tabTitle:str, *args, **kwargs):
+        return TabPanel(title=tabTitle, child=self.MakePlot(*args, selectors=self.selectorsRechits, **kwargs))
     def tabClue3D(self, tabTitle:str, *args, **kwargs):
-        return TabPanel(title=tabTitle, child=self.MakePlotClue3D(*args, **kwargs))
+        return TabPanel(title=tabTitle, child=self.MakePlot(*args, selectors=self.selectorsClue3D, **kwargs))
 
     def makeWidgetColumnStandard(self):
-        return column(
-            self.clueParamSelector.model, self.datatype_selector.model, self.beamEnergySelector.model,
-            self.layerSelector.model, self.histKindSelector.model
-        )
+        return column(*(selector.model for selector in self.selectorsStandard))
+    def makeWidgetColumnRechits(self):
+        return column(*(selector.model for selector in self.selectorsRechits))
     def makeWidgetColumnClue3D(self):
-        return column(
-            self.clueParamSelector.model, self.datatype_selector.model, self.beamEnergySelector.model,
-            self.layerSelector.model, self.clus3DSizeSelector.model, self.histKindSelector.model, self.mainOrAllTrackstersSelector.model
-        )
+        return column(*(selector.model for selector in self.selectorsClue3D))

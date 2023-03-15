@@ -52,6 +52,8 @@ class ImpactXY(MyHistogram):
 rechits_energy_profileVariable = HistogramVariable('rechits_energy', 'Mean reconstructed hit energy in a bin (MeV)')
 rechits_energy_weightVariable = HistogramVariable('rechits_energy', 'Sum of all rechits energies in a bin (MeV)')
 
+rechits_energy_axis = partial(hist.axis.Regular, bins=50, start=0.002, stop=20., transform=hist.axis.transform.log,
+    name="rechits_energy", label="Rechit energy (MeV)")
 #For rho use a transform to have more bins at low rho. For now use sqrt, but log would be better (though needs to find a way to include start=0)
 rechits_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=20., transform=hist.axis.transform.sqrt,
     name="rechits_rho", label="RecHit rho (local energy density) (MeV)")
@@ -69,13 +71,14 @@ class RechitsEnergy(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})
 
+# Takes a lot of memory
 class RechitsPositionXY(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis, 
-            xyPosition_axis(name="rechits_x", label="RecHit x position (cm)"),
-            xyPosition_axis(name="rechits_y", label="RecHit y position (cm)"),
+        super().__init__(beamEnergiesAxis, layerAxis,
+            xyPosition_axis(name="rechits_x", label="RecHit x position (cm)", bins=100),
+            xyPosition_axis(name="rechits_y", label="RecHit y position (cm)", bins=100),
 
-            label="RecHits position (x-y)",
+            label="RecHits position (x-y) (no filter on rechit energy)",
             binCountLabel="RecHits count",
             profileOn=rechits_energy_profileVariable,
             weightOn=rechits_energy_weightVariable
@@ -86,7 +89,7 @@ class RechitsPositionXY(MyHistogram):
 
 class RechitsPositionLayer(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis,
+        super().__init__(beamEnergiesAxis, rechits_energy_axis(),
             layerAxis_custom(name="rechits_layer", label="RecHit layer number"),
 
             label="RecHits layer number",
@@ -100,7 +103,7 @@ class RechitsPositionLayer(MyHistogram):
 
 class RechitsRho(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis,
+        super().__init__(beamEnergiesAxis, layerAxis, rechits_energy_axis(),
             rechits_rho_axis(),
 
             label="RecHits rho (local energy density)",
@@ -114,7 +117,7 @@ class RechitsRho(MyHistogram):
 
 class RechitsDelta(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis,
+        super().__init__(beamEnergiesAxis, layerAxis, rechits_energy_axis(),
             rechits_delta_axis(),
 
             label="RecHit delta (distance to nearest higher)",
@@ -132,7 +135,7 @@ class RechitsRhoDelta(MyHistogram):
             rechits_rho_axis(),
             rechits_delta_axis(),
 
-            label="RecHit rho-delta",
+            label="RecHit rho-delta (no filter on rechit energy)",
             binCountLabel="RecHits count",
             profileOn=rechits_energy_profileVariable,
             weightOn=rechits_energy_weightVariable

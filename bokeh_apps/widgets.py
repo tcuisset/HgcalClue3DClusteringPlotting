@@ -31,6 +31,17 @@ def makeMainOrAllTrackstersSelector():
         active=0
     ))
 
+def makeRechitEnergySelector():
+    """ Filter rechits energy. Note that it is a log axis, which cannot be implemented in Bokeh sliders, 
+    so the selected value is rounded to the nearest bin"""
+    return RangeAxisSelector("rechits_energy",
+        title="Rechits energy (NB:is binned, logscale)",
+        start=0.001,
+        end=20,
+        step=0.01,
+        value=(0.001, 20.),
+        logScale=True
+    )
 def makeCluster3DSizeSelector():
     return SliderMinWithOverflowAxisSelector("clus3D_size",
         title="Min 3D cluster size (ie nb of 2D clusters)",
