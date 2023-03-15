@@ -1,4 +1,4 @@
-from typing import List, Tuple, Type
+from typing import List, Tuple, Type, Callable
 from itertools import product
 import copy
 
@@ -17,11 +17,14 @@ class AbstractPlotClass:
 
 class PlotManager:
     def __init__(self, store:HistogramStore,selectors:List[Selector],
-            singlePlotClass:Type[AbstractPlotClass], multiPlotClass:Type[AbstractPlotClass]|None=None) -> None:
+            singlePlotClass:Type[AbstractPlotClass], multiPlotClass:Type[AbstractPlotClass]|None=None,
+            lambdaOnPlotCreation:Callable[[AbstractPlotClass], None]=None) -> None:
+        """ lambdaOnPlotCreation is a facultative lambda/function that is called each time a PlotClass is instantiated, with the PlotClass in parameter"""
         self.store = store
         self.singlePlotClass = singlePlotClass
         self.multiPlotClass = multiPlotClass
         self.selectors = selectors
+        self.lambdaOnPlotCreation = lambdaOnPlotCreation
         self.model = Row()
         self.plots:List[AbstractPlotClass] = []
 
@@ -60,14 +63,14 @@ class PlotManager:
             if overlaySelector is not None:
                 #Use for metadata the first overlay (otherwise the overlay axis is kept in metadata which is not wanted)
                 # TODO : have overlay axis in metadata
-                self.plots.append(self.multiPlotClass(metadata=self.makeMetadata(selectionTuple+(overlaySelector.selections()[0],)),
+                newPlot = self.multiPlotClass(metadata=self.makeMetadata(selectionTuple+(overlaySelector.selections()[0],)),
                     projectedViews={
                         overlaySelection.label : HistogramView(
                             self.store,
                             list(selectionTuple+(overlaySelection,))) # add overlay to tuple 
                         for overlaySelection in overlaySelector.selections()
                     }
-                ))
+                )
             else:
                 figure_kwargs = {}
                 if firstFigure is not None:
@@ -75,16 +78,18 @@ class PlotManager:
                     figure_kwargs["x_range"] = firstFigure.x_range
                     figure_kwargs["y_range"] = firstFigure.y_range
                 
-                self.plots.append(self.singlePlotClass(metadata=self.makeMetadata(selectionTuple),
+                newPlot = self.singlePlotClass(metadata=self.makeMetadata(selectionTuple),
                     projectedView=HistogramView(
                         self.store,
                         list(selectionTuple)
                     ),
                     **figure_kwargs
-                ))
+                )
                 if firstFigure is None:
-                    firstFigure = self.plots[0].figure
-        
+                    firstFigure = newPlot.figure
+
+            self.plots.append(newPlot)
+            self.lambdaOnPlotCreation(newPlot)
         self._updateModel()
 
     def onSelectorCallback(self, triggerSelector:Selector, plotsHaveChanged=False):
