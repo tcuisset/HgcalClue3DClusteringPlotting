@@ -11,6 +11,7 @@ class SelectorType(Enum):
     HISTOGRAM_ID = auto() # Picks a histogram from file
     PROJECTION = auto()  # Chooses a projection
     HISTOGRAM_KIND = auto() # Count/Profile/Weight
+    DENSITY_HISTOGRAM = auto() #Density/standard histogram
 
 class Selection:
     label:str = "Selection (to be filled)"
@@ -19,6 +20,9 @@ class Selection:
     def histId(self) -> Tuple[str, str]|None:
         return None
     def histKind(self) -> HistogramKind|None:
+        return None
+    def densityHistogram(self) -> bool|None:
+        """ Whether the histogram should be plotted as a density histogram or not """
         return None
 
 class Selector:
@@ -88,3 +92,17 @@ def findHistNameInSelections(selections:List[Selection]):
         if selection.histId() is not None and selection.histId()[0] == "histName":
             return selection.histId()[1]
     raise RuntimeError("Histogram name was not found in Selection list")
+
+class DensityHistogramFixedSelection(Selection):
+    label = "Density selection"
+    def __init__(self, density:bool) -> None:
+        self.density = density
+    def densityHistogram(self) -> bool | None:
+        return self.density
+
+class FixedDensityHistogramSelector(Selector):
+    def __init__(self, density:bool) -> None:
+        self.selection = DensityHistogramFixedSelection(density)
+        self.selectorType = SelectorType.DENSITY_HISTOGRAM
+    def selections(self) -> List[Selection]:
+        return [self.selection]

@@ -35,11 +35,12 @@ class Selectors:
         self.rechitEnergySelector = makeRechitEnergySelector()
         self.clus3DSizeSelector = makeCluster3DSizeSelector()
         self.histKindSelector = HistogramKindRadioButton()
-        self.mainOrAllTrackstersSelector = makeMainOrAllTrackstersSelector() 
+        self.normalizePlots = DensityHistogramToggle()
+        self.mainOrAllTrackstersSelector = makeMainOrAllTrackstersSelector()
 
         self.selectorsStandardBegin = [self.datatype_selector, self.clueParamSelector, 
                 self.beamEnergySelector, self.layerSelector]
-        self.selectorsStandardEnd = [self.histKindSelector]
+        self.selectorsStandardEnd = [self.histKindSelector, self.normalizePlots]
         self.selectorsStandard = self.selectorsStandardBegin + self.selectorsStandardEnd
 
         self.selectorsRechitsBegin = self.selectorsStandardBegin + [self.rechitEnergySelector]

@@ -114,7 +114,7 @@ class PlotManager:
             # If hitogramId have changed we need to load new histograms from files
             # If plotsHaveChanhed=True we have new plots so in this case just update everything
             self.makeEverything()
-        elif triggerSelectorType is SelectorType.PROJECTION or  triggerSelectorType is SelectorType.HISTOGRAM_KIND:
+        elif triggerSelectorType in [SelectorType.PROJECTION, SelectorType.HISTOGRAM_KIND, SelectorType.DENSITY_HISTOGRAM]:
             # Only projection values have changed
             for plot in self.plots:
                 plot.update()

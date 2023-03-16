@@ -120,3 +120,18 @@ class HistogramKindRadioButton(HistIdSelectorImpl):
     def _updateSelection(self) -> None:
         self.selection.kind = self.labels_dict[self.model.labels[self.model.active]]
 
+
+class DensityHistogramToggle(HistIdSelectorImpl):
+    selectorType = SelectorType.DENSITY_HISTOGRAM
+    def __init__(self) -> None:
+        self.model = bokeh.models.Toggle(
+            label="Density",
+            active=False
+        )
+        self.selection = DensityHistogramFixedSelection(self.model.active)
+        self._updateSelection()
+        self.model.on_change("active", self._modelCallback)
+        self.callbacks = []
+
+    def _updateSelection(self) -> None:
+        self.selection.density = self.model.active

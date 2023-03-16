@@ -1,5 +1,7 @@
 import hist
-import dbm
+import numpy as np
+import functools
+import operator
 from typing import List
 import hist
 
@@ -25,16 +27,18 @@ class HistogramView:
         self.projectedHist:hist.Hist = None
         self.histId:AbstractHistogramId = None
         self.histKind:HistogramKind = None
+        self.densityHistogram:bool = False
         self.histLambdaView = None # A lambda to apply to projectedHist that returns the relevant view for the current histogram kind
         self.slice_args_dict = None
 
     def _resetProjection(self):
         self.myHist = self.myHist.getEmptyCopy() # make an empty copy so we keep the labels but remove the data
 
-    def _buildParams(self):
+    def _buildParams(self) -> tuple[AbstractHistogramId, dict[str, slice], HistogramKind, bool]:
         histId = self.store.histIdClass()
         slice_args_dict = {}
         histogramKind = None
+        density = None
         for selection in self.selections:
             histIdTuple = selection.histId()
             slice = selection.slice()
@@ -49,7 +53,14 @@ class HistogramView:
                 if histogramKind is not None:
                     raise ValueError("Cannot specify multiple times HistogramKind")
                 histogramKind = selection.histKind()
-        return histId, slice_args_dict, histogramKind
+            elif selection.densityHistogram() is not None:
+                if density is not None:
+                    raise ValueError("Cannot specify multiple times histogram density")
+                density = selection.densityHistogram()
+        if density is None:
+            density = False
+            print("Falling back to no density")
+        return histId, slice_args_dict, histogramKind, density
     
     def _updateHist(self, newHistId):
         self.myHist = self.store.get(newHistId)
@@ -74,7 +85,8 @@ class HistogramView:
         self.projectedHist = unprojected_hist[new_slice_args_dict].project(*plotAxises)
 
     def update(self):
-        histId, slice_args_dict, requestedKind = self._buildParams()
+        histId, slice_args_dict, requestedKind, densityHistogram = self._buildParams()
+        self.densityHistogram = densityHistogram
         forceNext = False
         try:
             self.exception = None
@@ -90,16 +102,26 @@ class HistogramView:
             else:
                 newHistKind = HistogramKind.COUNT # Fallback on COUNT if we selected Weight or Profile and it's not available
 
-            if slice_args_dict != self.slice_args_dict or newHistKind != self.histKind or forceNext:
+            # Don't need to update projection if only densityHistogram is changed
+            if (slice_args_dict != self.slice_args_dict or newHistKind != self.histKind or forceNext):
                 self.histKind = newHistKind
                 self.slice_args_dict = slice_args_dict
+                self.densityHistogram = densityHistogram
                 self._updateProjection()
 
 
     def getProjectedHistogramView(self):
         """ Get the view to plot, according to histogram kind selector"""
         if self.projectedHist is not None:
-            return self.histLambdaView(self.projectedHist)
+            view = self.histLambdaView(self.projectedHist)
+            if self.densityHistogram:
+                # Code taken from hist Histogram.density()
+                # We can't use it directly as we need to use histLambdaView
+                total = np.sum(view) * functools.reduce(operator.mul, self.projectedHist.axes.widths)
+                # total is an array the same size of view 
+                return view / np.where(total > 0, total, 1)
+            else:
+                return view
         else:
             raise HistogramLoadError(self.exception)
 

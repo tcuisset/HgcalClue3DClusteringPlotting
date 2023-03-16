@@ -58,7 +58,7 @@ class QuadHistogram1D(AbstractSingleHistogram):
             self.source.data = {"top":self.histProjectedView.getProjectedHistogramView(), "left":self.metadata.axes[0].edges[:-1], "right":self.metadata.axes[0].edges[1:]}
         except HistogramLoadError:
             self.source.data = {}
-        self.figure.yaxis.axis_label = self.metadata.getPlotLabel(self.histProjectedView.histKind)
+        self.figure.yaxis.axis_label = self.metadata.getPlotLabel(self.histProjectedView.histKind, self.histProjectedView.densityHistogram)
 
 
 class QuadHistogram2D(AbstractSingleHistogram):
@@ -85,7 +85,7 @@ class QuadHistogram2D(AbstractSingleHistogram):
             self.source.data = {"histogram_2D_view":[self.histProjectedView.getProjectedHistogramView()]}
         except HistogramLoadError:
             self.source.data = {"histogram_2D_view":[]}
-        self.plottedValueTitle.text = self.metadata.getPlotLabel(self.histProjectedView.histKind)
+        self.plottedValueTitle.text = self.metadata.getPlotLabel(self.histProjectedView.histKind, self.histProjectedView.densityHistogram)
 
 
 class AbstractMultiHistogram(AbstractHistogram):
@@ -145,7 +145,7 @@ class LineHistogram1D(AbstractMultiHistogram):
             except HistogramLoadError:
                 self.source.remove(legend_name)
 
-        self.figure.yaxis.axis_label = self.metadata.getPlotLabel(self.firstProvider.histKind)
+        self.figure.yaxis.axis_label = self.metadata.getPlotLabel(self.firstProvider.histKind, self.firstProvider.densityHistogram)
 
 class StepHistogram1D(AbstractMultiHistogram):
     def __init__(self, *args, **kwargs) -> None:
@@ -184,5 +184,5 @@ class StepHistogram1D(AbstractMultiHistogram):
             except HistogramLoadError:
                 self.source.remove(legend_name)
 
-        self.figure.yaxis.axis_label = self.metadata.getPlotLabel(self.firstProvider.histKind)
+        self.figure.yaxis.axis_label = self.metadata.getPlotLabel(self.firstProvider.histKind, self.firstProvider.densityHistogram)
 

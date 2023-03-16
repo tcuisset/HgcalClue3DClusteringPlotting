@@ -80,14 +80,18 @@ class HistogramMetadata:
     weightOn:HistogramVariable|None = None
     axes:hist.axestuple.NamedAxesTuple = hist.axestuple.NamedAxesTuple
 
-    def getPlotLabel(self, kind:HistogramKind):
+    def getPlotLabel(self, kind:HistogramKind, density:bool=False):
         """ Get the label of the bin contents of histogram, depending on profile (-> profile variable label) or count (-> stored in MyHistogram, usually "Event count")"""
+        if density:
+            append = " (density)"
+        else:
+            append = ""
         if kind is HistogramKind.COUNT or kind is None:
-            return self.binCountLabel
+            return self.binCountLabel + append
         elif kind is HistogramKind.PROFILE:
-            return self.profileOn.label
+            return self.profileOn.label + append
         elif kind is HistogramKind.WEIGHT:
-            return self.weightOn.label
+            return self.weightOn.label + append
         else:
             raise ValueError("Wrong histogram kind", kind)
 
