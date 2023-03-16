@@ -82,8 +82,7 @@ class QuadHistogram2D(AbstractSingleHistogram):
     def update(self):
         super().update()
         try:
-            # It would seem that the histogram x, y view is the transpose of what is expected by bokeh, though it needs to be checked
-            self.source.data = {"histogram_2D_view":[np.transpose(self.histProjectedView.getProjectedHistogramView())]}
+            self.source.data = {"histogram_2D_view":[self.histProjectedView.getProjectedHistogramView()]}
         except HistogramLoadError:
             self.source.data = {"histogram_2D_view":[]}
         self.plottedValueTitle.text = self.metadata.getPlotLabel(self.histProjectedView.histKind)
