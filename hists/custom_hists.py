@@ -21,17 +21,10 @@ zPosition_axis = partial(hist.axis.Regular, bins=150, start=0., stop=60.)
 
 seed_axis = partial(hist.axis.IntCategory, [0, 1]) #0: not a seed, 1: is a seed
 
-cluster2D_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=100., transform=hist.axis.transform.sqrt,
-    name="clus2D_rho", label="2D cluster rho (local energy density) (MeV)")
-cluster2D_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="clus2D_delta", label="2D cluster delta (distance to nearest higher) (cm)")
-
 # An axis for difference in position (for example cluster spatial resolution)
 # 200 bins takes about 500MB of space with all the other axises (200 * 200 * 10 (beamEnergy) * 30 (layer) * 2 (mainTrackster) * 8 (double storage) = 0.2 GB)
 diffX_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_x", label="x position difference (cm)")
 diffY_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_y", label="y position difference (cm)")
-
-
-
 
 
 ############# IMPACT
@@ -144,7 +137,28 @@ class RechitsRhoDelta(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})
 
+class RechitsSeed(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis, layerAxis, rechits_energy_axis(),
+            seed_axis(name="rechits_isSeed", label="1: rechits is a seed, 0: not a seed"),
+
+            label="RecHit seed",
+            binCountLabel="RecHits count",
+            profileOn=rechits_energy_profileVariable,
+            weightOn=rechits_energy_weightVariable
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})    
+
 ############# 2D clusters ######################
+clus2D_energy_axis = partial(hist.axis.Regular, bins=50, start=0.01, stop=70., transform=hist.axis.transform.log,
+    name="clus2D_energy", label="2D cluster energy (MeV)")
+
+cluster2D_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=100., transform=hist.axis.transform.sqrt,
+    name="clus2D_rho", label="2D cluster rho (local energy density) (MeV)")
+cluster2D_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="clus2D_delta", label="2D cluster delta (distance to nearest higher) (cm)")
+
 class Clus2DPositionXY(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis,
@@ -252,6 +266,19 @@ class Cluster2DRhoDelta(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.clusters2D, {'layer' : "clus2D_layer"})
 
+class Cluster2DSeed(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis, layerAxis, clus2D_energy_axis(),
+            seed_axis(name="rechits_isSeed", label="1: rechits is a seed, 0: not a seed"),
+
+            label="RecHit seed",
+            binCountLabel="RecHits count",
+            profileOn=rechits_energy_profileVariable,
+            weightOn=rechits_energy_weightVariable
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})    
 
 ###################   3D clusters  ##################
 clus3D_mainOrAllTracksters_axis = hist.axis.StrCategory(["allTracksters", "mainTrackster"], name="mainOrAllTracksters",

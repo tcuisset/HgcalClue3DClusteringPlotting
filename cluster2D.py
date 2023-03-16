@@ -17,6 +17,7 @@ curdoc().add_root(row(
         s.tabStandard("Rho", "Cluster2DRho"),
         s.tabStandard("Delta", "Cluster2DDelta"),
         s.tabStandard("Rho-Delta", "Cluster2DRhoDelta", plotType="2d"),
+        s.tabStandard("Seed", "Cluster2DSeed", plotType="2d")
     ])
 ))
 
