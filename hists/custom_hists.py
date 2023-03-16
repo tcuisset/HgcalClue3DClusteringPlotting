@@ -63,7 +63,7 @@ class RechitsEnergy(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis,
             hist.axis.Regular(bins=500, start=0.002, stop=20., transform=hist.axis.transform.log,
-                name="rechits_energy", label="Rechits energy"),
+                name="rechits_energy", label="Rechits energy (MeV)"),
             label="RecHits energy",
             binCountLabel="RecHits count",
         )
