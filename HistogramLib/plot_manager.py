@@ -66,7 +66,15 @@ class PlotManager:
         for selection, lenSelections in selectionLengthTuple:
             if selection.slice() is not None and selection.slice().axisName in metadata.axes.name:
                 slicedAxes.add(selection.slice().axisName)
-        metadata.axes = NamedAxesTuple(metadata.axes[axisName] for axisName in set(metadata.axes.name).difference(slicedAxes))
+        
+        # We need to make sure the order of axes in the metadata is the same as that returned by HistogramView
+        unslicedAxes = []
+        for axis in metadata.axes:
+            if axis.name not in slicedAxes:
+                unslicedAxes.append(axis)
+        metadata.axes = NamedAxesTuple(unslicedAxes)
+        # The following does not work due to misordering of axes : 
+        #metadata.axes = NamedAxesTuple(metadata.axes[axisName] for axisName in set(metadata.axes.name).difference(slicedAxes))
         metadata.title += " "+" ".join(selection.label for selection, lenSelections in selectionLengthTuple if lenSelections > 1)
         return metadata
 

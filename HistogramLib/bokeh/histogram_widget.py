@@ -83,7 +83,7 @@ class QuadHistogram2D(AbstractSingleHistogram):
     def update(self):
         super().update()
         try:
-            self.source.data = {"histogram_2D_view":[self.histProjectedView.getProjectedHistogramView()]}
+            self.source.data = {"histogram_2D_view":[np.transpose(self.histProjectedView.getProjectedHistogramView())]}
         except HistogramLoadError:
             self.source.data = {"histogram_2D_view":[]}
         self.plottedValueTitle.text = self.metadata.getPlotLabel(self.histProjectedView.histKind, self.histProjectedView.densityHistogram)
