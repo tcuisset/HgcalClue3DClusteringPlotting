@@ -10,5 +10,6 @@ curdoc().add_root(row(
     Tabs(tabs=[
         s.tabClue3D("Spatial resolution", "Clus3DSpatialResolutionOf2DClusters", plotType="2d"),
         s.tabClue3D("Position X-Y", "Clus3DPositionXY",  plotType="2d"),
+        s.tabClue3D("Spatial resolution", "Clus3DSpatialResolutionUsingLayerWithMax2DEnergyXY", plotType="2d")
     ])
 ))

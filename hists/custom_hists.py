@@ -277,6 +277,25 @@ class Clus3DPositionXY(MyHistogram):
         self.fillFromDf(comp.clusters3D, valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
         self.fillFromDf(comp.clusters3D_largestCluster, valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
 
+class Clus3DSpatialResolutionUsingLayerWithMax2DEnergyXY(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(
+            beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
+            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus3D_x", label="3D cluster x-impactX (cm)"), 
+            hist.axis.Regular(bins=100, start=-10., stop=10., name="clus3D_y", label="3D cluster y-impactY (cm)"),
+            label = "3D cluster X-Y position minus impact position\n(impact at layer with highest 2D clustered energy of each 3D cluster)",
+            binCountLabel="3D clusters count",
+            profileOn=HistogramVariable('clus3D_energy', 'Mean of 3D cluster energies in each bin (MeV)'),
+            weightOn=HistogramVariable('clus3D_energy', 'Sum of 3D cluster energies in each bin (MeV)')
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.clusters3D_impact_usingLayerWithMax2DClusteredEnergy, valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
+        self.fillFromDf((comp.clusters3D_impact_usingLayerWithMax2DClusteredEnergy
+                .set_index("clus3D_id", append=True)
+                .loc[comp.clusters3D_largestClusterIndex]),
+            valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
+
 class Clus3DPositionZ(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,

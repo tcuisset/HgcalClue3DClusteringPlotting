@@ -1,4 +1,5 @@
 from functools import cached_property
+import operator
 
 import awkward as ak
 import pandas as pd
@@ -293,3 +294,47 @@ class DataframeComputations:
         )
         df["clus3D_numLayers"] = df["clus2D_layer_max"] - df["clus2D_layer_min"]+1
         return df["clus3D_numLayers"] < minNumLayerCluster
+    
+    @property
+    def clusters3D_layerWithMaxClusteredEnergy(self):
+        """ Returns a Series, indexed by (event, clus3D_id), with the layer with maximum 2D clustered energy for each 3D cluster """
+        return (
+            self.clusters3D_merged_2D[["clus2D_energy", "clus2D_layer"]]
+
+            # For each event, cluster 3D and layer, sum clus2D_energy
+            .groupby(by=["event", "clus3D_id", "clus2D_layer"]).sum() 
+
+            # Extract series of clus2D_energy, which is the sum of 2D clusters energies per event, clus3D and layer
+            # (seems to be faster with series than dataframe with a single column)
+            ["clus2D_energy"]   
+
+            #Get the index of the layer with maximum 2D clustered energy
+            #Result is a series of tuple (event, clus3D_id, layer), indexed by (event, clus3D_id)
+            .groupby(by=["event", "clus3D_id"]).idxmax() 
+
+            # Get for each tuple the layer element (the other two are duplicates of Series index)
+            .apply(operator.itemgetter(2))
+        )
+    
+    @property
+    def clusters3D_impact_usingLayerWithMax2DClusteredEnergy(self):
+        """ Add a column to clusters3D with the difference between clus3D_x and impactX, impactX being computed on the layer with maximum 2D clustered energy (of each cluster 3D)
+        Index : event
+        Columns : clus3D_id	beamEnergy	clus3D_x	clus3D_y	clus3D_z	clus3D_energy	clus3D_size	max_layer	layer_with_max_clustered_energy	impactX	impactY	clus3D_diff_impact_x clus3D_diff_impact_y
+        """
+        self.clusters3D["layer_with_max_clustered_energy"] = self.clusters3D_layerWithMaxClusteredEnergy
+
+        merged_df = pd.merge(
+            # Left : need to reset clus3D_id index otherwise it gets lost in the merge
+            self.clusters3D.reset_index(level="clus3D_id"),
+            # Right :
+            self.impact,
+            how='left', # Left join so we preserve all 3D clusters
+
+            # Map event and layer
+            left_on=["event", "layer_with_max_clustered_energy"],
+            right_on=["event", "layer"]
+        )
+        merged_df["clus3D_diff_impact_x"] = merged_df["clus3D_x"] - merged_df["impactX"]
+        merged_df["clus3D_diff_impact_y"] = merged_df["clus3D_y"] - merged_df["impactY"]
+        return merged_df
