@@ -18,6 +18,6 @@ curdoc().add_root(row(
         s.tabRechits("Delta", "RechitsDelta"),
         s.tabRechits("Rho-Delta", "RechitsRhoDelta", plotType="2d"),
         s.tabRechits("Seed (1D)", "RechitsSeed"),
-        s.tabStandard("Seed (vs energy)", "RechitsSeed"), # use tabStandard (idem)
+        s.tabStandard("Seed (vs energy)", "RechitsSeed", plotType="2d"), # use tabStandard (idem)
     ])
 ))
