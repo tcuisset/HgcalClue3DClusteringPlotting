@@ -405,3 +405,18 @@ class Clus3DNumberOf2DClustersPerLayer(MyHistogram):
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
         self.fillFromDf(comp.clusters3D_merged_2D.loc[comp.clusters3D_largestClusterIndex], 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
+
+# Note : here layer is meant as a plot axis (not to be used with a slider)
+class Clus3DClusteredEnergyPerLayer(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
+            layerAxis_custom(name="clus2D_layer"), 
+            label="Clustered energy by CLUE3D per layer",
+            profileOn=HistogramVariable('clus2D_energy_sum', 'Mean of the 2D clustered energy by CLUE3D for each layer and each 3D cluster (MeV)'),
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.clusters3D_energyClusteredPerLayer.reset_index(level="clus2D_layer"), 
+            valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
+        self.fillFromDf(comp.clusters3D_energyClusteredPerLayer.reset_index(level="clus2D_layer").loc[comp.clusters3D_largestClusterIndex], 
+            valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})

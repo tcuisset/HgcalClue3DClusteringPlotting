@@ -295,18 +295,33 @@ class DataframeComputations:
         df["clus3D_numLayers"] = df["clus2D_layer_max"] - df["clus2D_layer_min"]+1
         return df["clus3D_numLayers"] < minNumLayerCluster
     
+    @cached_property
+    def clusters3D_energyClusteredPerLayer(self) -> pd.DataFrame:
+        """ Compute total 2D clustered energy per layer for each 3D cluster 
+        MultiIndex : event	clus3D_id	clus2D_layer
+        Columns : beamEnergy clus3D_size clus3D_energy	clus2D_energy_sum
+        """
+        return (
+            self.clusters3D_merged_2D[["beamEnergy", "clus3D_energy", "clus3D_size", "clus2D_energy", "clus2D_layer"]]
+
+            # For each event, cluster 3D and layer, sum clus2D_energy
+            .groupby(by=["event", "clus3D_id", "clus2D_layer"]).agg(
+                beamEnergy=pd.NamedAgg(column="beamEnergy", aggfunc="first"),
+                clus3D_size=pd.NamedAgg(column="clus3D_size", aggfunc="first"),
+                clus3D_energy=pd.NamedAgg(column="clus3D_energy", aggfunc="first"),
+                clus2D_energy_sum=pd.NamedAgg(column="clus2D_energy", aggfunc="sum")
+            )
+        )
+    
     @property
     def clusters3D_layerWithMaxClusteredEnergy(self):
         """ Returns a Series, indexed by (event, clus3D_id), with the layer with maximum 2D clustered energy for each 3D cluster """
         return (
-            self.clusters3D_merged_2D[["clus2D_energy", "clus2D_layer"]]
+            self.clusters3D_energyClusteredPerLayer
 
-            # For each event, cluster 3D and layer, sum clus2D_energy
-            .groupby(by=["event", "clus3D_id", "clus2D_layer"]).sum() 
-
-            # Extract series of clus2D_energy, which is the sum of 2D clusters energies per event, clus3D and layer
+            # Extract series of clus2D_energy_sum, which is the sum of 2D clusters energies per event, clus3D and layer
             # (seems to be faster with series than dataframe with a single column)
-            ["clus2D_energy"]   
+            ["clus2D_energy_sum"]   
 
             #Get the index of the layer with maximum 2D clustered energy
             #Result is a series of tuple (event, clus3D_id, layer), indexed by (event, clus3D_id)
