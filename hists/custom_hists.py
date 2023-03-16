@@ -269,16 +269,16 @@ class Cluster2DRhoDelta(MyHistogram):
 class Cluster2DSeed(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis, clus2D_energy_axis(),
-            seed_axis(name="rechits_isSeed", label="1: rechits is a seed, 0: not a seed"),
+            seed_axis(name="clus2D_isSeed", label="1: 2D cluster is a seed, 0: not a seed"),
 
-            label="RecHit seed",
-            binCountLabel="RecHits count",
-            profileOn=rechits_energy_profileVariable,
-            weightOn=rechits_energy_weightVariable
+            label="Cluster 2D seed",
+            binCountLabel="Cluster 2D count",
+            profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster reconstructed energy over all 2D clusters in this bin (MeV)'),
+            weightOn=HistogramVariable('clus2D_energy', 'Sum of the energies of all 2D clusters in each bin (MeV)')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})    
+        self.fillFromDf(comp.clusters2D, {'layer' : "clus2D_layer"})    
 
 ###################   3D clusters  ##################
 clus3D_mainOrAllTracksters_axis = hist.axis.StrCategory(["allTracksters", "mainTrackster"], name="mainOrAllTracksters",
