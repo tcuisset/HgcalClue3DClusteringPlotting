@@ -51,6 +51,23 @@ class DataframeComputations:
             levelname=lambda i : {0 : "event", 1:"rechit_id"}[i])
 
     @cached_property
+    def layerToZMapping(self) -> dict[int, float]:
+        """ Returns a dict layer_nb -> layer z position """
+        return self.rechits[["rechits_z", "rechits_layer"]].groupby("rechits_layer").first()["rechits_z"].to_dict()
+
+    @property
+    def impactWithZPosition(self) -> pd.DataFrame:
+        """ Transform impact df to use z layer position instead of layer number 
+        MultiIndex : (event, impactZ)
+        Columns : impactX, impactY
+        """
+        # Select only values of layer that are in the dictionnary layerToZMapping (otherwise you have a column with layer numbers and z positions at the same time)
+        df = self.impact.iloc[self.impact.index.get_level_values("layer") <= max(self.layerToZMapping)].rename(
+            index=self.layerToZMapping, level="layer")
+        df.index.names = ["event", "impactZ"] # Rename layer -> impactZ
+        return df
+
+    @cached_property
     def clusters2D(self) -> pd.DataFrame:
         """
         Builds a pandas DataFrame holding all 2D cluster information (without any rechit info)
