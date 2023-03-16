@@ -120,13 +120,3 @@ class HistogramKindRadioButton(HistIdSelectorImpl):
     def _updateSelection(self) -> None:
         self.selection.kind = self.labels_dict[self.model.labels[self.model.active]]
 
-    def _modelCallback(self, attr, old, new):
-        self._updateSelection()
-        for callback in self.callbacks:
-            callback(self, plotsHaveChanged=False)
-    
-    def selections(self) -> List[Selection]:
-        return [self.selection]
-
-    def registerCallback(self, callback):
-        self.callbacks.append(callback)
