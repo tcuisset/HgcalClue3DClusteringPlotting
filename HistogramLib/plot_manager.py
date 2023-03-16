@@ -19,13 +19,18 @@ class AbstractPlotClass:
 class PlotManager:
     def __init__(self, store:HistogramStore,selectors:List[Selector],
             singlePlotClass:Type[AbstractPlotClass], multiPlotClass:Type[AbstractPlotClass]|None=None,
-            lambdaOnPlotCreation:Callable[[AbstractPlotClass], None]=None) -> None:
-        """ lambdaOnPlotCreation is a facultative lambda/function that is called each time a PlotClass is instantiated, with the PlotClass in parameter"""
+            lambdaOnPlotCreation:Callable[[AbstractPlotClass], None]=None,
+            **kwargs_plot) -> None:
+        """
+        lambdaOnPlotCreation is a facultative lambda/function that is called each time a PlotClass is instantiated, with the PlotClass in parameter
+        kwargs_plot are keyword arguments passed on to the plot class (which then usually passes them on to the bokeh figure)
+        """
         self.store = store
         self.singlePlotClass = singlePlotClass
         self.multiPlotClass = multiPlotClass
         self.selectors = selectors
         self.lambdaOnPlotCreation = lambdaOnPlotCreation
+        self.kwargs_plot = kwargs_plot
         self.model = Row()
         self.plots:List[AbstractPlotClass] = []
 
@@ -83,10 +88,11 @@ class PlotManager:
                             self.store,
                             list(selectionList+[overlaySelection])) # add overlay to tuple 
                         for overlaySelection in overlaySelector.selections()
-                    }
+                    },
+                    **self.kwargs_plot
                 )
             else:
-                figure_kwargs = {}
+                figure_kwargs = copy.copy(self.kwargs_plot)
                 if firstFigure is not None:
                     # Enable linked panning and zooming : https://docs.bokeh.org/en/latest/docs/user_guide/interaction/linking.html#linked-panning
                     figure_kwargs["x_range"] = firstFigure.x_range

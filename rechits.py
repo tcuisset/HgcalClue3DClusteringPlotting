@@ -11,6 +11,7 @@ curdoc().add_root(row(
     s.makeWidgetColumnRechits(),
     Tabs(tabs=[
         s.tabStandard("Energy", "RechitsEnergy"), # Use tabStandard otherwise rechits_energy gets projected and there is nothing left to plot
+        s.tabStandard("Energy (logY)", "RechitsEnergy", y_axis_type="log"),
         s.tabRechits("Position X-Y", "RechitsPositionXY", plotType="2d"),
         s.tabRechits("Position layer", "RechitsPositionLayer"),
         s.tabRechits("Rho", "RechitsRho"),

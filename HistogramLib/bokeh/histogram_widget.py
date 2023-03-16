@@ -50,7 +50,8 @@ class QuadHistogram1D(AbstractSingleHistogram):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.update()
-        self.figure.quad(bottom=0, source=self.source)
+        #Putting bottom=0 breaks logscale, so just put a very low value
+        self.figure.quad(bottom=1e-20, source=self.source)
     
     def update(self):
         super().update()
