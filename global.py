@@ -12,7 +12,7 @@ curdoc().add_root(row(
         TabPanel(title="Total energy",
             child=PlotManager(store=histStore, 
             selectors=s.selectorsClue3D + [HistogramIdNameMultiSelector([
-                "RechitsTotalEnergyClusteredPerEvent", "EnergyClustered2DPerEvent", "Clus3DClusteredEnergy"])],
+                "RechitsTotalEnergyPerEvent", "EnergyClustered2DPerEvent", "Clus3DClusteredEnergy"])],
             singlePlotClass=None, multiPlotClass=StepHistogram1D,
             ).model
         )

@@ -85,7 +85,7 @@ class RechitsPositionXY(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'pointType':'rechits_pointType'})
 
-class RechitsTotalEnergyClusteredPerEvent(MyHistogram):
+class RechitsTotalEnergyPerEvent(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, 
             totalClusteredEnergy_axis(name="rechits_energy_sum", label="Total reconstructed energy per event (GeV)"),
