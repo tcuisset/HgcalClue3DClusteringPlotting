@@ -16,28 +16,32 @@ class ExplodeSelector(Selector):
     def __init__(self, baseSelector:ExplodableSelector) -> None: #baseSelector must be Selector and have a .model and .allSelections
         self.baseSelector = baseSelector
         self.selectorType = baseSelector.selectorType
-        self.toggle = bokeh.models.Toggle(
-            label="Explode",
+        self.button = bokeh.models.RadioButtonGroup(
+            labels=["Single", "Duplicate", "Overlay"],
+            active=0
         )
-        self.model = row(baseSelector.model, self.toggle)
+        self.model = row(baseSelector.model, self.button)
         self.callbacks = []
-        self.toggle.on_change('active', self._toggleCallback)
+        self.button.on_event('button_click', self._buttonCallback)
 
     def selections(self) -> List[Selection]:
-        if self.toggle.active:
+        if self.button.active == 1 or self.button.active == 2:
             #Explode
             return self.baseSelector.allSelections
         else:
             return self.baseSelector.selections()
 
     def explodePlotType(self) -> ExplodePlotType:
-        return self.baseSelector.explodePlotType()
+        if self.button.active == 1:
+            return ExplodePlotType.MULTIPLE_PLOT
+        else:
+            return ExplodePlotType.OVERLAY
     
     def registerCallback(self, callback):
         self.baseSelector.registerCallback(callback)
         self.callbacks.append(callback)
 
-    def _toggleCallback(self, attr, old, new):
+    def _buttonCallback(self):
         for callback in self.callbacks:
             callback(self, plotsHaveChanged=True)
 
