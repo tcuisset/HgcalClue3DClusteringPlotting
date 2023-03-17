@@ -166,7 +166,7 @@ cluster2D_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., na
 
 class Clus2DPositionXY(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis,
+        super().__init__(beamEnergiesAxis, layerAxis,
             hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_x", label="2D cluster x position (cm)"), 
             hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_y", label="2D cluster y position (cm)"),
             label = "2D cluster X-Y position",
@@ -176,7 +176,7 @@ class Clus2DPositionXY(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.clusters2D)
+        self.fillFromDf(comp.clusters2D, {'layer' : "clus2D_layer"})
 
 class Clus2DPositionLayer(MyHistogram):
     def __init__(self) -> None:
