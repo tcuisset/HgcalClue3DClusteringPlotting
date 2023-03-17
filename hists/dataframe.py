@@ -51,6 +51,17 @@ class DataframeComputations:
             "rechits_rho", "rechits_delta", "rechits_pointType"]], 
             levelname=lambda i : {0 : "event", 1:"rechit_id"}[i])
 
+    @property
+    def rechits_totalReconstructedEnergyPerEvent(self) -> pd.DataFrame:
+        """ Sum of all rechits energy per event
+        Index : event
+        Columns : beamEnergy rechits_energy_sum
+        """
+        return self.rechits[["beamEnergy", "rechits_energy"]].groupby(by="event").agg(
+            beamEnergy=pd.NamedAgg(column="beamEnergy", aggfunc="first"),
+            rechits_energy_sum=pd.NamedAgg(column="rechits_energy", aggfunc="sum"),
+        )
+
     @cached_property
     def layerToZMapping(self) -> dict[int, float]:
         """ Returns a dict layer_nb -> layer z position """
@@ -119,6 +130,16 @@ class DataframeComputations:
             validate="one_to_one"               # Cross-check :  Make sure there are no weird things (such as duplicate ids), should not be needed
         )
 
+    @property
+    def clusters2D_totalEnergyPerEvent(self) -> pd.DataFrame:
+        """ Computer per event the total clustered energy by CLUE2D
+        Index : event
+        Columns : beamEnergy clus2D_energy_sum
+        """
+        return self.clusters2D[["beamEnergy", "clus2D_energy"]].groupby(by=['event']).agg(
+                beamEnergy=pd.NamedAgg(column="beamEnergy", aggfunc="first"),
+                clus2D_energy_sum=pd.NamedAgg(column="clus2D_energy", aggfunc="sum"),
+            )
     
     def get_clusters2D_perLayerInfo(self, withBeamEnergy=True) -> pd.DataFrame:
         """

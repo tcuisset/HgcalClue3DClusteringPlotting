@@ -27,6 +27,8 @@ pointType_axis = partial(hist.axis.IntCategory, [0, 1, 2],  label="0 : follower,
 diffX_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_x", label="x position difference (cm)")
 diffY_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_y", label="y position difference (cm)")
 
+# Axis for plotting total clustered energy per event
+totalClusteredEnergy_axis = partial(hist.axis.Regular, bins=500, start=0, stop=350)
 
 ############# IMPACT
 class ImpactXY(MyHistogram):
@@ -81,6 +83,18 @@ class RechitsPositionXY(MyHistogram):
 
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})
+
+class RechitsTotalEnergyClusteredPerEvent(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis, 
+            totalClusteredEnergy_axis(name="rechits_energy_sum", label="Total reconstructed energy per event"),
+
+            label="Total rechit energy per event",
+            binCountLabel="Event count",
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.rechits_totalReconstructedEnergyPerEvent)
 
 class RechitsPositionLayer(MyHistogram):
     def __init__(self) -> None:
@@ -204,6 +218,17 @@ class EnergyClustered2DPerLayer(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         # no need for mapping as the layerAxis has the right name
         self.fillFromDf(comp.get_clusters2D_perLayerInfo(withBeamEnergy=True).reset_index(level="clus2D_layer")) 
+
+class EnergyClustered2DPerEvent(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis,
+            totalClusteredEnergy_axis(name="clus2D_energy_sum", label="Total clustered energy by CLUE2D"),
+            label="Sum of all 2D clustered energy per event",
+            binCountLabel="Event count",
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.clusters2D_totalEnergyPerEvent) 
 
 # Note : here layer is meant as a plot axis (not to be used with a slider)
 class LayerWithMaximumClustered2DEnergy(MyHistogram):
@@ -425,4 +450,17 @@ class Clus3DClusteredEnergyPerLayer(MyHistogram):
         self.fillFromDf(comp.clusters3D_energyClusteredPerLayer.reset_index(level="clus2D_layer"), 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
         self.fillFromDf(comp.clusters3D_energyClusteredPerLayer.reset_index(level="clus2D_layer").loc[comp.clusters3D_largestClusterIndex], 
+            valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
+
+class Clus3DClusteredEnergy(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis, clus3D_mainOrAllTracksters_axis, cluster3D_size_axis,
+            totalClusteredEnergy_axis(name="clus3D_energy", label="3D cluster energy"),
+            label="Clustered energy by CLUE3D",
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.clusters3D, 
+            valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
+        self.fillFromDf(comp.clusters3D_largestCluster, 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
