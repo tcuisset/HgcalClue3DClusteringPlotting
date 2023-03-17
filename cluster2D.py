@@ -9,7 +9,6 @@ s = Selectors()
 curdoc().add_root(row(
     s.makeWidgetColumnStandard(),
     Tabs(tabs=[
-        s.tabStandard("Position XY", "Clus2DPositionXY", plotType="2d"),
         s.tabStandard("Position layer", "Clus2DPositionLayer"),
         s.tabStandard("Total energy", "EnergyClustered2DPerEvent"),
         s.tabStandard("Energy per layer", "EnergyClustered2DPerLayer"),
@@ -17,8 +16,6 @@ curdoc().add_root(row(
         s.tabStandard("Nb of clusters per layer", "NumberOf2DClustersPerLayer"),
         s.tabStandard("Rho", "Cluster2DRho"),
         s.tabStandard("Delta", "Cluster2DDelta"),
-        s.tabStandard("Rho-Delta", "Cluster2DRhoDelta", plotType="2d"),
-        s.tabStandard("PointType", "Cluster2DPointType", plotType="2d")
     ])
 ))
 
