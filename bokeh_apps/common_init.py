@@ -32,6 +32,7 @@ class Selectors:
         #self.clueParamSelector = PlaceholderClueParamsSelector()
         self.layerSelector = makeLayerSelector()
         self.beamEnergySelector = makeBeamEnergySelector()
+        self.pointTypeSelector = makePointTypeSelector()
         self.rechitEnergySelector = makeRechitEnergySelector()
         self.clus3DSizeSelector = makeCluster3DSizeSelector()
         self.histKindSelector = HistogramKindRadioButton()
@@ -39,7 +40,7 @@ class Selectors:
         self.mainOrAllTrackstersSelector = makeMainOrAllTrackstersSelector()
 
         self.selectorsStandardBegin = [self.datatype_selector, self.clueParamSelector, 
-                self.beamEnergySelector, self.layerSelector]
+                self.beamEnergySelector, self.layerSelector, self.pointTypeSelector]
         self.selectorsStandardEnd = [self.histKindSelector, self.normalizePlots]
         self.selectorsStandard = self.selectorsStandardBegin + self.selectorsStandardEnd
 

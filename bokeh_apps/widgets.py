@@ -42,6 +42,15 @@ def makeRechitEnergySelector():
         value=(0.001, 20.),
         logScale=True
     )
+
+def makePointTypeSelector():
+    return ExplodeSelector(MultiSelectAxisSelector("pointType",
+        title="Point type",
+        options=[("0", "follower"), ("1", "seed"), ("2", "outlier")],
+        value=["0", "1", "2"],
+        height=80
+    ))
+
 def makeCluster3DSizeSelector():
     return SliderMinWithOverflowAxisSelector("clus3D_size",
         title="Min 3D cluster size (ie nb of 2D clusters)",

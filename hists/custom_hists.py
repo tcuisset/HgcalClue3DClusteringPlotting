@@ -20,7 +20,7 @@ xyPosition_axis = partial(hist.axis.Regular, bins=150, start=-10., stop=10.)
 zPosition_axis = partial(hist.axis.Regular, bins=150, start=0., stop=60.)
 
 # See PointsCloud.h PointsCloud::PointType for which values correspond to what number
-pointType_axis = partial(hist.axis.IntCategory, [0, 1, 2],  label="0 : follower, 1 : seed, 2: outlier")
+pointType_axis = partial(hist.axis.IntCategory, [0, 1, 2], name="pointType",  label="0 : follower, 1 : seed, 2: outlier")
 
 # An axis for difference in position (for example cluster spatial resolution)
 # 200 bins takes about 500MB of space with all the other axises (200 * 200 * 10 (beamEnergy) * 30 (layer) * 2 (mainTrackster) * 8 (double storage) = 0.2 GB)
@@ -58,7 +58,7 @@ rechits_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name
 # Here rechits_energy is meant as a plot axis so we change its name to rechits_energy_plotAxis so it is not projected on automatically
 class RechitsEnergy(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis,
+        super().__init__(beamEnergiesAxis, layerAxis, pointType_axis(),
             hist.axis.Regular(bins=500, start=0.002, stop=20., transform=hist.axis.transform.log,
                 name="rechits_energy_plotAxis", label="Rechits energy (GeV)"),
             label="RecHits energy",
@@ -66,12 +66,13 @@ class RechitsEnergy(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'rechits_energy_plotAxis' : 'rechits_energy'})
+        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'rechits_energy_plotAxis' : 'rechits_energy',
+            'pointType':'rechits_pointType'})
 
 # Takes a lot of memory
 class RechitsPositionXY(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis,
+        super().__init__(beamEnergiesAxis, layerAxis, pointType_axis(),
             xyPosition_axis(name="rechits_x", label="RecHit x position (cm)", bins=100),
             xyPosition_axis(name="rechits_y", label="RecHit y position (cm)", bins=100),
 
@@ -82,7 +83,7 @@ class RechitsPositionXY(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})
+        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'pointType':'rechits_pointType'})
 
 class RechitsTotalEnergyClusteredPerEvent(MyHistogram):
     def __init__(self) -> None:
@@ -98,7 +99,7 @@ class RechitsTotalEnergyClusteredPerEvent(MyHistogram):
 
 class RechitsPositionLayer(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, rechits_energy_axis(),
+        super().__init__(beamEnergiesAxis, rechits_energy_axis(), pointType_axis(),
             layerAxis_custom(name="rechits_layer", label="RecHit layer number"),
 
             label="RecHits layer number",
@@ -108,11 +109,11 @@ class RechitsPositionLayer(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits)
+        self.fillFromDf(comp.rechits, {'pointType':'rechits_pointType'})
 
 class RechitsRho(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis, rechits_energy_axis(),
+        super().__init__(beamEnergiesAxis, layerAxis, rechits_energy_axis(),  pointType_axis(),
             rechits_rho_axis(),
 
             label="RecHits rho (local energy density)",
@@ -122,11 +123,11 @@ class RechitsRho(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})
+        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'pointType':'rechits_pointType'})
 
 class RechitsDelta(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis, rechits_energy_axis(),
+        super().__init__(beamEnergiesAxis, layerAxis, rechits_energy_axis(), pointType_axis(),
             rechits_delta_axis(),
 
             label="RecHit delta (distance to nearest higher)",
@@ -136,7 +137,7 @@ class RechitsDelta(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})
+        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'pointType':'rechits_pointType'})
 
 class RechitsRhoDelta(MyHistogram):
     def __init__(self) -> None:
@@ -157,7 +158,7 @@ class RechitsRhoDelta(MyHistogram):
 class RechitsPointType(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis, 
-            pointType_axis(name="rechits_pointType"),
+            pointType_axis(name="rechits_pointType"), # we want pointType as plot axis : do not call it pointType
             rechits_energy_axis(),
 
             label="RecHit Follower/Seed/Outlier",
@@ -180,7 +181,7 @@ cluster2D_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., na
 
 class Clus2DPositionXY(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis,
+        super().__init__(beamEnergiesAxis, layerAxis, pointType_axis(),
             hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_x", label="2D cluster x position (cm)"), 
             hist.axis.Regular(bins=100, start=-10., stop=10., name="clus2D_y", label="2D cluster y position (cm)"),
             label = "2D cluster X-Y position",
@@ -190,11 +191,11 @@ class Clus2DPositionXY(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.clusters2D, {'layer' : "clus2D_layer"})
+        self.fillFromDf(comp.clusters2D, {'layer' : "clus2D_layer", 'pointType' : 'clus2D_pointType'})
 
 class Clus2DPositionLayer(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis,
+        super().__init__(beamEnergiesAxis,  pointType_axis(),
             layerAxis_custom(name="clus2D_layer", label="2D cluster layer"),
             label = "2D cluster layer",
             binCountLabel="2D clusters count",
@@ -203,12 +204,12 @@ class Clus2DPositionLayer(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.clusters2D)
+        self.fillFromDf(comp.clusters2D, {'pointType' : 'clus2D_pointType'})
 
 # Note : here layer is meant as a plot axis (not to be used with a slider), thus we change its name
 class EnergyClustered2DPerLayer(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis_custom(name="clus2D_layer"), 
+        super().__init__(beamEnergiesAxis, layerAxis_custom(name="clus2D_layer"),
             label="Sum of 2D clusters energies per layer",
             binCountLabel="Event count",
             profileOn=HistogramVariable('clus2D_energy_sum', 'Mean, over all events, of the sum of 2D clusters energies in each layer (GeV)'),
@@ -258,7 +259,7 @@ class NumberOf2DClustersPerLayer(MyHistogram):
 
 class Cluster2DRho(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis,
+        super().__init__(beamEnergiesAxis, layerAxis, pointType_axis(),
             cluster2D_rho_axis(),
             label="2D cluster rho (local energy density)",
             binCountLabel="2D clusters count",
@@ -267,11 +268,11 @@ class Cluster2DRho(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.clusters2D, {'layer' : "clus2D_layer"})
+        self.fillFromDf(comp.clusters2D, {'layer' : "clus2D_layer", 'pointType' : 'clus2D_pointType'})
 
 class Cluster2DDelta(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis,
+        super().__init__(beamEnergiesAxis, layerAxis, pointType_axis(),
             cluster2D_delta_axis(),
             label="2D cluster delta (distance to nearest higher)",
             binCountLabel="2D clusters count",
@@ -280,7 +281,7 @@ class Cluster2DDelta(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.clusters2D, {'layer' : "clus2D_layer"})
+        self.fillFromDf(comp.clusters2D, {'layer' : "clus2D_layer", 'pointType' : 'clus2D_pointType'})
 
 class Cluster2DRhoDelta(MyHistogram):
     def __init__(self) -> None:
@@ -299,7 +300,7 @@ class Cluster2DRhoDelta(MyHistogram):
 class Cluster2DPointType(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis,
-            pointType_axis(name="clus2D_pointType"),
+            pointType_axis(name="clus2D_pointType"), # we want pointType as plot axis : do not call it pointType
             clus2D_energy_axis(),
 
             label="Cluster 2D Follower/Seed/Outlier",
