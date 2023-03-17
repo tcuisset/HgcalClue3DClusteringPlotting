@@ -6,10 +6,11 @@ from HistogramLib.bokeh.histogram_widget import *
 
 s = Selectors()
 
-curdoc().add_root(layout(
-[
-    [ # First line
-        s.makeWidgetColumnStandard(),
-        s.MakePlotStandard('ImpactXY', plotType="2d")
-    ],
-]))
+curdoc().add_root(row(
+    s.makeWidgetColumnStandard(),
+    Tabs(tabs=[
+        s.tabStandard("Impact X-Y", 'ImpactXY', plotType="2d")
+    ])
+))
+
+
