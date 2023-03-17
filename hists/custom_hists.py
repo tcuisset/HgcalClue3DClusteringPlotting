@@ -19,7 +19,8 @@ layerAxis_custom = partial(hist.axis.Integer, start=0, stop=30, name="layer", la
 xyPosition_axis = partial(hist.axis.Regular, bins=150, start=-10., stop=10.)
 zPosition_axis = partial(hist.axis.Regular, bins=150, start=0., stop=60.)
 
-seed_axis = partial(hist.axis.IntCategory, [0, 1]) #0: not a seed, 1: is a seed
+# See PointsCloud.h PointsCloud::PointType for which values correspond to what number
+pointType_axis = partial(hist.axis.IntCategory, [0, 1, 2],  label="0 : follower, 1 : seed, 2: outlier")
 
 # An axis for difference in position (for example cluster spatial resolution)
 # 200 bins takes about 500MB of space with all the other axises (200 * 200 * 10 (beamEnergy) * 30 (layer) * 2 (mainTrackster) * 8 (double storage) = 0.2 GB)
@@ -52,17 +53,18 @@ rechits_rho_axis = partial(hist.axis.Regular, bins=100, start=0, stop=20., trans
     name="rechits_rho", label="RecHit rho (local energy density) (MeV)")
 rechits_delta_axis = partial(hist.axis.Regular, bins=100, start=0, stop=3., name="rechits_delta", label="RecHit delta (distance to nearest higher) (cm)")
 
+# Here rechits_energy is meant as a plot axis so we change its name to rechits_energy_plotAxis so it is not projected on automatically
 class RechitsEnergy(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis, layerAxis,
             hist.axis.Regular(bins=500, start=0.002, stop=20., transform=hist.axis.transform.log,
-                name="rechits_energy", label="Rechits energy (MeV)"),
+                name="rechits_energy_plotAxis", label="Rechits energy (MeV)"),
             label="RecHits energy",
             binCountLabel="RecHits count",
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})
+        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'rechits_energy_plotAxis' : 'rechits_energy'})
 
 # Takes a lot of memory
 class RechitsPositionXY(MyHistogram):
@@ -137,12 +139,14 @@ class RechitsRhoDelta(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})
 
-class RechitsSeed(MyHistogram):
-    def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis, rechits_energy_axis(),
-            seed_axis(name="rechits_isSeed", label="1: rechits is a seed, 0: not a seed"),
 
-            label="RecHit seed",
+class RechitsPointType(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis, layerAxis, 
+            pointType_axis(name="rechits_pointType"),
+            rechits_energy_axis(),
+
+            label="RecHit Follower/Seed/Outlier",
             binCountLabel="RecHits count",
             profileOn=rechits_energy_profileVariable,
             weightOn=rechits_energy_weightVariable
@@ -150,6 +154,7 @@ class RechitsSeed(MyHistogram):
 
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})    
+
 
 ############# 2D clusters ######################
 clus2D_energy_axis = partial(hist.axis.Regular, bins=50, start=0.01, stop=70., transform=hist.axis.transform.log,
@@ -266,12 +271,13 @@ class Cluster2DRhoDelta(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.clusters2D, {'layer' : "clus2D_layer"})
 
-class Cluster2DSeed(MyHistogram):
+class Cluster2DPointType(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis, layerAxis, clus2D_energy_axis(),
-            seed_axis(name="clus2D_isSeed", label="1: 2D cluster is a seed, 0: not a seed"),
+        super().__init__(beamEnergiesAxis, layerAxis,
+            pointType_axis(name="clus2D_pointType"),
+            clus2D_energy_axis(),
 
-            label="Cluster 2D seed",
+            label="Cluster 2D Follower/Seed/Outlier",
             binCountLabel="Cluster 2D count",
             profileOn=HistogramVariable('clus2D_energy', 'Mean of 2D cluster reconstructed energy over all 2D clusters in this bin (MeV)'),
             weightOn=HistogramVariable('clus2D_energy', 'Sum of the energies of all 2D clusters in each bin (MeV)')

@@ -43,12 +43,12 @@ class DataframeComputations:
     @cached_property
     def rechits(self) -> pd.DataFrame:
         """
-        Columns : event  rechit_id  beamEnergy	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_isSeed  
+        Columns : event  rechit_id  beamEnergy	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_pointType  
         MultiIndex : (event, rechit_id)
         """
         return ak.to_dataframe(self.array[
             ["beamEnergy", "rechits_x", "rechits_y", "rechits_z", "rechits_energy", "rechits_layer",
-            "rechits_rho", "rechits_delta", "rechits_isSeed"]], 
+            "rechits_rho", "rechits_delta", "rechits_pointType"]], 
             levelname=lambda i : {0 : "event", 1:"rechit_id"}[i])
 
     @cached_property
@@ -73,11 +73,11 @@ class DataframeComputations:
         """
         Builds a pandas DataFrame holding all 2D cluster information (without any rechit info)
         MultiIndex : event  clus2D_id
-        Columns :  beamEnergy	clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_size	clus2D_rho	clus2D_delta	clus2D_isSeed
+        Columns :  beamEnergy	clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_size	clus2D_rho	clus2D_delta	clus2D_pointType
         """
         return ak.to_dataframe(
             self.array[["beamEnergy", "clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer",
-                "clus2D_rho", "clus2D_delta", "clus2D_isSeed"]],
+                "clus2D_rho", "clus2D_delta", "clus2D_pointType"]],
             levelname=lambda i : {0 : "event", 1:"clus2D_id"}[i]
         )
 
@@ -87,14 +87,14 @@ class DataframeComputations:
     def clusters2D_with_rechit_id(self) -> pd.DataFrame:
         """
         MultiIndex : event	clus2D_id	rechit_internal_id
-        Columns : beamEnergy	[clus2D_x	clus2D_y	clus2D_z	clus2D_energy]	clus2D_layer	clus2D_size	clus2D_idxs	clus2D_rho	clus2D_delta	clus2D_isSeed
+        Columns : beamEnergy	[clus2D_x	clus2D_y	clus2D_z	clus2D_energy]	clus2D_layer	clus2D_size	clus2D_idxs	clus2D_rho	clus2D_delta	clus2D_pointType
         Note : rechit_internal_id is an identifier counting rechits in each 2D cluster (it is NOT the same as rechit_id, which is unique per event, whilst rechit_internal_id is only unique per 2D cluster)
         """
         return ak.to_dataframe(
             self.array[[
                 "beamEnergy",  "clus2D_layer",
                 #"clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy",
-                "clus2D_rho", "clus2D_delta", "clus2D_idxs", "clus2D_isSeed"
+                "clus2D_rho", "clus2D_delta", "clus2D_idxs", "clus2D_pointType"
             ]], 
             levelname=lambda i : {0 : "event", 1:"clus2D_id", 2:"rechit_internal_id"}[i]
         )
@@ -103,7 +103,7 @@ class DataframeComputations:
     def clusters2D_merged_rechit(self) -> pd.DataFrame:
         """
         MultiIndex : event	clus2D_id	rechit_internal_id
-        Columns : beamEnergy	clus2D_layer	clus2D_rho	clus2D_delta	clus2D_idxs	clus2D_isSeed	beamEnergy_from_rechits	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_isSeed
+        Columns : beamEnergy	clus2D_layer	clus2D_rho	clus2D_delta	clus2D_idxs	clus2D_pointType	beamEnergy_from_rechits	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_pointType
         Note : rechit_internal_id is an identifier counting rechits in each 2D cluster (it is NOT the same as rechit_id, which is unique per event, whilst rechit_internal_id is only unique per 2D cluster)
         beamEnergy_from_rechits is just a duplicate of beamEnergy
         """
@@ -226,7 +226,7 @@ class DataframeComputations:
         Merge the dataframe clusters3D with clusters2D
 
         MultiIndex : event	clus3D_id	clus2D_internal_id
-        Columns : beamEnergy	clus3D_energy	clus3D_size	clus3D_idxs		clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_rho	clus2D_delta	clus2D_isSeed
+        Columns : beamEnergy	clus3D_energy	clus3D_size	clus3D_idxs		clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_rho	clus2D_delta	clus2D_pointType
         as well as beamEnergy_from_2D_clusters which is just a duplicate of beamEnergy
         Note : clus2D_id gets lost in the pd.merge due to it being in a MultiIndex, use clus3D_idxs  which is the same
 

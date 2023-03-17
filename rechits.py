@@ -10,14 +10,15 @@ s = Selectors()
 curdoc().add_root(row(
     s.makeWidgetColumnRechits(),
     Tabs(tabs=[
-        s.tabStandard("Energy", "RechitsEnergy"), # Use tabStandard otherwise rechits_energy gets projected and there is nothing left to plot
-        s.tabStandard("Energy (logY)", "RechitsEnergy", y_axis_type="log"),
+        s.tabRechits("Energy", "RechitsEnergy"),
+        s.tabRechits("Energy (logY)", "RechitsEnergy", y_axis_type="log"),
         s.tabRechits("Position X-Y", "RechitsPositionXY", plotType="2d"),
         s.tabRechits("Position layer", "RechitsPositionLayer"),
         s.tabRechits("Rho", "RechitsRho"),
         s.tabRechits("Delta", "RechitsDelta"),
         s.tabRechits("Rho-Delta", "RechitsRhoDelta", plotType="2d"),
-        s.tabRechits("Seed (1D)", "RechitsSeed"),
-        s.tabStandard("Seed (vs energy)", "RechitsSeed", plotType="2d"), # use tabStandard (idem)
+        s.tabRechits("PointType (1D)", "RechitsPointType"),
+        s.tabStandard("PointType (vs energy)", "RechitsPointType", plotType="2d"), # Use tabStandard otherwise rechits_energy gets projected 
     ])
 ))
+
