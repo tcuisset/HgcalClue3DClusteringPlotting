@@ -54,6 +54,14 @@ class HistogramIdNameSelector(Selector):
     def selections(self) -> List[Selection]:
         return [self.selection]
 
+class HistogramIdNameMultiSelector(Selector):
+    """ Select multiple (fixed) histogram names """
+    def __init__(self, histNames:list[str]) -> None:
+        self.selection_list = [HistogramIdFixedSelection('histName', histName) for histName in histNames]
+        self.selectorType = SelectorType.HISTOGRAM_ID
+    def selections(self) -> List[Selection]:
+        return self.selection_list
+
 class SliceFixedSelection(Selection):
     def __init__(self, slice:HistogramSlice=None) -> None:
         self.sliceObject = slice
