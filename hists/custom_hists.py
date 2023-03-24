@@ -28,7 +28,7 @@ diffX_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_i
 diffY_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_y", label="y position difference (cm)")
 
 # Axis for plotting total clustered energy per event
-totalClusteredEnergy_axis = partial(hist.axis.Regular, bins=500, start=0, stop=350)
+totalClusteredEnergy_axis = partial(hist.axis.Regular, bins=2000, start=0, stop=350)
 
 ############# IMPACT
 class ImpactXY(MyHistogram):
