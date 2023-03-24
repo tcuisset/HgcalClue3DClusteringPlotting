@@ -87,7 +87,7 @@ class DataframeComputations:
         Columns :  beamEnergy	clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_size	clus2D_rho	clus2D_delta	clus2D_pointType
         """
         return ak.to_dataframe(
-            self.array[["beamEnergy", "clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer",
+            self.array[["beamEnergy", "clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer", "clus2D_size",
                 "clus2D_rho", "clus2D_delta", "clus2D_pointType"]],
             levelname=lambda i : {0 : "event", 1:"clus2D_id"}[i]
         )
