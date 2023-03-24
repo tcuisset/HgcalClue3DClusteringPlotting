@@ -3,7 +3,7 @@ import bokeh.models
 from HistogramLib.bokeh.selector_widgets import *
 from HistogramLib.histogram import HistogramKind
 
-beamEnergies = [20, 50, 80, 100, 120, 150, 200, 250, 300]
+beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
 datatypes = ['data', 'sim_proton', 'sim_noproton']
 
 def makeLayerSelector():

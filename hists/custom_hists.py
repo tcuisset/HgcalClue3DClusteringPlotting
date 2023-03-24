@@ -4,7 +4,7 @@ import hist
 from .dataframe import DataframeComputations
 from HistogramLib.histogram import MyHistogram, HistogramVariable
 
-beamEnergies = [20, 50, 80, 100, 120, 150, 200, 250, 300]
+beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
 
 # Axises which have sliders using Bokeh for plotting
 # Their names must match those of the Bokeh sliders, so they cannot be changed
