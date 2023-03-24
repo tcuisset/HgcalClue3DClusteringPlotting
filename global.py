@@ -15,7 +15,14 @@ curdoc().add_root(row(
                 "RechitsTotalEnergyPerEvent", "EnergyClustered2DPerEvent", "Clus3DClusteredEnergy"])],
             singlePlotClass=None, multiPlotClass=StepHistogram1D,
             ).model
-        )
+        ),
+        TabPanel(title="Total energy (fraction)",
+            child=PlotManager(store=histStore, 
+            selectors=s.selectorsClue3D + [HistogramIdNameMultiSelector([
+                "RechitsTotalEnergyFractionPerEvent", "FractionEnergyClustered2DPerEvent", "Clus3DClusteredFractionEnergy"])],
+            singlePlotClass=None, multiPlotClass=StepHistogram1D,
+            ).model
+        ),
     ])
 ))
 

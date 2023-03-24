@@ -13,6 +13,7 @@ curdoc().add_root(row(
         s.tabRechits("Energy", "RechitsEnergy"),
         s.tabRechits("Energy (logY)", "RechitsEnergy", y_axis_type="log"),
         s.tabRechits("Total energy per event", "RechitsTotalEnergyPerEvent"),
+        s.tabRechits("Total energy per event (fraction)", "RechitsTotalEnergyFractionPerEvent"),
         s.tabRechits("Position layer", "RechitsPositionLayer"),
         s.tabRechits("Rho", "RechitsRho"),
         s.tabRechits("Delta", "RechitsDelta"),

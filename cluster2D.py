@@ -11,6 +11,7 @@ curdoc().add_root(row(
     Tabs(tabs=[
         s.tabStandard("Position layer", "Clus2DPositionLayer"),
         s.tabStandard("Total energy", "EnergyClustered2DPerEvent"),
+        s.tabStandard("Total energy (fraction)", "FractionEnergyClustered2DPerEvent"),
         s.tabStandard("Energy per layer", "EnergyClustered2DPerLayer"),
         s.tabStandard("Layer with max energy", "LayerWithMaximumClustered2DEnergy"),
         s.tabStandard("Cluster size", "Clus2DSize"),

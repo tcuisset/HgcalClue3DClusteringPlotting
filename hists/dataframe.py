@@ -4,6 +4,12 @@ import operator
 import awkward as ak
 import pandas as pd
 
+def divideByBeamEnergy(df:pd.DataFrame, colName:str) -> pd.DataFrame:
+    """ Add a columns named colName_fractionOfBeamEnergy """
+    df[colName+"_fractionOfBeamEnergy"] = df[colName]/df["beamEnergy"]
+    return df
+
+
 class DataframeComputations:
     def __init__(self, tree_array) -> None:
         self.array = tree_array
@@ -51,16 +57,16 @@ class DataframeComputations:
             "rechits_rho", "rechits_delta", "rechits_pointType"]], 
             levelname=lambda i : {0 : "event", 1:"rechit_id"}[i])
 
-    @property
+    @cached_property
     def rechits_totalReconstructedEnergyPerEvent(self) -> pd.DataFrame:
         """ Sum of all rechits energy per event
         Index : event
         Columns : beamEnergy rechits_energy_sum
         """
-        return self.rechits[["beamEnergy", "rechits_energy"]].groupby(by="event").agg(
+        return divideByBeamEnergy(self.rechits[["beamEnergy", "rechits_energy"]].groupby(by="event").agg(
             beamEnergy=pd.NamedAgg(column="beamEnergy", aggfunc="first"),
             rechits_energy_sum=pd.NamedAgg(column="rechits_energy", aggfunc="sum"),
-        )
+        ), "rechits_energy_sum")
 
     @cached_property
     def layerToZMapping(self) -> dict[int, float]:
@@ -130,30 +136,30 @@ class DataframeComputations:
             validate="one_to_one"               # Cross-check :  Make sure there are no weird things (such as duplicate ids), should not be needed
         )
 
-    @property
+    @cached_property
     def clusters2D_totalEnergyPerEvent(self) -> pd.DataFrame:
         """ Computer per event the total clustered energy by CLUE2D
         Index : event
-        Columns : beamEnergy clus2D_energy_sum
+        Columns : beamEnergy clus2D_energy_sum clus2D_energy_sum_fractionOfBeamEnergy
         """
-        return self.clusters2D[["beamEnergy", "clus2D_energy"]].groupby(by=['event']).agg(
+        return divideByBeamEnergy(self.clusters2D[["beamEnergy", "clus2D_energy"]].groupby(by=['event']).agg(
                 beamEnergy=pd.NamedAgg(column="beamEnergy", aggfunc="first"),
                 clus2D_energy_sum=pd.NamedAgg(column="clus2D_energy", aggfunc="sum"),
-            )
+            ), "clus2D_energy_sum")
     
     def get_clusters2D_perLayerInfo(self, withBeamEnergy=True) -> pd.DataFrame:
         """
-        Compute per event and per layer the total 2D-cluster energies and the number of 2D clusters
+        Compute per event and per layer the total 2D-cluster energies (and the same as a fraction of beam energy) and the number of 2D clusters
         Parameter : withBeamEnergy : whether to add beamEnergy column
         Index : event, clus2D_layer
-        Column : [beamEnergy,] clus2D_energy_sum clus2D_count
+        Column : [beamEnergy,] clus2D_energy_sum clus2D_count [clus2D_energy_sum_fractionOfBeamEnergy]
         """
         if withBeamEnergy:
-            return self.clusters2D[["beamEnergy", "clus2D_layer", "clus2D_energy"]].groupby(by=['event', 'clus2D_layer']).agg(
+            return divideByBeamEnergy(self.clusters2D[["beamEnergy", "clus2D_layer", "clus2D_energy"]].groupby(by=['event', 'clus2D_layer']).agg(
                 beamEnergy=pd.NamedAgg(column="beamEnergy", aggfunc="first"),
                 clus2D_energy_sum=pd.NamedAgg(column="clus2D_energy", aggfunc="sum"),
                 clus2D_count=pd.NamedAgg(column="clus2D_energy", aggfunc="count")
-            )
+            ), "clus2D_energy_sum")
         else:
             return self.clusters2D[["clus2D_layer", "clus2D_energy"]].groupby(by=['event', 'clus2D_layer']).agg(
                 clus2D_energy_sum=pd.NamedAgg(column="clus2D_energy", aggfunc="sum"),
