@@ -83,7 +83,7 @@ class DatatypeSelector(HistIdSelectorImpl, ExplodableSelector):
     def __init__(self) -> None:
         self.model = bokeh.models.RadioButtonGroup(
             name="datatype",
-            labels=["data", "sim_proton", "sim_noproton"],
+            labels=["data", "sim_noproton_v5", "sim_noproton_v6", "sim_proton_v3", "sim_proton_v7"],
             active=0
         )
         self.allSelections = [HistogramIdFixedSelection(key="datatype", value=datatype) for datatype in self.model.labels]
