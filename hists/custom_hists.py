@@ -5,6 +5,8 @@ from .dataframe import DataframeComputations, divideByBeamEnergy
 from HistogramLib.histogram import MyHistogram, HistogramVariable
 
 beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
+trueBeamEnergyMap = {20 : 20, 30 : 30, 50 : 49.99, 80 : 79.93, 100 : 99.83, 120 : 119.65, 150 : 149.14, 200 : 197.32, 250 : 243.61, 300 : 287.18}
+trueBeamEnergies = trueBeamEnergyMap.values()
 
 # Axises which have sliders using Bokeh for plotting
 # Their names must match those of the Bokeh sliders, so they cannot be changed
@@ -44,6 +46,18 @@ class ImpactXY(MyHistogram):
 
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.impactWithBeamEnergy)
+
+############ MISC
+class TrueBeamEnergy(MyHistogram):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(beamEnergiesAxis,
+            hist.axis.Regular(start=0., stop=320., bins=1000, name="trueBeamEnergy", label="True particle momentum (from simulation) (GeV)"),
+
+            label="True beam energy",
+            binCountLabel="Event count"
+        )
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.trueBeamEnergy)
 
 ############ RECHITS
 rechits_energy_profileVariable = HistogramVariable('rechits_energy', 'Mean reconstructed hit energy in a bin (GeV)')

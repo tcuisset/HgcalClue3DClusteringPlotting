@@ -11,16 +11,24 @@ def divideByBeamEnergy(df:pd.DataFrame, colName:str) -> pd.DataFrame:
 
 
 class DataframeComputations:
-    def __init__(self, tree_array) -> None:
+    def __init__(self, tree_array:ak.Array) -> None:
         self.array = tree_array
     
     @cached_property
-    def beamEnergy(self) -> pd.DataFrame:
-        return (ak.to_dataframe(self.array[
-            ["beamEnergy"]
-            ], 
-            levelname=lambda i : {0 : "event", 1:"clus3D_id"}[i])
-        )
+    def trueBeamEnergy(self) -> pd.DataFrame:
+        """ If trueBeamEnergy exists, returns : 
+            Columns : eventn beamEnergy, trueBeamEnergy
+            Index : event
+        otherwise return a dataframe with a single row : 1, 0, 0
+        """
+        if "trueBeamEnergy" in self.array.fields:
+            return (ak.to_dataframe(self.array[
+                ["beamEnergy", "trueBeamEnergy"]
+                ], 
+                levelname=lambda i : {0 : "event"}[i])
+            )
+        else:
+            return pd.DataFrame({"event":[1], "beamEnergy":[0], "trueBeamEnergy":[0]}).set_index("event")
 
     @property
     def impact(self) -> pd.DataFrame:

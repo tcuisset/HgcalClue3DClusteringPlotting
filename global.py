@@ -23,6 +23,7 @@ curdoc().add_root(row(
             singlePlotClass=None, multiPlotClass=StepHistogram1D,
             ).model
         ),
+        s.tabStandard("TrueBeamEnergy", "TrueBeamEnergy")
     ])
 ))
 
