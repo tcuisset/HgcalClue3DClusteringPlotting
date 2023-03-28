@@ -404,7 +404,7 @@ class Clus3DSpatialResolutionUsingLayerWithMax2DEnergyXY(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.clusters3D_impact_usingLayerWithMax2DClusteredEnergy, valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
         self.fillFromDf((comp.clusters3D_impact_usingLayerWithMax2DClusteredEnergy
-                .set_index("clus3D_id", append=True)
+                .set_index(["event", "clus3D_id"])
                 .loc[comp.clusters3D_largestClusterIndex]),
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
 
