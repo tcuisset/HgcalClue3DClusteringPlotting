@@ -377,27 +377,30 @@ class DataframeComputations:
         )
     
     @cached_property
-    def clusters3D_impact_usingLayerWithMax2DClusteredEnergy(self):
-        """ Add a column to clusters3D with the difference between clus3D_x and impactX, impactX being computed on the layer with maximum 2D clustered energy (of each cluster 3D)
-        Note : event is not in index and dataframe is not sorted (neither on event nor on clus3D_id)
-        Columns : event clus3D_id	beamEnergy	clus3D_x	clus3D_y	clus3D_z	clus3D_energy	clus3D_size	layer_with_max_clustered_energy	impactX	impactY	clus3D_diff_impact_x clus3D_diff_impact_y
-        """
-
+    def clusters3D_layerWithMaxClusteredEnergy(self) -> pd.DataFrame:
+        """ Select layer with maximum 2D clustered energy in each 3D cluster 
+        MultiIndex : event clus3D_id
+        Columns : layer_with_max_clustered_energy	beamEnergy	clus3D_size	clus3D_energy	clus2D_energy_sum (sum of 2D clustered energy of this 3D cluster in the layer with max energy) """
         # Old way : uses idxmax, very slow
         #self.clusters3D["layer_with_max_clustered_energy"] = self.clusters3D_layerWithMaxClusteredEnergy
 
-        # New way : uses sorting and drop_duplicates
-        # First : for each event and 3D cluster find the layer with the maximum clus2D_energy_sum
-        df_layerMax2DEnergy = (self.clusters3D_energyClusteredPerLayer
+        # for each event and 3D cluster find the layer with the maximum clus2D_energy_sum
+        return (self.clusters3D_energyClusteredPerLayer
             .reset_index()
             .sort_values("clus2D_energy_sum", ascending=False)
             .drop_duplicates(["event", "clus3D_id"], keep="first") # Drop duplicates : will keep only highest value of clus2D_energy_sum for each event, clus3D_id
         ).rename(columns={"clus2D_layer":"layer_with_max_clustered_energy"})
 
+    @cached_property
+    def clusters3D_impact_usingLayerWithMax2DClusteredEnergy(self):
+        """ Add a column to clusters3D with the difference between clus3D_x and impactX, impactX being computed on the layer with maximum 2D clustered energy (of each cluster 3D)
+        Note : event is not in index and dataframe is not sorted (neither on event nor on clus3D_id)
+        Columns : event clus3D_id	beamEnergy	clus3D_x	clus3D_y	clus3D_z	clus3D_energy	clus3D_size	layer_with_max_clustered_energy	impactX	impactY	clus3D_diff_impact_x clus3D_diff_impact_y
+        """
         # Merge with impact
         df_withImpact = pd.merge(
             # Left
-            df_layerMax2DEnergy,
+            self.clusters3D_layerWithMaxClusteredEnergy,
             # Right :
             self.impact,
 

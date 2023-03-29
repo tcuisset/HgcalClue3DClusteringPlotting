@@ -15,6 +15,8 @@ curdoc().add_root(row(
         s.tabClue3D("Nb of 2D clusters per layer", "Clus3DNumberOf2DClustersPerLayer"),
         s.tabClue3D("First layer of cluster", "Clus3DFirstLayerOfCluster"),
         s.tabClue3D("Last layer of cluster", "Clus3DLastLayerOfCluster"), 
-        s.tabClue3D("Energy per layer", "Clus3DClusteredEnergyPerLayer")
+        s.tabClue3D("Energy per layer", "Clus3DClusteredEnergyPerLayer"),
+        s.tabClue3D("Layer with max energy", "Clus3DLayerWithMaximumClusteredEnergy"),
+        s.tabClue3D("Layer with max energy (profile)", "Clus3DMeanLayerWithMaximumClusteredEnergy")
     ])
 ))
