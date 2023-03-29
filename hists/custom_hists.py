@@ -467,9 +467,9 @@ class Clus3DFirstLayerOfCluster(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.clusters3D_with_clus2D_id.pipe(comp.clusters3D_merged_2D).pipe(comp.clusters3D_firstLastLayer), 
+        self.fillFromDf(comp.clusters3D_merged_2D().pipe(comp.clusters3D_firstLastLayer), 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
-        self.fillFromDf(comp.clusters3D_with_clus2D_id.pipe(comp.clusters3D_merged_2D).pipe(comp.clusters3D_firstLastLayer).loc[comp.clusters3D_largestClusterIndex],
+        self.fillFromDf(comp.clusters3D_merged_2D().pipe(comp.clusters3D_firstLastLayer).loc[comp.clusters3D_largestClusterIndex],
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
 
 # Note : layer is meant as an axis (not a slider to project on)
@@ -484,9 +484,9 @@ class Clus3DLastLayerOfCluster(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.clusters3D_with_clus2D_id.pipe(comp.clusters3D_merged_2D).pipe(comp.clusters3D_firstLastLayer),
+        self.fillFromDf(comp.clusters3D_merged_2D().pipe(comp.clusters3D_firstLastLayer),
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
-        self.fillFromDf(comp.clusters3D_with_clus2D_id.pipe(comp.clusters3D_merged_2D).pipe(comp.clusters3D_firstLastLayer).loc[comp.clusters3D_largestClusterIndex],
+        self.fillFromDf(comp.clusters3D_merged_2D().pipe(comp.clusters3D_firstLastLayer).loc[comp.clusters3D_largestClusterIndex],
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
 
 

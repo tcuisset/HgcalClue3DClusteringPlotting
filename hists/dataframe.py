@@ -1,4 +1,4 @@
-from functools import cached_property
+from functools import cached_property, cache
 import operator
 
 import awkward as ak
@@ -275,7 +275,7 @@ class DataframeComputations:
         .rename(columns={"clus3D_idxs" : "clus2D_id"})
         )
         
-
+    @cache
     def clusters3D_merged_2D(self, clusters3D_with_clus2D_id_df=None) -> pd.DataFrame:
         """
         Merge the dataframe clusters3D_with_clus2D_id_df with clusters2D
@@ -287,8 +287,6 @@ class DataframeComputations:
         Columns : beamEnergy	clus3D_energy	clus3D_size	clus2D_id		clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_rho	clus2D_delta	clus2D_pointType
         as well as beamEnergy_from_2D_clusters which is just a duplicate of beamEnergy
 
-        If you want only the highest energy 3D cluster you can do 
-        comp.clusters3D_with_clus2D_id.pipe(clusters3D_filterLargestCluster).pipe(comp.clusters3D_merged_2D)
         """
         if clusters3D_with_clus2D_id_df is None:
             clusters3D_with_clus2D_id_df = self.clusters3D_with_clus2D_id
@@ -304,7 +302,7 @@ class DataframeComputations:
             validate="one_to_one"               # Cross-check :  Make sure there are no weird things (such as duplicate ids), should not be needed
         )#.droplevel(level="clus2D_internal_id") # remove the useless clus2D_internal_id column
     
-
+    @cache
     def clusters3D_merged_2D_impact(self, clusters3D_merged_2D_df:pd.DataFrame|None = None) -> pd.DataFrame:
         """
         Merge clusters3D_merged_2D with impact dataframe, to get impact info for all 2D clusters members of a 3D cluster
@@ -352,13 +350,13 @@ class DataframeComputations:
             )
         )
 
-    def clusters3D_indexOf3DClustersPassingMinNumLayerCut(self, minNumLayerCluster):
-        df = self.clusters3D_merged_2D[["clus2D_layer"]].groupby(["event", "clus3D_id"]).agg(
-            clus2D_layer_min=pd.NamedAgg(column="clus2D_layer", aggfunc="min"),
-            clus2D_layer_max=pd.NamedAgg(column="clus2D_layer", aggfunc="max"),
-        )
-        df["clus3D_numLayers"] = df["clus2D_layer_max"] - df["clus2D_layer_min"]+1
-        return df["clus3D_numLayers"] < minNumLayerCluster
+    # def clusters3D_indexOf3DClustersPassingMinNumLayerCut(self, minNumLayerCluster):
+    #     df = self.clusters3D_merged_2D[["clus2D_layer"]].groupby(["event", "clus3D_id"]).agg(
+    #         clus2D_layer_min=pd.NamedAgg(column="clus2D_layer", aggfunc="min"),
+    #         clus2D_layer_max=pd.NamedAgg(column="clus2D_layer", aggfunc="max"),
+    #     )
+    #     df["clus3D_numLayers"] = df["clus2D_layer_max"] - df["clus2D_layer_min"]+1
+    #     return df["clus3D_numLayers"] < minNumLayerCluster
     
     @cached_property
     def clusters3D_energyClusteredPerLayer(self) -> pd.DataFrame:
