@@ -231,14 +231,24 @@ class DataframeComputations:
         )
 
     @cached_property
-    def clusters3D_largestClusterIndex(self) -> pd.Series:
+    def clusters3D_largestClusterIndex(self) -> pd.MultiIndex:
         """
         Compute for each event, the index of the 3D cluster with the largest clustered energy (clus3D_energy)
         (in case of equality returns the first one in dataset)
-        Returns a series of tuples (event, clus3D_id), to be used with loc (on a df indexed by (event, clus3D_id) ):
+        Returns a MultiIndex (event, clus3D_id), to be used with loc (on a df indexed by (event, clus3D_id) ):
         ex : clusters3D.loc[clusters3D_largestClusterIndex]
+        (not sorted)
         """
-        return self.clusters3D.groupby(["event"])["clus3D_energy"].idxmax()
+        df = (self.clusters3D
+            [["clus3D_energy"]] # Dataframe is index=(event, clus3D_id), columns=clus3D_energy
+            .reset_index()
+            .sort_values("clus3D_energy", ascending=False)
+            .drop_duplicates("event") # Keep for each event only the clus3D_id with highest clus3D_energy
+            .drop(columns="clus3D_energy")
+        )
+        return pd.MultiIndex.from_frame(df) # Make a multiindex out of it
+        # Old, slow version: 
+        #return self.clusters3D.groupby(["event"])["clus3D_energy"].idxmax()
 
     @property
     def clusters3D_largestCluster(self) -> pd.DataFrame:
@@ -247,7 +257,7 @@ class DataframeComputations:
         Index : event
         Columns : beamEnergy, clus3D_* 
         """
-        return self.clusters3D.loc[self.clusters3D_largestClusterIndex].reset_index(level="clus3D_id")
+        return self.clusters3D.loc[self.clusters3D_largestClusterIndex]
 
     #Don't cache this as unlikely to be needed again after caching clusters3D_merged_2D
     @property
@@ -257,46 +267,54 @@ class DataframeComputations:
         Columns : 	clus3D_energy	clus3D_layer clus3D_size clus3D_idxs   # clus3D_x	clus3D_y	clus3D_z
         Note : clus2D_internal_id is an identifier counting 2D clusters in each 3D cluster (it is NOT the same as clus2D_id, which is unique per event, whilst clus2D_internal_id is only unique per 3D cluster)
         """
-        return ak.to_dataframe(
+        return (ak.to_dataframe(
             self.array[["beamEnergy", "clus3D_energy", "clus3D_size", "clus3D_idxs"]], # "clus3D_x", "clus3D_y", "clus3D_z",
             levelname=lambda i : {0 : "event", 1:"clus3D_id", 2:"clus2D_internal_id"}[i]
         )
+        .reset_index(level="clus2D_internal_id", drop=True)
+        .rename(columns={"clus3D_idxs" : "clus2D_id"})
+        )
+        
 
-    @cached_property
-    def clusters3D_merged_2D(self) -> pd.DataFrame:
+    def clusters3D_merged_2D(self, clusters3D_with_clus2D_id_df=None) -> pd.DataFrame:
         """
-        Merge the dataframe clusters3D with clusters2D
-
+        Merge the dataframe clusters3D_with_clus2D_id_df with clusters2D
+        Param : clusters3D_with_clus2D_id_df : the dataframe to use for left param of join
+        If None, uses self.clusters3D_with_clus2D_id
+        
+        Returns : 
         MultiIndex : event	clus3D_id	clus2D_internal_id
-        Columns : beamEnergy	clus3D_energy	clus3D_size	clus3D_idxs		clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_rho	clus2D_delta	clus2D_pointType
+        Columns : beamEnergy	clus3D_energy	clus3D_size	clus2D_id		clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_rho	clus2D_delta	clus2D_pointType
         as well as beamEnergy_from_2D_clusters which is just a duplicate of beamEnergy
-        Note : clus2D_id gets lost in the pd.merge due to it being in a MultiIndex, use clus3D_idxs  which is the same
 
         If you want only the highest energy 3D cluster you can do 
-        clusters3D_merged_2D.loc[comp.clusters3D_largestClusterIndex]
+        comp.clusters3D_with_clus2D_id.pipe(clusters3D_filterLargestCluster).pipe(comp.clusters3D_merged_2D)
         """
+        if clusters3D_with_clus2D_id_df is None:
+            clusters3D_with_clus2D_id_df = self.clusters3D_with_clus2D_id
         return pd.merge(
-            self.clusters3D_with_clus2D_id, # Left
+            clusters3D_with_clus2D_id_df.reset_index(), # Left
             self.clusters2D,                # Right
             how='inner',                    # Inner join (the default). Keeps only 2D clusters that are associated to a 3D cluster (ie drop outliers)
             # Outer and right would include also rechits that are outliers (not associated to any cluster)
-            left_on=["event", "clus3D_idxs"],  # Left : Join on event nb and ID of 2D cluster per event
+            left_on=["event", "clus2D_id"],  # Left : Join on event nb and ID of 2D cluster per event
             right_index=True,                  # Right : Join on MultiIndex, ie on event and clus2D_id
             suffixes=(None, "_from_2D_clusters"), # Deal with columns present on both sides (currently only beamEnergy) :
             #        take the column from left with same name, the one from right renamed beamEnergy_from_2D_clusters (they should be identical anyway)
             validate="one_to_one"               # Cross-check :  Make sure there are no weird things (such as duplicate ids), should not be needed
-        ).droplevel(level="clus2D_internal_id") # remove the useless clus2D_internal_id column
+        )#.droplevel(level="clus2D_internal_id") # remove the useless clus2D_internal_id column
     
-    @cached_property
-    def clusters3D_merged_2D_impact(self) -> pd.DataFrame:
+
+    def clusters3D_merged_2D_impact(self, clusters3D_merged_2D_df:pd.DataFrame|None = None) -> pd.DataFrame:
         """
-        TODO this join is probably not needed, faster to just lookup in impact df for all rows of clusters3D_merged_2D
         Merge clusters3D_merged_2D with impact dataframe, to get impact info for all 2D clusters members of a 3D cluster
         Also creates clus2D_diff_impact_x and clus2D_diff_impact_y columns holding the difference between 2D cluster position and extrapolated track impact position on layer
         """
+        if clusters3D_merged_2D_df is None:
+            clusters3D_merged_2D_df = self.clusters3D_merged_2D()
         merged_df = pd.merge(
             # Left : previously merged dataframe
-            self.clusters3D_merged_2D.reset_index(level="clus3D_id"), # reset index clus3D_id otherwise it gets lost during the join
+            clusters3D_merged_2D_df,
 
             #Right : impact df (indexed by event and layer)
             self.impact, 
@@ -305,21 +323,26 @@ class DataframeComputations:
             # Map layer of 2D cluster with layer of impact computation
             left_on=("event", "clus2D_layer"),
             right_on=("event", "layer")
-        ).set_index("clus3D_id", append=True) # Add clus3D_id to the index (so we can select only main 3D clusters from clusters3D_largestClusterIndex)
+        ).set_index(["event", "clus3D_id"]) # Add clus3D_id to the index (so we can select only main 3D clusters from clusters3D_largestClusterIndex)
 
         merged_df["clus2D_diff_impact_x"] = merged_df["clus2D_x"] - merged_df["impactX"]
         merged_df["clus2D_diff_impact_y"] = merged_df["clus2D_y"] - merged_df["impactY"]
         return merged_df
 
-    @cached_property
-    def clusters3D_firstLastLayer(self) -> pd.DataFrame:
+    
+    def clusters3D_firstLastLayer(self, clusters3D_merged_2D_df:pd.DataFrame) -> pd.DataFrame:
         """
         For each 3D cluster, compute the first and last layer numbers of contained 2D clusters 
+        Param : clusters3D_merged_2D_df : dataframe to consider, should be a subset of self.clusters3D_merged_2D
+        Returns : 
         MultiIndex : event, clus3D_id
         Columns : beamEnergy, clus3D_energy, clus2D_minLayer, clus2D_maxLayer
+
+        Should be used as :
+        self.clusters3D_with_clus2D_id[.pipe(clusters3D_filterLargestCluster)].pipe(clusters3D_merged_2D).pipe(self.clusters3D_firstLastLayer)
         """
-        return (self.clusters3D_merged_2D[["beamEnergy", "clus3D_energy", "clus3D_size", "clus2D_layer"]]
-            .groupby(level=["event", "clus3D_id"])
+        return (clusters3D_merged_2D_df[["event", "clus3D_id", "beamEnergy", "clus3D_energy", "clus3D_size", "clus2D_layer"]]
+            .groupby(["event", "clus3D_id"])
             .agg(
                 clus2D_minLayer=pd.NamedAgg(column="clus2D_layer", aggfunc="min"),
                 clus2D_maxLayer=pd.NamedAgg(column="clus2D_layer", aggfunc="max"),
@@ -328,7 +351,7 @@ class DataframeComputations:
                 clus3D_size=pd.NamedAgg(column="clus3D_size", aggfunc="first")
             )
         )
-    
+
     def clusters3D_indexOf3DClustersPassingMinNumLayerCut(self, minNumLayerCluster):
         df = self.clusters3D_merged_2D[["clus2D_layer"]].groupby(["event", "clus3D_id"]).agg(
             clus2D_layer_min=pd.NamedAgg(column="clus2D_layer", aggfunc="min"),
@@ -344,7 +367,7 @@ class DataframeComputations:
         Columns : beamEnergy clus3D_size clus3D_energy	clus2D_energy_sum
         """
         return (
-            self.clusters3D_merged_2D[["beamEnergy", "clus3D_energy", "clus3D_size", "clus2D_energy", "clus2D_layer"]]
+            self.clusters3D_merged_2D()[["event", "clus3D_id", "beamEnergy", "clus3D_energy", "clus3D_size", "clus2D_energy", "clus2D_layer"]]
 
             # For each event, cluster 3D and layer, sum clus2D_energy
             .groupby(by=["event", "clus3D_id", "clus2D_layer"]).agg(
@@ -397,3 +420,15 @@ class DataframeComputations:
         final_df["clus3D_diff_impact_x"] = final_df["clus3D_x"] - final_df["impactX"]
         final_df["clus3D_diff_impact_y"] = final_df["clus3D_y"] - final_df["impactY"]
         return final_df
+
+
+
+def clusters3D_filterLargestCluster(clusters3D_df : pd.DataFrame, dropDuplicates=["event"]) -> pd.Series:
+    """
+    df is comp.clusters3D
+    Filter out, for each event, only the 3D cluster that has the highest energy
+    Parameters : 
+    dropDuplicates : only keep a unique value 
+    """
+    return clusters3D_df.reset_index().sort_values("clus3D_energy", ascending=False).drop_duplicates(dropDuplicates)
+
