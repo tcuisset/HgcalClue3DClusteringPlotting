@@ -23,6 +23,13 @@ curdoc().add_root(row(
             singlePlotClass=None, multiPlotClass=StepHistogram1D,
             ).model
         ),
+        TabPanel(title="Total energy (profile)",
+            child=PlotManager(store=histStore, 
+            selectors=s.selectorsClue3D + [HistogramIdNameMultiSelector([
+                "RechitsMeanTotalEnergyPerEvent", "MeanEnergyClustered2DPerEvent", "Clus3DMeanClusteredEnergy"])],
+            singlePlotClass=None, multiPlotClass=StepHistogram1D,
+            ).model
+        ),
         s.tabStandard("TrueBeamEnergy", "TrueBeamEnergy")
     ])
 ))

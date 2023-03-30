@@ -11,6 +11,7 @@ curdoc().add_root(row(
         s.tabClue3D("Position Z", "Clus3DPositionZ"),
         s.tabClue3D("Total energy", "Clus3DClusteredEnergy"),
         s.tabClue3D("Total energy (fraction)", "Clus3DClusteredFractionEnergy"),
+        s.tabClue3D("Total energy (profile)", "Clus3DMeanClusteredEnergy"),
         s.tabClue3D("Cluster size", "Clus3DSize"),
         s.tabClue3D("Nb of 2D clusters per layer", "Clus3DNumberOf2DClustersPerLayer"),
         s.tabClue3D("First layer of cluster", "Clus3DFirstLayerOfCluster"),
