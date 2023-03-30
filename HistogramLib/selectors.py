@@ -78,7 +78,7 @@ class FixedSliceSelector(Selector):
         self.selection = SliceFixedSelection(slice)
         self.selectorType = SelectorType.PROJECTION
     def selections(self) -> List[Selection]:
-        return [self.selections]
+        return [self.selection]
 
 
 class HistKindFixedSelection(Selection):
