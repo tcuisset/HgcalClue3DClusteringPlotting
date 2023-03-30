@@ -23,18 +23,6 @@ class AbstractHistogramId:
         """ get relative path from version folder (excluded) to pickle file name (included)"""
         return ""
 
-
-def discoverShelves(hist_folder):
-    shelfIdList = []
-    #                           clueParams/datatype/hists.shelf
-    paths = glob.glob(os.path.join('*',      '*',  'hists.shelf.*'), root_dir=hist_folder)
-    for path in paths:
-        folderPath, _ = os.path.split(path) # clueParams/datatype
-        clueParam, datatype = os.path.split(folderPath)
-        shelfIdList.append(ShelfId(clue_param_name=clueParam, datatype=datatype))
-    return shelfIdList
-
-
 class HistogramStore:
     def __init__(self, hist_folder, histIdClass) -> None:
         """
