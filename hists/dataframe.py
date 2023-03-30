@@ -174,26 +174,6 @@ class DataframeComputations:
                 clus2D_count=pd.NamedAgg(column="clus2D_energy", aggfunc="count")
             )
 
-    @cached_property
-    def clusters2D_selectLayerWithMaxClusteredEnergy(self) -> pd.DataFrame:
-        """
-        From comp.clusters2D, select only 2D clusters in the layer with the maximum clustered energy (per event)
-        Index : event	  
-        Columns : all usual clusters2D columns, including clus2D_layer
-        (note that clus2D_layer is identical for all rows in a given event)
-        """
-        # Start from clusters2D_maxEnergyPerLayer and build the index 
-        # First group by event
-        # Then compute the layer nb of the maximum value clus2D_energy_sum per event
-        index = self.get_clusters2D_perLayerInfo(withBeamEnergy=False)[["clus2D_energy_sum"]].groupby(by=["event"]).idxmax()
-        # Index is a Series with : Index=event, Column=(event, layer) (as a tuple)
-
-        # Reindex clusters2D so that we can apply our index
-        reindexed_clus2D = self.clusters2D.reset_index().set_index(["event", "clus2D_layer"])
-
-        # Apply the index, this will select for each event, only rows with the right layer
-        return reindexed_clus2D.loc[index.clus2D_energy_sum].reset_index(level=["clus2D_layer"])
-
     @property
     def clusters2D_sumClustersOnLayerWithMaxClusteredEnergy(self) -> pd.DataFrame:
         """
