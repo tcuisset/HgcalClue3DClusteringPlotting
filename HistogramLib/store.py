@@ -33,6 +33,8 @@ class HistogramStore:
         self.metadataDict = {}
         self.hist_folder = hist_folder
         self.histIdClass = histIdClass
+        self._clueParams = None
+        self._datatypes = None
 
     def get(self, id:AbstractHistogramId):
         if id not in self.loadedHists:
@@ -63,12 +65,39 @@ class HistogramStore:
         with open(os.path.join(self.hist_folder, id.path), "rb") as f:
             self.loadedHists[copy.copy(id)] = pickle.load(f)
     
-    def getPossibleClueParameters(self):
+    def _loadClueDatatypeParams(self):
         #                           clueParams/datatype/histogram_name.pickle
         paths = glob.glob(os.path.join('*',      '*',  '*.pickle'), root_dir=self.hist_folder)
         clueParams = set() # Make a set to remove duplicates
+        datatypes = set()
         for path in paths:
             folderPath, _ = os.path.split(path) # clueParams/datatype
             clueParam, datatype = os.path.split(folderPath)
             clueParams.add(clueParam)
-        return list(clueParams)
+            datatypes.add(datatype)
+        
+        clueParams = list(clueParams)
+        datatypes = list(datatypes)
+        try: # Put "data" as first list element
+            datatypes.insert(0, datatypes.pop(datatypes.index("data")))
+        except ValueError:
+            pass
+        try: # Put "cmssw" as first list element
+            clueParams.insert(0, clueParams.pop(clueParams.index("cmssw")))
+        except ValueError:
+            pass
+        
+        self._clueParams = clueParams
+        self._datatypes = datatypes
+
+    def getPossibleClueParameters(self) -> list[str]:
+        """ Gets the list of available clue parameter names accessible in this store"""
+        if self._clueParams is None:
+            self._loadClueDatatypeParams()
+        return self._clueParams
+
+    def getPossibleDatatypes(self) -> list[str]:
+        """ Gets the list of available datatypes accessible in this store"""
+        if self._datatypes is None:
+            self._loadClueDatatypeParams()
+        return self._datatypes

@@ -27,12 +27,12 @@ layers_z = [13.877500, 14.767500, 16.782499, 17.672501, 19.687500, 20.577499, 22
 
 class Selectors:
     def __init__(self) -> None:
-        self.datatype_selector = makeDatatypeSelector()
         clueParams = histStore.getPossibleClueParameters()
         if not clueParams:
             # Could not find any histograms
             raise RuntimeError("Could not find any saved histograms. Aborting.")
-        self.clueParamSelector = ClueParamsSelector(histStore.getPossibleClueParameters())
+        self.clueParamSelector = ClueParamsSelector(clueParams)
+        self.datatype_selector = makeDatatypeSelector(histStore.getPossibleDatatypes())
         #self.clueParamSelector = PlaceholderClueParamsSelector()
         self.layerSelector = makeLayerSelector()
         self.beamEnergySelector = makeBeamEnergySelector()

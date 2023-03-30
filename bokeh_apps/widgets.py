@@ -4,7 +4,6 @@ from HistogramLib.bokeh.selector_widgets import *
 from HistogramLib.histogram import HistogramKind
 
 beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
-datatypes = ['data', 'sim_proton', 'sim_noproton']
 
 def makeLayerSelector():
     return ExplodeSelector(RangeAxisSelector("layer",
@@ -80,10 +79,10 @@ class HistIdSelectorImpl(Selector):
 
 
 class DatatypeSelector(HistIdSelectorImpl, ExplodableSelector):
-    def __init__(self) -> None:
+    def __init__(self, datatypes:list[str]) -> None:
         self.model = bokeh.models.RadioButtonGroup(
             name="datatype",
-            labels=["data", "sim_noproton_v5", "sim_noproton_v6", "sim_proton_v3", "sim_proton_v7"],
+            labels=datatypes,
             active=0
         )
         self.allSelections = [HistogramIdFixedSelection(key="datatype", value=datatype) for datatype in self.model.labels]
@@ -93,8 +92,8 @@ class DatatypeSelector(HistIdSelectorImpl, ExplodableSelector):
         # self.radio.value is the button number that is pressed -> map it to label
         self.selection.value = self.model.labels[self.model.active]
 
-def makeDatatypeSelector():
-    return ExplodeSelector(DatatypeSelector())
+def makeDatatypeSelector(datatypes:list[str]):
+    return ExplodeSelector(DatatypeSelector(datatypes))
 
 
 class ClueParamsSelector(HistIdSelectorImpl):
