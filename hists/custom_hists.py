@@ -619,7 +619,6 @@ class Clus3DMeanClusteredEnergy(MyHistogram):
     """ Meant to be plotted with x axis as beam energy """
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis(name="beamEnergy_custom"), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(),
-            totalClusteredEnergy_axis(name="clus3D_energy", label="3D cluster energy (GeV)"),
             label="Clustered energy by CLUE3D (profile)",
             binCountLabel="3D cluster count (useless, use profile)",
             profileOn=HistogramVariable('clus3D_energy', 'Mean, for all events and 3D clusters, of the energy clustered by CLUE3D (GeV)'),
