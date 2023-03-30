@@ -10,6 +10,7 @@ curdoc().add_root(row(
     s.makeWidgetColumnStandard(),
     Tabs(tabs=[
         s.tabStandard("Position layer", "Clus2DPositionLayer"),
+        s.tabStandard("Cluster energy", "Clus2DEnergy"),
         s.tabStandard("Total energy", "EnergyClustered2DPerEvent"),
         s.tabStandard("Total energy (fraction)", "FractionEnergyClustered2DPerEvent"),
         s.tabStandard("Total energy (profile)", "MeanEnergyClustered2DPerEvent", plotType=LineHistogram1D),
