@@ -4,6 +4,11 @@ import hist
 from .dataframe import DataframeComputations, divideByBeamEnergy
 from HistogramLib.histogram import MyHistogram, HistogramVariable
 
+# Thread count to use for some big histograms (put None to disable multithreading)
+# Only use for histograms with lots of entries (like for rechits) and low number of bins (don't use for 2D histograms due to high memory usage)
+# Use it as : self.fillFromDf(comp.rechits, ..., threads=threadCount)
+threadCount=4 
+
 beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
 trueBeamEnergyMap = {20 : 20, 30 : 30, 50 : 49.99, 80 : 79.93, 100 : 99.83, 120 : 119.65, 150 : 149.14, 200 : 197.32, 250 : 243.61, 300 : 287.18}
 trueBeamEnergies = trueBeamEnergyMap.values()
@@ -82,7 +87,7 @@ class RechitsEnergy(MyHistogram):
 
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'rechits_energy_plotAxis' : 'rechits_energy',
-            'pointType':'rechits_pointType'})
+            'pointType':'rechits_pointType'}, threads=threadCount)
 
 # Takes a lot of memory
 class RechitsPositionXY(MyHistogram):
@@ -136,7 +141,7 @@ class RechitsPositionLayer(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits, {'pointType':'rechits_pointType'})
+        self.fillFromDf(comp.rechits, {'pointType':'rechits_pointType'}, threads=threadCount)
 
 class RechitsRho(MyHistogram):
     def __init__(self) -> None:
@@ -150,7 +155,7 @@ class RechitsRho(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'pointType':'rechits_pointType'})
+        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'pointType':'rechits_pointType'}, threads=threadCount)
 
 class RechitsDelta(MyHistogram):
     def __init__(self) -> None:
@@ -164,7 +169,7 @@ class RechitsDelta(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'pointType':'rechits_pointType'})
+        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer", 'pointType':'rechits_pointType'}, threads=threadCount)
 
 class RechitsRhoDelta(MyHistogram):
     def __init__(self) -> None:
@@ -195,7 +200,7 @@ class RechitsPointType(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"})    
+        self.fillFromDf(comp.rechits, {'layer' : "rechits_layer"}, threads=threadCount)    
 
 
 ############# 2D clusters ######################

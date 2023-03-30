@@ -161,13 +161,15 @@ class MyHistogram():
     def axes(self) -> hist.axis.NamedAxesTuple:
         return self.getHistogram(HistogramKind.COUNT).axes
 
-    def fillFromDf(self, df:pd.DataFrame, mapping:dict={}, valuesNotInDf:dict={}):
+    def fillFromDf(self, df:pd.DataFrame, mapping:dict={}, valuesNotInDf:dict={}, threads=None):
         """
         mapping : dict hist_axis_name -> dataframe_axis_name
         valuesNotInDf : dict axis_name -> array of values or single value
             to be used if some columns are not in the dataframe, use the dict value then (directly passed to Hist.fill)
             (can also override the df column if it is the same name)
             these names are not mapped
+        threads : if not None, will be passed to boost-histogram fill method to use threaded fills (put number of threads)
+        disabled for mean storage
         """
         dict_fill = {}
         
@@ -184,9 +186,9 @@ class MyHistogram():
             if kind is HistogramKind.PROFILE:
                 h.fill(**dict_fill, sample=df[mapAxisName(self.metadata.profileOn.name)])
             elif kind is HistogramKind.WEIGHT:
-                h.fill(**dict_fill, weight=df[mapAxisName(self.metadata.weightOn.name)])
+                h.fill(**dict_fill, weight=df[mapAxisName(self.metadata.weightOn.name)], threads=threads)
             elif kind is HistogramKind.COUNT:
-                h.fill(**dict_fill)
+                h.fill(**dict_fill, threads=threads)
 
     def getEmptyCopy(self):
         return MyHistogram(*self.axes)
