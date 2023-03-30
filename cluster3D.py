@@ -18,6 +18,6 @@ curdoc().add_root(row(
         s.tabClue3D("Last layer of cluster", "Clus3DLastLayerOfCluster"), 
         s.tabClue3D("Energy per layer", "Clus3DClusteredEnergyPerLayer"),
         s.tabClue3D("Layer with max energy", "Clus3DLayerWithMaximumClusteredEnergy"),
-        s.tabClue3D("Layer with max energy (profile)", "Clus3DMeanLayerWithMaximumClusteredEnergy")
+        s.tabClue3D("Layer with max energy (profile)", "Clus3DMeanLayerWithMaximumClusteredEnergy", plotType=LineHistogram1D)
     ])
 ))
