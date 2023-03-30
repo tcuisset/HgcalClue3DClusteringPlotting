@@ -7,7 +7,8 @@ from HistogramLib.histogram import MyHistogram, HistogramVariable
 # Thread count to use for some big histograms (put None to disable multithreading)
 # Only use for histograms with lots of entries (like for rechits) and low number of bins (don't use for 2D histograms due to high memory usage)
 # Use it as : self.fillFromDf(comp.rechits, ..., threads=threadCount)
-threadCount=4 
+# For now it is disabled as it leaks memory quite heavily
+threadCount=None
 
 beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
 trueBeamEnergyMap = {20 : 20, 30 : 30, 50 : 49.99, 80 : 79.93, 100 : 99.83, 120 : 119.65, 150 : 149.14, 200 : 197.32, 250 : 243.61, 300 : 287.18}
@@ -128,6 +129,18 @@ class RechitsTotalEnergyFractionPerEvent(MyHistogram):
 
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.rechits_totalReconstructedEnergyPerEvent)
+
+class RechitsMeanTotalEnergyPerEvent(MyHistogram):
+    """ Meant to be used with beamEnergy as x axis and with profile on rechits_energy_sum """
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(name="beamEnergy_custom"),
+            label="Mean of all reconstructed energy per event (profile)",
+            binCountLabel="Event count (useless, use profile)",
+            profileOn=HistogramVariable("rechits_energy_sum", "Mean of total reconstructed energy (at rechits level) for each event (GeV)")
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.rechits_totalReconstructedEnergyPerEvent, mapping={"beamEnergy_custom":"beamEnergy"}) 
 
 class RechitsPositionLayer(MyHistogram):
     def __init__(self) -> None:
@@ -277,6 +290,18 @@ class EnergyClustered2DPerEvent(MyHistogram):
 
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.clusters2D_totalEnergyPerEvent) 
+
+class MeanEnergyClustered2DPerEvent(MyHistogram):
+    """ Meant to be used with beamEnergy as x axis and with profile on clus2D_energy_sum """
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(name="beamEnergy_custom"),
+            label="Mean of all 2D clustered energy per event (profile)",
+            binCountLabel="Event count (useless, use profile)",
+            profileOn=HistogramVariable("clus2D_energy_sum", "Mean of total clustered energy by CLUE3D for each event (GeV)")
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.clusters2D_totalEnergyPerEvent, mapping={"beamEnergy_custom":"beamEnergy"}) 
 
 class FractionEnergyClustered2DPerEvent(MyHistogram):
     def __init__(self) -> None:
@@ -577,6 +602,7 @@ class Clus3DMeanLayerWithMaximumClusteredEnergy(MyHistogram):
 
 
 class Clus3DClusteredEnergy(MyHistogram):
+    """ Meant to be plotted with x axis as total clustered energy """
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(),
             totalClusteredEnergy_axis(name="clus3D_energy", label="3D cluster energy (GeV)"),
@@ -589,6 +615,23 @@ class Clus3DClusteredEnergy(MyHistogram):
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
         self.fillFromDf(comp.clusters3D_largestCluster, 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
+
+class Clus3DMeanClusteredEnergy(MyHistogram):
+    """ Meant to be plotted with x axis as beam energy """
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(name="beamEnergy_custom"), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(),
+            totalClusteredEnergy_axis(name="clus3D_energy", label="3D cluster energy (GeV)"),
+            label="Clustered energy by CLUE3D (profile)",
+            binCountLabel="3D cluster count (useless, use profile)",
+            profileOn=HistogramVariable('clus3D_energy', 'Mean, for all events and 3D clusters, of the energy clustered by CLUE3D (GeV)'),
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.clusters3D, mapping={"beamEnergy_custom":"beamEnergy"},
+            valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
+        self.fillFromDf(comp.clusters3D_largestCluster, mapping={"beamEnergy_custom":"beamEnergy"},
+            valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
+
 
 class Clus3DClusteredFractionEnergy(MyHistogram):
     def __init__(self) -> None:
