@@ -27,7 +27,7 @@ curdoc().add_root(row(
             child=PlotManager(store=histStore, 
             selectors=s.selectorsClue3D + [HistogramIdNameMultiSelector([
                 "RechitsMeanTotalEnergyPerEvent", "MeanEnergyClustered2DPerEvent", "Clus3DMeanClusteredEnergy"])],
-            singlePlotClass=None, multiPlotClass=StepHistogram1D,
+            singlePlotClass=None, multiPlotClass=LineHistogram1D,
             ).model
         ),
         s.tabStandard("TrueBeamEnergy", "TrueBeamEnergy")
