@@ -275,7 +275,7 @@ class DataframeComputations:
         .rename(columns={"clus3D_idxs" : "clus2D_id"})
         )
         
-    @cache
+    @cached_property
     def clusters3D_merged_2D(self, clusters3D_with_clus2D_id_df=None) -> pd.DataFrame:
         """
         Merge the dataframe clusters3D_with_clus2D_id_df with clusters2D
@@ -302,14 +302,14 @@ class DataframeComputations:
             validate="one_to_one"               # Cross-check :  Make sure there are no weird things (such as duplicate ids), should not be needed
         )#.droplevel(level="clus2D_internal_id") # remove the useless clus2D_internal_id column
     
-    @cache
+    @cached_property
     def clusters3D_merged_2D_impact(self, clusters3D_merged_2D_df:pd.DataFrame|None = None) -> pd.DataFrame:
         """
         Merge clusters3D_merged_2D with impact dataframe, to get impact info for all 2D clusters members of a 3D cluster
         Also creates clus2D_diff_impact_x and clus2D_diff_impact_y columns holding the difference between 2D cluster position and extrapolated track impact position on layer
         """
         if clusters3D_merged_2D_df is None:
-            clusters3D_merged_2D_df = self.clusters3D_merged_2D()
+            clusters3D_merged_2D_df = self.clusters3D_merged_2D
         merged_df = pd.merge(
             # Left : previously merged dataframe
             clusters3D_merged_2D_df,
@@ -365,7 +365,7 @@ class DataframeComputations:
         Columns : beamEnergy clus3D_size clus3D_energy	clus2D_energy_sum
         """
         return (
-            self.clusters3D_merged_2D()[["event", "clus3D_id", "beamEnergy", "clus3D_energy", "clus3D_size", "clus2D_energy", "clus2D_layer"]]
+            self.clusters3D_merged_2D[["event", "clus3D_id", "beamEnergy", "clus3D_energy", "clus3D_size", "clus2D_energy", "clus2D_layer"]]
 
             # For each event, cluster 3D and layer, sum clus2D_energy
             .groupby(by=["event", "clus3D_id", "clus2D_layer"]).agg(
