@@ -30,6 +30,15 @@ curdoc().add_root(row(
             singlePlotClass=None, multiPlotClass=LineHistogram1D,
             ).model
         ),
+        TabPanel(title="Energy per layer",
+            child=PlotManager(store=histStore, 
+            selectors=s.selectorsClue3D + [
+                HistogramIdNameMultiSelector([
+                    "RechitsEnergyReconstructedPerLayer", "EnergyClustered2DPerLayer", "Clus3DClusteredEnergyPerLayer"])
+            ],
+            singlePlotClass=None, multiPlotClass=LineHistogram1D
+            ).model
+        ),
         s.tabStandard("TrueBeamEnergy", "TrueBeamEnergy")
     ])
 ))

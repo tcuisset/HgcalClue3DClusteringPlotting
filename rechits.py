@@ -16,6 +16,8 @@ curdoc().add_root(row(
         s.tabRechits("Total energy per event (fraction)", "RechitsTotalEnergyFractionPerEvent"),
         s.tabRechits("Total energy per event (profile)", "RechitsMeanTotalEnergyPerEvent", plotType=LineHistogram1D),
         s.tabRechits("Position layer", "RechitsPositionLayer"),
+        s.tabRechits("Energy per layer", "RechitsEnergyReconstructedPerLayer"),
+        s.tabRechits("Energy per layer (fraction)", "RechitsEnergyFractionReconstructedPerLayer"),
         s.tabRechits("Rho", "RechitsRho"),
         s.tabRechits("Delta", "RechitsDelta"),
         s.tabRechits("PointType (1D)", "RechitsPointType"),

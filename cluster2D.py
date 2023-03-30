@@ -14,6 +14,7 @@ curdoc().add_root(row(
         s.tabStandard("Total energy (fraction)", "FractionEnergyClustered2DPerEvent"),
         s.tabStandard("Total energy (profile)", "MeanEnergyClustered2DPerEvent", plotType=LineHistogram1D),
         s.tabStandard("Energy per layer", "EnergyClustered2DPerLayer"),
+        s.tabStandard("Energy per layer (fraction)", "EnergyFractionClustered2DPerLayer"),
         s.tabStandard("Layer with max energy", "LayerWithMaximumClustered2DEnergy"),
         s.tabStandard("Layer with max energy (profile)", "MeanLayerWithMaximumClustered2DEnergy", plotType=LineHistogram1D),
         s.tabStandard("Cluster size", "Clus2DSize"),

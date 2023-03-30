@@ -4,9 +4,11 @@ import operator
 import awkward as ak
 import pandas as pd
 
+from .parameters import synchrotronBeamEnergiesMap
+
 def divideByBeamEnergy(df:pd.DataFrame, colName:str) -> pd.DataFrame:
-    """ Add a columns named colName_fractionOfBeamEnergy """
-    df[colName+"_fractionOfBeamEnergy"] = df[colName]/df["beamEnergy"]
+    """ Add a columns named colName_fractionOfSynchrotronBeamEnergy """
+    df[colName+"_fractionOfSynchrotronBeamEnergy"] = df[colName]/df["synchrotronBeamEnergy"]
     return df
 
 
@@ -16,8 +18,8 @@ class DataframeComputations:
     
     @cached_property
     def trueBeamEnergy(self) -> pd.DataFrame:
-        """ If trueBeamEnergy exists, returns : 
-            Columns : eventn beamEnergy, trueBeamEnergy
+        """ Get simulated particle gun energy branch. If trueBeamEnergy branch exists, returns : 
+            Columns : event beamEnergy, trueBeamEnergy
             Index : event
         otherwise return a dataframe with a single row : 1, 0, 0
         """
@@ -29,6 +31,26 @@ class DataframeComputations:
             )
         else:
             return pd.DataFrame({"event":[1], "beamEnergy":[0], "trueBeamEnergy":[0]}).set_index("event")
+
+    @cached_property
+    def beamEnergy(self) -> pd.DataFrame:
+        """ 
+        Index : event
+        Columns : beamEnergy synchrotronBeamEnergy (ie mean particle energy in beam test, after synchrotron losses)
+        """
+        df =  ak.to_dataframe(
+            self.array.beamEnergy, 
+            levelname=lambda i: "event", 
+            anonymous="beamEnergy" # name the column
+        )
+        df["synchrotronBeamEnergy"] = df.beamEnergy.map(synchrotronBeamEnergiesMap)
+        return df
+    
+
+    def join_divideByBeamEnergy(self, df:pd.DataFrame, colName:str) -> pd.DataFrame:
+        """ Joins to beamEnergy df then adds a columns named colName_fractionOfSynchrotronBeamEnergy"""
+        # rsuffix is in case we already have beamEnergy column in df
+        return df.join(self.beamEnergy, on="event", rsuffix="_right").pipe(divideByBeamEnergy, colName=colName)
 
     @property
     def impact(self) -> pd.DataFrame:
@@ -71,10 +93,42 @@ class DataframeComputations:
         Index : event
         Columns : beamEnergy rechits_energy_sum
         """
-        return divideByBeamEnergy(self.rechits[["beamEnergy", "rechits_energy"]].groupby(by="event").agg(
-            beamEnergy=pd.NamedAgg(column="beamEnergy", aggfunc="first"),
-            rechits_energy_sum=pd.NamedAgg(column="rechits_energy", aggfunc="sum"),
-        ), "rechits_energy_sum")
+        return (self.rechits[["rechits_energy"]]
+            .groupby(by="event")
+            .agg(
+                rechits_energy_sum=pd.NamedAgg(column="rechits_energy", aggfunc="sum"),
+            )
+            .pipe(self.join_divideByBeamEnergy, "rechits_energy_sum")
+        )
+
+    @property
+    def rechits_totalReconstructedEnergyPerEventLayer(self) -> pd.DataFrame:
+        """ Sum of all rechits energy per event and per layer
+        Index : event
+        Columns : beamEnergy rechits_energy_sum
+        """
+        df = (self.rechits[["rechits_layer", "rechits_energy"]]
+            .groupby(by=["event", "rechits_layer"])
+            .agg(
+                rechits_energy_sum_perLayer=pd.NamedAgg(column="rechits_energy", aggfunc="sum"),
+            )
+        )
+
+        # To compute profile on energy sums correctly, it is necessary to include rows with zeroes in case a layer does not have any rechits
+        # about 2% increase in nb of rows at 100 GeV (probably much more at 20 GeV)
+        # We build the cartesian product event * layer
+        newIndex = pd.MultiIndex.from_product([df.index.levels[0], df.index.levels[1]])
+
+        return (
+            # Reindex the dataframe, this will create new rows as needed, filled with zeros
+            # Make sure only columns where 0 makes sense are included (not beamEnergy !)
+            df.reindex(newIndex, fill_value=0)
+            .reset_index("rechits_layer")
+            
+            # Put beamEnergy back
+            .pipe(self.join_divideByBeamEnergy, colName="rechits_energy_sum_perLayer")
+        )
+
 
     @cached_property
     def layerToZMapping(self) -> dict[int, float]:
@@ -148,31 +202,60 @@ class DataframeComputations:
     def clusters2D_totalEnergyPerEvent(self) -> pd.DataFrame:
         """ Computer per event the total clustered energy by CLUE2D
         Index : event
-        Columns : beamEnergy clus2D_energy_sum clus2D_energy_sum_fractionOfBeamEnergy
+        Columns : beamEnergy clus2D_energy_sum clus2D_energy_sum_fractionOfSynchrotronBeamEnergy
         """
-        return divideByBeamEnergy(self.clusters2D[["beamEnergy", "clus2D_energy"]].groupby(by=['event']).agg(
-                beamEnergy=pd.NamedAgg(column="beamEnergy", aggfunc="first"),
+        return (
+            self.clusters2D[["clus2D_energy"]].groupby(by=['event']).agg(
                 clus2D_energy_sum=pd.NamedAgg(column="clus2D_energy", aggfunc="sum"),
-            ), "clus2D_energy_sum")
+            )
+            .pipe(self.join_divideByBeamEnergy, "clus2D_energy_sum")
+        )
     
     def get_clusters2D_perLayerInfo(self, withBeamEnergy=True) -> pd.DataFrame:
         """
         Compute per event and per layer the total 2D-cluster energies (and the same as a fraction of beam energy) and the number of 2D clusters
         Parameter : withBeamEnergy : whether to add beamEnergy column
         Index : event, clus2D_layer
-        Column : [beamEnergy,] clus2D_energy_sum clus2D_count [clus2D_energy_sum_fractionOfBeamEnergy]
+        Column : [beamEnergy,] clus2D_energy_sum clus2D_count [clus2D_energy_sum_fractionOfSynchrotronBeamEnergy]
         """
-        if withBeamEnergy:
-            return divideByBeamEnergy(self.clusters2D[["beamEnergy", "clus2D_layer", "clus2D_energy"]].groupby(by=['event', 'clus2D_layer']).agg(
-                beamEnergy=pd.NamedAgg(column="beamEnergy", aggfunc="first"),
-                clus2D_energy_sum=pd.NamedAgg(column="clus2D_energy", aggfunc="sum"),
-                clus2D_count=pd.NamedAgg(column="clus2D_energy", aggfunc="count")
-            ), "clus2D_energy_sum")
-        else:
-            return self.clusters2D[["clus2D_layer", "clus2D_energy"]].groupby(by=['event', 'clus2D_layer']).agg(
+        
+        df = (self.clusters2D[["clus2D_layer", "clus2D_energy"]]
+            .groupby(by=['event', 'clus2D_layer'])
+            .agg(
                 clus2D_energy_sum=pd.NamedAgg(column="clus2D_energy", aggfunc="sum"),
                 clus2D_count=pd.NamedAgg(column="clus2D_energy", aggfunc="count")
             )
+        )
+        if withBeamEnergy:
+            return self.join_divideByBeamEnergy(df, "clus2D_energy_sum")
+        else:
+            return df
+
+    @property
+    def get_clusters2D_perLayerInfo_allLayers(self) -> pd.DataFrame:
+        """
+        Same as get_clusters2D_perLayerInfo, except that layers with no 2D clusters have a row added (with zero energy)
+        This is intended for profile histograms, to get the correct mean values.
+        
+        Parameter : withBeamEnergy : whether to add beamEnergy column
+        Index : event, clus2D_layer
+        Column : beamEnergy, synchrotronBeamEnergy clus2D_energy_sum clus2D_count clus2D_energy_sum_fractionOfSynchrotronBeamEnergy
+        """
+
+        df = self.get_clusters2D_perLayerInfo(withBeamEnergy=False)
+        # We build the cartesian product event * layer
+        newIndex = pd.MultiIndex.from_product([df.index.levels[0], df.index.levels[1]])
+
+
+        return (
+            # Reindex the dataframe, this will create new rows as needed, filled with zeros
+            # Make sure only columns where 0 makes sense are included (not beamEnergy !)
+            df.reindex(newIndex, fill_value=0)
+            
+            # Put beamEnergy back
+            .pipe(self.join_divideByBeamEnergy, colName="clus2D_energy_sum")
+        )
+        
 
     @property
     def clusters2D_sumClustersOnLayerWithMaxClusteredEnergy(self) -> pd.DataFrame:
@@ -357,13 +440,52 @@ class DataframeComputations:
         )
     
     @cached_property
+    def clusters3D_energyClusteredPerLayer_allLayers(self) -> pd.DataFrame:
+        """ Same as clusters3D_energyClusteredPerLayer but inserts rows with zeroes for layers wich have no layer clusters (to compute profile histograms properly)
+        MultiIndex : event, clus3D_id
+        Columns : clus3D_size clus2D_layer	clus2D_energy_sum	beamEnergy	synchrotronBeamEnergy	clus2D_energy_sum_fractionOfsynchrotronBeamEnergy
+        """
+        df = (self.clusters3D_merged_2D[["event", "clus3D_id", "clus3D_energy", "clus3D_size", "clus2D_energy", "clus2D_layer"]]
+        # For each event, cluster 3D and layer, sum clus2D_energy
+            .groupby(by=["event", "clus3D_id", "clus2D_layer"]).agg(
+                clus2D_energy_sum=pd.NamedAgg(column="clus2D_energy", aggfunc="sum")
+            )
+        )
+        # Make list of tuples holding (event, clus3D_id)
+        tuples_event_clus3D_id:list[tuple[int, int]] = df.index.droplevel("clus2D_layer").drop_duplicates().to_list()
+
+        # Makes list of all unique values of layer numbers
+        layers:list[int] = df.index.levels[2].to_list() 
+
+        # Build the new MultiIndex with all layers, from a list of 3-tuples
+        newIndex = pd.MultiIndex.from_tuples(
+            ((event, clus3D_id, layer) for event, clus3D_id in tuples_event_clus3D_id for layer in layers),
+            names=["event", "clus3D_id", "clus2D_layer"]
+        )
+
+        return (
+            # Reindex the dataframe, this will create new rows as needed, filled with zeros
+            # Make sure only columns where 0 makes sense are included (not beamEnergy !)
+            # Also it does not make sense for clus3D_* properties
+            df.reindex(newIndex, fill_value=0)
+            
+            # Put beamEnergy back
+            .pipe(self.join_divideByBeamEnergy, colName="clus2D_energy_sum")
+
+            # Put clus3D_size back
+            .join(
+                self.clusters3D[["clus3D_size"]],
+                on=["event", "clus3D_id"]
+            )
+
+            .reset_index("clus2D_layer")
+        )
+
+    @cached_property
     def clusters3D_layerWithMaxClusteredEnergy(self) -> pd.DataFrame:
         """ Select layer with maximum 2D clustered energy in each 3D cluster 
         MultiIndex : event clus3D_id
         Columns : layer_with_max_clustered_energy	beamEnergy	clus3D_size	clus3D_energy	clus2D_energy_sum (sum of 2D clustered energy of this 3D cluster in the layer with max energy) """
-        # Old way : uses idxmax, very slow
-        #self.clusters3D["layer_with_max_clustered_energy"] = self.clusters3D_layerWithMaxClusteredEnergy
-
         # for each event and 3D cluster find the layer with the maximum clus2D_energy_sum
         return (self.clusters3D_energyClusteredPerLayer
             .reset_index()
