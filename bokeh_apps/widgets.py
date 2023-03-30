@@ -2,8 +2,7 @@ import bokeh.models
 
 from HistogramLib.bokeh.selector_widgets import *
 from HistogramLib.histogram import HistogramKind
-
-beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
+from hists.parameters import beamEnergies
 
 def makeLayerSelector():
     return ExplodeSelector(RangeAxisSelector("layer",
