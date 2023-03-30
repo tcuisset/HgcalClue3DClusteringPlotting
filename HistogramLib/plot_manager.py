@@ -17,12 +17,15 @@ class AbstractPlotClass:
         pass
 
 class PlotManager:
-    def __init__(self, store:HistogramStore,selectors:List[Selector],
+    def __init__(self, store:HistogramStore, selectors:List[Selector],
             singlePlotClass:Type[AbstractPlotClass], multiPlotClass:Type[AbstractPlotClass]|None=None,
             lambdaOnPlotCreation:Callable[[AbstractPlotClass], None]=None,
+            forcePlotAxises:List[str]|None=None,
             **kwargs_plot) -> None:
         """
         lambdaOnPlotCreation is a facultative lambda/function that is called each time a PlotClass is instantiated, with the PlotClass in parameter
+        forcePlotAxises : passed on to HistogramView, forces projections so that the final projected histogram has only the axises given in forcePlotAxises. 
+            If not supplied, then the plot axises are guessed by looking at all selectors
         kwargs_plot are keyword arguments passed on to the plot class (which then usually passes them on to the bokeh figure)
         """
         self.store = store
@@ -30,6 +33,7 @@ class PlotManager:
         self.multiPlotClass = multiPlotClass
         self.selectors = selectors
         self.lambdaOnPlotCreation = lambdaOnPlotCreation
+        self.forcePlotAxises = forcePlotAxises
         self.kwargs_plot = kwargs_plot
         self.model = Row()
         self.plots:List[AbstractPlotClass] = []
@@ -62,17 +66,22 @@ class PlotManager:
 
     def makeMetadata(self, selectionLengthTuple:Iterable[Tuple[Selection, int]]):
         metadata = copy.copy(self.store.getMetadata(findHistNameInSelections([selection for selection, lenSelections in selectionLengthTuple])))
-        slicedAxes = set()
-        for selection, lenSelections in selectionLengthTuple:
-            if selection.slice() is not None and selection.slice().axisName in metadata.axes.name:
-                slicedAxes.add(selection.slice().axisName)
-        
+        if self.forcePlotAxises is None:
+            # Figure out plot axises by removing from histogram plot axises all axes for which we have a selection
+            slicedAxes = set()
+            for selection, lenSelections in selectionLengthTuple:
+                if selection.slice() is not None and selection.slice().axisName in metadata.axes.name:
+                    slicedAxes.add(selection.slice().axisName)
+        else:
+            slicedAxes = set(self.forcePlotAxises)
+
         # We need to make sure the order of axes in the metadata is the same as that returned by HistogramView
         unslicedAxes = []
         for axis in metadata.axes:
             if axis.name not in slicedAxes:
                 unslicedAxes.append(axis)
         metadata.axes = NamedAxesTuple(unslicedAxes)
+
         # The following does not work due to misordering of axes : 
         #metadata.axes = NamedAxesTuple(metadata.axes[axisName] for axisName in set(metadata.axes.name).difference(slicedAxes))
         metadata.title += " "+" ".join(selection.label for selection, lenSelections in selectionLengthTuple if lenSelections > 1)
@@ -94,7 +103,8 @@ class PlotManager:
                     projectedViews={
                         overlaySelection.label : HistogramView(
                             self.store,
-                            list(selectionList+[overlaySelection])) # add overlay to tuple 
+                            list(selectionList+[overlaySelection]), # add overlay to tuple 
+                            forcePlotAxises=self.forcePlotAxises) 
                         for overlaySelection in overlaySelector.selections()
                     },
                     **self.kwargs_plot
@@ -109,7 +119,8 @@ class PlotManager:
                 newPlot = self.singlePlotClass(metadata=self.makeMetadata(selectionAndLengthTuple),
                     projectedView=HistogramView(
                         self.store,
-                        selectionList
+                        selectionList,
+                        forcePlotAxises=self.forcePlotAxises
                     ),
                     **figure_kwargs
                 )
