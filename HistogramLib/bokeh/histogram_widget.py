@@ -90,13 +90,20 @@ class QuadHistogram2D(AbstractSingleHistogram):
 
 
 class AbstractMultiHistogram(AbstractHistogram):
-    def __init__(self, projectedViews:Dict[str, HistogramView], *args, **kwargs) -> None:
+    def __init__(self, projectedViews:Dict[str, HistogramView]|None=None, projectedView:HistogramView|None=None, **kwargs) -> None:
         """ 
         Multiple overlayed histograms, one per provided HistogramProjectedView
-        histProviders : dict legendName:str -> HistogramView 
+        Specify projectedViews for multiple histograms : dict legend -> HistogramView
+        It is also possible to just specify projectedView with a single histogram, equivalent of projectedViews={"" : projectedView}
+          (plots a single histogram)
         """
-        self.histProjectedViews = projectedViews
-        super().__init__(*args, **kwargs)
+        if projectedViews is not None:
+            self.histProjectedViews = projectedViews
+        elif projectedView is not None:
+            self.histProjectedViews = {"" : projectedView}
+        else:
+            raise ValueError("AbstractMultiHistogram : You must specify either projectedViews or projectedView")
+        super().__init__(**kwargs)
 
     def _setupLegend(self):
         """ To be called after calling glyph method so the legend exists"""

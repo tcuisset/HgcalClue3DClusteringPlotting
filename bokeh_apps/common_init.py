@@ -55,13 +55,16 @@ class Selectors:
             self.clus3DSizeSelector]
         self.selectorsClue3D = self.selectorsClue3DBegin + self.selectorsStandardEnd
 
-    def MakePlot(self, histName:str, selectors, plotType:str="1d", **kwargs):
+    def MakePlot(self, histName:str, selectors, plotType:str|AbstractHistogram="1d", **kwargs):
         if plotType == "1d":
             singlePlotClass=QuadHistogram1D
             multiPlotClass=StepHistogram1D
         elif plotType == "2d":
             singlePlotClass=QuadHistogram2D
             multiPlotClass=None
+        else:
+            singlePlotClass = plotType
+            multiPlotClass = plotType
         return PlotManager(store=histStore, 
             selectors=selectors + [HistogramIdNameSelector(histName)],
             singlePlotClass=singlePlotClass, multiPlotClass=multiPlotClass,
