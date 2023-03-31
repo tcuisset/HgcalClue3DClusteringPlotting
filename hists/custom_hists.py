@@ -348,7 +348,7 @@ class EnergyFractionClustered2DPerLayer(MyHistogram):
         super().__init__(beamEnergiesAxis(), layerAxis_custom(name="clus2D_layer"),
             label="Sum of 2D clusters energies per layer",
             binCountLabel="!!Use profile!!",
-            profileOn=HistogramVariable('clus2D_energy_sum_fractionOfSynchrotronBeamEnergy', 'Mean, over all events, of the total 2D clustered energy in each layer, as a fraction of the beam energy, incl. synchrotron losses')
+            profileOn=HistogramVariable('clus2D_energy_sum_fractionOfSynchrotronBeamEnergy', 'Mean, over all events, of the total 2D clustered energy in each layer,\nas a fraction of the beam energy, incl. synchrotron losses')
         )
 
     def loadFromComp(self, comp:DataframeComputations):
