@@ -102,20 +102,27 @@ class DataframeComputations:
         )
 
     @property
-    def rechits_totalReconstructedEnergyPerEventLayer(self) -> pd.DataFrame:
+    def rechits_totalReconstructedEnergyPerEventLayer(self) ->pd.DataFrame:
         """ Sum of all rechits energy per event and per layer
         Index : event
-        Columns : beamEnergy rechits_energy_sum
+        Columns : rechits_energy_sum_perLayer
         """
-        df = (self.rechits[["rechits_layer", "rechits_energy"]]
+        return (self.rechits[["rechits_layer", "rechits_energy"]]
             .groupby(by=["event", "rechits_layer"])
             .agg(
                 rechits_energy_sum_perLayer=pd.NamedAgg(column="rechits_energy", aggfunc="sum"),
             )
         )
 
-        # To compute profile on energy sums correctly, it is necessary to include rows with zeroes in case a layer does not have any rechits
-        # about 2% increase in nb of rows at 100 GeV (probably much more at 20 GeV)
+    @property
+    def rechits_totalReconstructedEnergyPerEventLayer_allLayers(self) -> pd.DataFrame:
+        """ Sum of all rechits energy per event and per layer, but with all layers present (filled with zeroes if necessary)
+        To compute profile on energy sums correctly, it is necessary to include rows with zeroes in case a layer does not have any rechits
+        about 2% increase in nb of rows at 100 GeV (probably much more at 20 GeV)
+        Index : event
+        Columns : beamEnergy rechits_energy_sum_perLayer
+        """
+        df = self.rechits_totalReconstructedEnergyPerEventLayer
         # We build the cartesian product event * layer
         newIndex = pd.MultiIndex.from_product([df.index.levels[0], df.index.levels[1]])
 
@@ -129,6 +136,19 @@ class DataframeComputations:
             .pipe(self.join_divideByBeamEnergy, colName="rechits_energy_sum_perLayer")
         )
 
+    @property
+    def rechits_layerWithMaxEnergy(self):
+        """ For each event, find the layer with maximum reconstructed energy
+        Index : event
+        Columns : rechits_layer	rechits_energy_sum_perLayer 
+        """
+        return (self.rechits_totalReconstructedEnergyPerEventLayer
+            .sort_values(["event", "rechits_energy_sum_perLayer"], ascending=[True, False])
+            .reset_index()
+            .drop_duplicates("event", keep="first")
+            .set_index("event")
+            .pipe(self.join_divideByBeamEnergy, "rechits_energy_sum_perLayer")
+        )
 
     @cached_property
     def layerToZMapping(self) -> dict[int, float]:

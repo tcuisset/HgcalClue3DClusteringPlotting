@@ -18,6 +18,8 @@ curdoc().add_root(row(
         s.tabRechits("Position layer", "RechitsPositionLayer"),
         s.tabRechits("Energy per layer", "RechitsEnergyReconstructedPerLayer"),
         s.tabRechits("Energy per layer (fraction)", "RechitsEnergyFractionReconstructedPerLayer"),
+        s.tabRechits("Layer with max energy", "RechitsLayerWithMaximumEnergy"),
+        s.tabRechits("Layer with max energy (profile)", "RechitsMeanLayerWithMaximumEnergy", plotType=LineHistogram1D),
         s.tabRechits("Rho", "RechitsRho"),
         s.tabRechits("Delta", "RechitsDelta"),
         s.tabRechits("PointType (1D)", "RechitsPointType"),

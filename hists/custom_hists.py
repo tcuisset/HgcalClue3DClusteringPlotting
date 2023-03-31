@@ -164,7 +164,7 @@ class RechitsEnergyReconstructedPerLayer(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits_totalReconstructedEnergyPerEventLayer, {'pointType':'rechits_pointType'})
+        self.fillFromDf(comp.rechits_totalReconstructedEnergyPerEventLayer_allLayers, {'pointType':'rechits_pointType'})
 
 class RechitsEnergyFractionReconstructedPerLayer(MyHistogram):
     def __init__(self) -> None:
@@ -177,7 +177,32 @@ class RechitsEnergyFractionReconstructedPerLayer(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits_totalReconstructedEnergyPerEventLayer, {'pointType':'rechits_pointType'})
+        self.fillFromDf(comp.rechits_totalReconstructedEnergyPerEventLayer_allLayers, {'pointType':'rechits_pointType'})
+
+class RechitsLayerWithMaximumEnergy(MyHistogram):
+    """ Note : here layer is meant as a plot axis (not to be used with a slider) """
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(), layerAxis_custom(name="rechits_layer"), 
+            label="Layer with the maximum reconstructed energy",
+            binCountLabel="Event count",
+            profileOn=HistogramVariable('rechits_energy_sum_perLayer', 'In a given layer bin, mean of reconstructed energy in the layer\nwhen the layer is the one with max reconstructed energy (GeV)'),
+            weightOn=HistogramVariable('rechits_energy_sum_perLayer', 'In a given layer bin, sum of all reconstructed energy\nfor events where this layer is the one with max reconstructed energy (GeV)')
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.rechits_layerWithMaxEnergy)
+
+class RechitsMeanLayerWithMaximumEnergy(MyHistogram):
+    """ Meant to be plotted as a function of beam energy, profiled on layer """
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(name="beamEnergy_custom"),
+            label="Layer with the maximum 2D-clustered energy (profile layer)",
+            binCountLabel="!!Use profile!!",
+            profileOn=HistogramVariable('rechits_layer', 'Mean, for all events, of the layer number with maximum reconstructed energy (GeV)'),
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.rechits_layerWithMaxEnergy, mapping={"beamEnergy_custom":"beamEnergy"})
 
 
 class RechitsRho(MyHistogram):

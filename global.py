@@ -39,6 +39,24 @@ curdoc().add_root(row(
             singlePlotClass=None, multiPlotClass=LineHistogram1D
             ).model
         ),
+        TabPanel(title="Layer with max energy",
+            child=PlotManager(store=histStore, 
+            selectors=s.selectorsClue3D + [
+                HistogramIdNameMultiSelector([
+                    "RechitsLayerWithMaximumEnergy", "LayerWithMaximumClustered2DEnergy", "Clus3DLayerWithMaximumClusteredEnergy"])
+            ],
+            singlePlotClass=None, multiPlotClass=StepHistogram1D
+            ).model
+        ),
+        TabPanel(title="Layer with max energy (profile layer)",
+            child=PlotManager(store=histStore, 
+            selectors=s.selectorsClue3D + [
+                HistogramIdNameMultiSelector([
+                    "RechitsMeanLayerWithMaximumEnergy", "MeanLayerWithMaximumClustered2DEnergy", "Clus3DMeanLayerWithMaximumClusteredEnergy"])
+            ],
+            singlePlotClass=None, multiPlotClass=LineHistogram1D
+            ).model
+        ),
         s.tabStandard("TrueBeamEnergy", "TrueBeamEnergy")
     ])
 ))
