@@ -56,7 +56,11 @@ class QuadHistogram1D(AbstractSingleHistogram):
     def update(self):
         super().update()
         try:
-            self.source.data = {"top":self.histProjectedView.getProjectedHistogramView(), "left":self.metadata.axes[0].edges[:-1], "right":self.metadata.axes[0].edges[1:]}
+            if issubclass(type(self.metadata.axes[0]), bh.axis.Integer):
+                # Integer axis : center bins on integer, not on half-integer
+                self.source.data = {"top":self.histProjectedView.getProjectedHistogramView(), "left":self.metadata.axes[0].centers-1, "right":self.metadata.axes[0].centers}
+            else:
+                self.source.data = {"top":self.histProjectedView.getProjectedHistogramView(), "left":self.metadata.axes[0].edges[:-1], "right":self.metadata.axes[0].edges[1:]}
         except HistogramLoadError:
             self.source.data = {}
         self.figure.yaxis.axis_label = self.metadata.getPlotLabel(self.histProjectedView.histKind, self.histProjectedView.densityHistogram)
@@ -176,9 +180,17 @@ class StepHistogram1D(AbstractMultiHistogram):
             self.source.data["x_bins_left"] = x_bins
         self.update()
 
+        if issubclass(type(xAxis), bh.axis.Integer):
+            # For integer axis use center of bin as x coordinates
+            # Though it makes the first and last bins half-width (TODO correct this somehow)
+            stepMode = "center"
+        else:
+            # For continuous axis
+            stepMode = "before"
+
         colors = itertools.cycle(palette)
         for legend_name, color in zip(self.histProjectedViews.keys(), colors): 
-            self.figure.step(source=self.source, x="x_bins_left", y=legend_name, legend_label=legend_name, color=color)
+            self.figure.step(source=self.source, x="x_bins_left", y=legend_name, legend_label=legend_name, color=color, mode=stepMode)
         self._setupLegend()
 
     def update(self):
