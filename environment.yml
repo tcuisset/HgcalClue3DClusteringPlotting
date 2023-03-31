@@ -12,6 +12,7 @@ dependencies:
  - ipykernel
  - matplotlib>=3
  - mplhep>=0.3
+ - tqdm
  - pip
  - pip:
     - awkward-pandas
