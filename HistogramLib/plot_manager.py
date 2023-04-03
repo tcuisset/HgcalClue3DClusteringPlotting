@@ -93,6 +93,12 @@ class PlotManager:
         firstFigure:figure = None
         for selectionAndLengthTuple in allSelections: #selectionAndLengthTuple is tuple[tuple[Selection, int], ...]]
             selectionList = [selection for selection, lenSelections in selectionAndLengthTuple]
+            figure_kwargs = copy.copy(self.kwargs_plot)
+            if firstFigure is not None:
+                # Enable linked panning and zooming : https://docs.bokeh.org/en/latest/docs/user_guide/interaction/linking.html#linked-panning
+                figure_kwargs["x_range"] = firstFigure.x_range
+                figure_kwargs["y_range"] = firstFigure.y_range
+
             if overlaySelector is not None:
                 #Use for metadata the first overlay (otherwise the overlay axis is kept in metadata which is not wanted)
                 # TODO : have overlay axis in metadata
@@ -107,15 +113,9 @@ class PlotManager:
                             forcePlotAxises=self.forcePlotAxises) 
                         for overlaySelection in overlaySelector.selections()
                     },
-                    **self.kwargs_plot
+                    **figure_kwargs
                 )
             else:
-                figure_kwargs = copy.copy(self.kwargs_plot)
-                if firstFigure is not None:
-                    # Enable linked panning and zooming : https://docs.bokeh.org/en/latest/docs/user_guide/interaction/linking.html#linked-panning
-                    figure_kwargs["x_range"] = firstFigure.x_range
-                    figure_kwargs["y_range"] = firstFigure.y_range
-                
                 newPlot = self.singlePlotClass(metadata=self.makeMetadata(selectionAndLengthTuple),
                     projectedView=HistogramView(
                         self.store,
@@ -124,8 +124,9 @@ class PlotManager:
                     ),
                     **figure_kwargs
                 )
-                if firstFigure is None:
-                    firstFigure = newPlot.figure
+            
+            if firstFigure is None:
+                firstFigure = newPlot.figure
 
             self.plots.append(newPlot)
             if self.lambdaOnPlotCreation is not None:
