@@ -78,8 +78,9 @@ class HistogramStore:
         
         clueParams = list(clueParams)
         datatypes = list(datatypes)
-        try: # Put "data" as first list element
+        try: # Put "data" as first list element, then sim_proton_v7
             datatypes.insert(0, datatypes.pop(datatypes.index("data")))
+            datatypes.insert(1, datatypes.pop(datatypes.index("sim_proton_v7")))
         except ValueError:
             pass
         try: # Put "cmssw" as first list element
