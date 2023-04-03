@@ -749,34 +749,62 @@ class Clus3DClusteredFractionEnergy(MyHistogram):
 
 
 
-class Clus3DRechitsDistanceToBarycenter(MyHistogram):
+class Clus3DRechitsDistanceToBarycenter_EnergyFractionNormalized(MyHistogram):
     """ Distance to barycenter for rechits member of 3D cluster.
     Barycenter position is computed using log weights, per event, 3D cluster, and layer.
-    For profile : normalized by 3D cluster energy on layer and by area (in cm^-2)
+    For profile : normalized by fraction of energy in 3D cluster on layer
     To be plotted against distance to barycenter;
-    Be carfeul with projections. """ 
+    Be careful with projections. """ 
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(), layerAxis,
             rechits_distanceToBarycenter_axis,
             label="Distance to barycenter for rechits member of 3D cluster\n(barycenter position is computed using log weights, per event, 3D cluster, and layer)",
             binCountLabel="Rechits count",
-            profileOn=HistogramVariable("rechits_energy_normalized", "Mean (over events and 3D clusters) of the sum of rechits energies,\nnormalized by 3D cluster energy on layer and by area of crown (in cm^-2)")
+            weightOn=HistogramVariable("rechits_energy", "Sum of all rechits energies in this bin, for all events, 3D clusters (GeV)"),
+            profileOn=HistogramVariable("rechits_energy_EnergyFractionNormalized", "Mean (over events and 3D clusters) of the sum of rechits energies,\nin fraction of energy in 3D cluster on layer")
+        )
+    
+    def loadFromComp(self, comp:DataframeComputations):
+        df = comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer
+        df["rechits_energy_EnergyFractionNormalized"] = df.rechits_energy / df.rechits_energy_sumPerLayer
+        self.fillFromDf(comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer, 
+            valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
+            mapping={"layer":"rechits_layer"})
+        self.fillFromDf(comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer.loc[comp.clusters3D_largestClusterIndex], 
+            valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
+            mapping={"layer":"rechits_layer"})
+
+
+
+class Clus3DRechitsDistanceToBarycenter_AreaNormalized(MyHistogram):
+    """ Distance to barycenter for rechits member of 3D cluster.
+    Barycenter position is computed using log weights, per event, 3D cluster, and layer.
+    For profile : normalized by 3D cluster energy on layer and by area (in cm^-2)
+    To be plotted against distance to barycenter;
+    Be careful with projections. """ 
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(), layerAxis,
+            rechits_distanceToBarycenter_axis,
+            label="Distance to barycenter for rechits member of 3D cluster\n(barycenter position is computed using log weights, per event, 3D cluster, and layer)",
+            binCountLabel="Rechits count",
+            profileOn=HistogramVariable("rechits_energy_AreaNormalized", "Mean (over events and 3D clusters) of the sum of rechits energies,\nnormalized by 3D cluster energy on layer and by area of crown (in cm^-2)")
         )
     
     def normalizeDf(self, df:pd.DataFrame):
-        r_axis = self.axes["rechits_distanceToBarycenter"]
         # Need to round as the bin widths are very slightly different (float issues)
         unique_widths = np.unique(rechits_distanceToBarycenter_axis.widths.round(decimals=3))
         if len(unique_widths) != 1: # There are at least two different bin widths
             raise RuntimeError("Clus3DRechitsDistanceToBarycenter only supports fixed bin widths for distanceToBarycenter")
         dr = unique_widths[0]
         # Use area of crown : 2*pi*r*dr + pi*dr*dr
-        df["rechits_energy_normalized"] = df.rechits_energy / ( df.rechits_energy_sumPerLayer * math.pi * (2 * df.rechits_distanceToBarycenter * dr  + dr*dr))
+        df["rechits_energy_AreaNormalized"] = df.rechits_energy / ( df.rechits_energy_sumPerLayer * math.pi * (2 * df.rechits_distanceToBarycenter * dr  + dr*dr))
 
     def loadFromComp(self, comp:DataframeComputations):
         self.normalizeDf(comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer)
         self.fillFromDf(comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer, 
-            valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
+            valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
+            mapping={"layer":"rechits_layer"})
         self.fillFromDf(comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer.loc[comp.clusters3D_largestClusterIndex], 
-            valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
+            valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
+            mapping={"layer":"rechits_layer"})
 
