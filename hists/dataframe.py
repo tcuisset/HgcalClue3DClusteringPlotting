@@ -1,10 +1,12 @@
+import math
 from functools import cached_property, cache
 import operator
 
-import awkward as ak
+import numpy as np
 import pandas as pd
+import awkward as ak
 
-from .parameters import synchrotronBeamEnergiesMap
+from .parameters import synchrotronBeamEnergiesMap, thresholdW0
 
 def divideByBeamEnergy(df:pd.DataFrame, colName:str) -> pd.DataFrame:
     """ Add a columns named colName_fractionOfSynchrotronBeamEnergy """
@@ -79,13 +81,13 @@ class DataframeComputations:
     @cached_property
     def rechits(self) -> pd.DataFrame:
         """
-        Columns : event  rechit_id  beamEnergy	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_pointType  
-        MultiIndex : (event, rechit_id)
+        Columns : event  rechits_id  beamEnergy	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_pointType  
+        MultiIndex : (event, rechits_id)
         """
         return ak.to_dataframe(self.array[
             ["beamEnergy", "rechits_x", "rechits_y", "rechits_z", "rechits_energy", "rechits_layer",
             "rechits_rho", "rechits_delta", "rechits_pointType"]], 
-            levelname=lambda i : {0 : "event", 1:"rechit_id"}[i])
+            levelname=lambda i : {0 : "event", 1:"rechits_id"}[i])
 
     @cached_property
     def rechits_totalReconstructedEnergyPerEvent(self) -> pd.DataFrame:
@@ -185,34 +187,37 @@ class DataframeComputations:
     @property
     def clusters2D_with_rechit_id(self) -> pd.DataFrame:
         """
-        MultiIndex : event	clus2D_id	rechit_internal_id
+        MultiIndex : event	clus2D_id	rechits_id
         Columns : beamEnergy	[clus2D_x	clus2D_y	clus2D_z	clus2D_energy]	clus2D_layer	clus2D_size	clus2D_idxs	clus2D_rho	clus2D_delta	clus2D_pointType
-        Note : rechit_internal_id is an identifier counting rechits in each 2D cluster (it is NOT the same as rechit_id, which is unique per event, whilst rechit_internal_id is only unique per 2D cluster)
         """
-        return ak.to_dataframe(
-            self.array[[
-                "beamEnergy",  "clus2D_layer",
-                #"clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy",
-                "clus2D_rho", "clus2D_delta", "clus2D_idxs", "clus2D_pointType"
-            ]], 
-            levelname=lambda i : {0 : "event", 1:"clus2D_id", 2:"rechit_internal_id"}[i]
+        return (
+            ak.to_dataframe(
+                self.array[[
+                    "beamEnergy",  "clus2D_layer",
+                    #"clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy",
+                    "clus2D_rho", "clus2D_delta", "clus2D_idxs", "clus2D_pointType"
+                ]], 
+                levelname=lambda i : {0 : "event", 1:"clus2D_id", 2:"rechit_internal_id"}[i]
+            )
+            # rechit_internal_id is an identifier counting rechits in each 2D cluster (it is NOT the same as rechits_id, which is unique per event, whilst rechit_internal_id is only unique per 2D cluster)
+            .reset_index(level="rechit_internal_id", drop=True)
+            .rename(columns={"clus2D_idxs" : "rechits_id"})
         )
 
     @cached_property
     def clusters2D_merged_rechit(self) -> pd.DataFrame:
         """
-        MultiIndex : event	clus2D_id	rechit_internal_id
+        MultiIndex : event	clus2D_id	rechits_id
         Columns : beamEnergy	clus2D_layer	clus2D_rho	clus2D_delta	clus2D_idxs	clus2D_pointType	beamEnergy_from_rechits	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_pointType
-        Note : rechit_internal_id is an identifier counting rechits in each 2D cluster (it is NOT the same as rechit_id, which is unique per event, whilst rechit_internal_id is only unique per 2D cluster)
         beamEnergy_from_rechits is just a duplicate of beamEnergy
         """
         return pd.merge(
-            self.clusters2D_with_rechit_id,     # Left : clusters2D with clus2D_idxs column (one row per rechit of each 2D cluster)
+            self.clusters2D_with_rechit_id,     # Left : clusters2D with rechits_id column (one row per rechit of each 2D cluster)
             self.rechits,                       # Right : rechits
             how='inner',                        # Do an inner join (keeps only rechits that are in a 2D cluster, ie drop outliers). Left should be identical. 
             # Outer and right would include also rechits that are outliers (not associated to any cluster)
-            left_on=["event", "clus2D_idxs"],   # Left ; join on columns :; event, clus2D_idxs     (where clus2D_idxs should match rechit_id)
-            right_index=True,                   # Right : join on index, ie event, rechit_id
+            left_on=["event", "rechits_id"],   # Left ; join on columns : event, rechits_id
+            right_index=True,                   # Right : join on index, ie event, rechits_id
             suffixes=(None, "_from_rechits"), # Deal with columns present on both sides (currently only beamEnergy) :
             #        take the column from left with same name, the one from right renamed beamEnergy_from_rechits (they should be identical anyway)
             validate="one_to_one"               # Cross-check :  Make sure there are no weird things (such as duplicate ids), should not be needed
@@ -346,14 +351,14 @@ class DataframeComputations:
     @property
     def clusters3D_with_clus2D_id(self) -> pd.DataFrame:
         """
-        MultiIndex : event  clus3D_id  clus2D_internal_id
-        Columns : 	clus3D_energy	clus3D_layer clus3D_size clus3D_idxs   # clus3D_x	clus3D_y	clus3D_z
-        Note : clus2D_internal_id is an identifier counting 2D clusters in each 3D cluster (it is NOT the same as clus2D_id, which is unique per event, whilst clus2D_internal_id is only unique per 3D cluster)
+        MultiIndex : event  clus3D_id
+        Columns : 	clus3D_energy	clus3D_layer clus3D_size clus2D_id   # clus3D_x	clus3D_y	clus3D_z
         """
         return (ak.to_dataframe(
             self.array[["beamEnergy", "clus3D_energy", "clus3D_size", "clus3D_idxs"]], # "clus3D_x", "clus3D_y", "clus3D_z",
             levelname=lambda i : {0 : "event", 1:"clus3D_id", 2:"clus2D_internal_id"}[i]
         )
+        # clus2D_internal_id is an identifier counting 2D clusters in each 3D cluster (it is NOT the same as clus2D_id, which is unique per event, whilst clus2D_internal_id is only unique per 3D cluster)
         .reset_index(level="clus2D_internal_id", drop=True)
         .rename(columns={"clus3D_idxs" : "clus2D_id"})
         )
@@ -545,6 +550,64 @@ class DataframeComputations:
         return final_df
 
 
+    @cached_property
+    def clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(self):
+        """ Compute, for all rechits in a 3D cluster, the distance of the rechit position to the barycenter.
+        The barycenter is computed, for each event, cluster 3D and layer, using rechits log weighted positions.
+        Uses thresholdW0 from parameters.py. The total energy sum used for the log is the sum of energies of all rechits in
+        the considered 3D cluster *on the same layer* (as is done by CLUE2D for computing layer cluster positions,
+        except possibly considering more than one layer cluster per layer in case the 3D cluster has more than one).
+
+        Index : event, clus3D_id
+        Colums : beamEnergy rechits_layer	clus3D_energy	clus3D_size	clus2D_id	rechits_x	rechits_y	rechits_distanceToBarycenter
+        rechits_id rechits_energy	rechit_energy_logWeighted	rechits_x_times_logWeight	rechits_y_times_logWeight
+        """
+        # First merge everything to get rechits information
+        df = (
+            pd.merge(
+                self.clusters3D_with_clus2D_id.reset_index("clus3D_id"), # reset clus3D_id index so it does not get lost in the merge
+                self.clusters2D_merged_rechit[["rechits_id", "rechits_layer", "rechits_x", "rechits_y", "rechits_energy"]],
+                on=["event", "clus2D_id"]
+            )
+            # To assign series later, we need a unique multiindex so we use rechits_id
+            # Also set clus3D_id for later groupby
+            .set_index(["clus3D_id", "rechits_layer", "rechits_id"], append=True)
+        ) # Now index is event, clus3D_id, rechits_layer, rechits_id
+        
+        # Compute Wi = max(0: thresholdW0 + ln(E / sumE)) where sumE is the sum of rechits energies in same layer and belonging to same 3D cluster
+        df["rechit_energy_logWeighted"] = (
+            (thresholdW0 + np.log(df.rechits_energy / df.rechits_energy.groupby(by=["event", "clus3D_id", "rechits_layer"]).sum()))
+            .clip(lower=0.) # Does max(0; ...)
+        )
+
+        ### Start computing barycenter = ( sum_i Xi * Wi ) / ( sum Wi )
+        # Compute x * Wi
+        df["rechits_x_times_logWeight"] = df["rechits_x"]*df["rechit_energy_logWeighted"]
+        df["rechits_y_times_logWeight"] = df["rechits_y"]*df["rechit_energy_logWeighted"]
+
+        # Make sums : 
+        df_groupedPerLayer = df.groupby(["event", "clus3D_id", "rechits_layer"]).agg(
+            # sum Wi
+            rechits_logWeight_sumPerLayer=pd.NamedAgg(column="rechit_energy_logWeighted", aggfunc="sum"),
+            # Sum Xi*Wi
+            rechits_x_times_logWeight_sumPerLayer=pd.NamedAgg(column="rechits_x_times_logWeight", aggfunc="sum"),
+            rechits_y_times_logWeight_sumPerLayer=pd.NamedAgg(column="rechits_y_times_logWeight", aggfunc="sum"),
+
+            # Sum energy per layer (not for barycenter, but for normalization)
+            rechits_energy_sumPerLayer=pd.NamedAgg(column="rechits_energy", aggfunc="sum"),
+        )
+        # Barycenter positions : ( sum_i Xi * Wi ) / ( sum Wi )
+        rechits_x_barycenter = df_groupedPerLayer["rechits_x_times_logWeight_sumPerLayer"]/df_groupedPerLayer["rechits_logWeight_sumPerLayer"]
+        rechits_y_barycenter = df_groupedPerLayer["rechits_y_times_logWeight_sumPerLayer"]/df_groupedPerLayer["rechits_logWeight_sumPerLayer"]
+
+        # Distance to barycenter (rechits_x_barycenter gets broadcasted over rechits_id level)
+        df["rechits_distanceToBarycenter"] = np.sqrt((df["rechits_x"]-rechits_x_barycenter)**2 + (df["rechits_y"]-rechits_y_barycenter)**2)
+        
+        # For normalization
+        df["rechits_energy_sumPerLayer"] = df_groupedPerLayer.rechits_energy_sumPerLayer
+
+        # Drop rechits_layer index as needed for filling histograms (and rechits_id because not needed)
+        return df.reset_index(["rechits_layer", "rechits_id"])
 
 def clusters3D_filterLargestCluster(clusters3D_df : pd.DataFrame, dropDuplicates=["event"]) -> pd.Series:
     """

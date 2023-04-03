@@ -1,9 +1,12 @@
+import math
 from functools import partial
 import hist
+import numpy as np
+import pandas as pd
 
 from .dataframe import DataframeComputations, divideByBeamEnergy
 from .parameters import beamEnergies, synchrotronBeamEnergiesMap
-from HistogramLib.histogram import MyHistogram, HistogramVariable
+from HistogramLib.histogram import MyHistogram, HistogramVariable, WeightedMeanHistogramVariable
 
 # Thread count to use for some big histograms (put None to disable multithreading)
 # Only use for histograms with lots of entries (like for rechits) and low number of bins (don't use for 2D histograms due to high memory usage)
@@ -31,6 +34,10 @@ pointType_axis = partial(hist.axis.IntCategory, [0, 1, 2], name="pointType",  la
 # 200 bins takes about 500MB of space with all the other axises (200 * 200 * 10 (beamEnergy) * 30 (layer) * 2 (mainTrackster) * 8 (double storage) = 0.2 GB)
 diffX_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_x", label="x position difference (cm)")
 diffY_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_y", label="y position difference (cm)")
+
+# Distance to barycenter
+rechits_distanceToBarycenter_axis = hist.axis.Regular(name="rechits_distanceToBarycenter", label="Distance of rechits to barycenter (cm)",
+    start=0, stop=10., bins=30)
 
 # Axis for plotting total clustered energy per event
 totalClusteredEnergy_axis = partial(hist.axis.Regular, bins=2000, start=0, stop=350)
@@ -739,3 +746,37 @@ class Clus3DClusteredFractionEnergy(MyHistogram):
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
         self.fillFromDf(comp.join_divideByBeamEnergy(comp.clusters3D_largestCluster, "clus3D_energy"), 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
+
+
+
+class Clus3DRechitsDistanceToBarycenter(MyHistogram):
+    """ Distance to barycenter for rechits member of 3D cluster.
+    Barycenter position is computed using log weights, per event, 3D cluster, and layer.
+    For profile : normalized by 3D cluster energy on layer and by area (in cm^-2)
+    To be plotted against distance to barycenter;
+    Be carfeul with projections. """ 
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(), layerAxis,
+            rechits_distanceToBarycenter_axis,
+            label="Distance to barycenter for rechits member of 3D cluster\n(barycenter position is computed using log weights, per event, 3D cluster, and layer)",
+            binCountLabel="Rechits count",
+            profileOn=HistogramVariable("rechits_energy_normalized", "Mean (over events and 3D clusters) of the sum of rechits energies,\nnormalized by 3D cluster energy on layer and by area of crown (in cm^-2)")
+        )
+    
+    def normalizeDf(self, df:pd.DataFrame):
+        r_axis = self.axes["rechits_distanceToBarycenter"]
+        # Need to round as the bin widths are very slightly different (float issues)
+        unique_widths = np.unique(rechits_distanceToBarycenter_axis.widths.round(decimals=3))
+        if len(unique_widths) != 1: # There are at least two different bin widths
+            raise RuntimeError("Clus3DRechitsDistanceToBarycenter only supports fixed bin widths for distanceToBarycenter")
+        dr = unique_widths[0]
+        # Use area of crown : 2*pi*r*dr + pi*dr*dr
+        df["rechits_energy_normalized"] = df.rechits_energy / ( df.rechits_energy_sumPerLayer * math.pi * (2 * df.rechits_distanceToBarycenter * dr  + dr*dr))
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.normalizeDf(comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer)
+        self.fillFromDf(comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer, 
+            valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
+        self.fillFromDf(comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer.loc[comp.clusters3D_largestClusterIndex], 
+            valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
+
