@@ -9,7 +9,7 @@ import pandas as pd
 import boost_histogram as bh
 
 HistogramVariable = namedtuple('HistogramVariable', ['name', 'label'])
-
+WeightedMeanHistogramVariable = namedtuple('WeightedMeanHistogramVariable', ['sampleName', 'weightName', 'label'])
 
 
 @dataclass
@@ -71,6 +71,7 @@ class HistogramKind(Enum):
     COUNT = auto()
     WEIGHT = auto() # Histogram with Weight storage
     PROFILE = auto() # Histogram with Mean storage
+    WEIGHTED_PROFILE = auto() # Histogram with WeightedMean storage
 
 @dataclass
 class HistogramMetadata:
@@ -78,6 +79,7 @@ class HistogramMetadata:
     binCountLabel:str = "Count" # Label that is plotted on y axis of 1D histogram (or colorbar of 2D) when profile is disabled. Usually "Event count".
     profileOn:HistogramVariable|None = None
     weightOn:HistogramVariable|None = None
+    weightedMeanOn:WeightedMeanHistogramVariable|None = None
     axes:hist.axestuple.NamedAxesTuple = hist.axestuple.NamedAxesTuple
 
     def getPlotLabel(self, kind:HistogramKind, density:bool=False):
@@ -92,6 +94,8 @@ class HistogramMetadata:
             return self.profileOn.label + append
         elif kind is HistogramKind.WEIGHT:
             return self.weightOn.label + append
+        elif kind is HistogramKind.WEIGHTED_PROFILE:
+            return self.weightedMeanOn.label + append
         else:
             raise ValueError("Wrong histogram kind", kind)
 
@@ -102,11 +106,22 @@ class MyHistogram():
     histDict:dict
 
     def __init__(self, *args, **kwargs) -> None:
+        """ 
+        Special keyword parameters : 
+         - title
+         - binCountLabel
+         - profileOn : HistogramVariable
+         - weightOn : HistogramVariable
+         - weightedMeanOn : WeightedMeanHistogramVariable
+         
+        All other parameters (positional and keyword) are passed as is to hist.Hist constructor
+         """
         self.metadata = HistogramMetadata(
             title=kwargs.get('label', "Histogram"),
             binCountLabel=kwargs.pop('binCountLabel', "Count"),
             profileOn=kwargs.pop('profileOn', None),
-            weightOn=kwargs.pop('weightOn', None)
+            weightOn=kwargs.pop('weightOn', None),
+            weightedMeanOn=kwargs.pop("weightedMeanOn", None)
         )
 
         self.histDict = {}
@@ -123,6 +138,11 @@ class MyHistogram():
             kwargs_weight = kwargs.copy()
             kwargs_weight["storage"] = hist.storage.Weight()
             self.histDict[HistogramKind.WEIGHT] = hist.Hist(*args, **kwargs_weight)
+        if self.metadata.weightedMeanOn is not None:
+            # We want a weighted mean histogram
+            kwargs_weightedMean = kwargs.copy()
+            kwargs_weightedMean["storage"] = hist.storage.WeightedMean()
+            self.histDict[HistogramKind.WEIGHTED_PROFILE] = hist.Hist(*args, **kwargs_weightedMean)
         if HistogramKind.COUNT not in self.histDict.keys():
             # We need a regular count histogram
             self.histDict[HistogramKind.COUNT] = hist.Hist(*args, **kwargs)
@@ -143,7 +163,7 @@ class MyHistogram():
     def getHistogramAndViewLambda(self, kind:HistogramKind):
         """ Get the histogram for the requested HistogramKind as well as a lambda to apply to the histogram to get the relevant view"""
         h:hist.Hist = self.getHistogram(kind)
-        if kind is HistogramKind.PROFILE or kind is HistogramKind.WEIGHT:
+        if kind is HistogramKind.PROFILE or kind is HistogramKind.WEIGHT or  kind is HistogramKind.WEIGHTED_PROFILE:
             l = lambda h : h.view().value
         elif kind is HistogramKind.COUNT:
             if issubclass(h.storage_type, bh.storage.Mean):
@@ -187,6 +207,9 @@ class MyHistogram():
                 h.fill(**dict_fill, sample=df[mapAxisName(self.metadata.profileOn.name)])
             elif kind is HistogramKind.WEIGHT:
                 h.fill(**dict_fill, weight=df[mapAxisName(self.metadata.weightOn.name)], threads=threads)
+            elif kind is HistogramKind.WEIGHTED_PROFILE:
+                h.fill(**dict_fill, sample=df[mapAxisName(self.metadata.weightedMeanOn.sampleName)],
+                    weight=df[mapAxisName(self.metadata.weightedMeanOn.weightName)])
             elif kind is HistogramKind.COUNT:
                 h.fill(**dict_fill, threads=threads)
 
