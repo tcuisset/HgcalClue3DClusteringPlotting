@@ -9,6 +9,7 @@ curdoc().add_root(row(
     s.makeWidgetColumnClue3D(),
     Tabs(tabs=[
         s.tabClue3D("Position Z", "Clus3DPositionZ"),
+        s.tabClue3D("Position Z (profile)", "Clus3DMeanPositionZFctBeamEnergy", plotType=LineHistogram1D),
         s.tabClue3D("Total energy", "Clus3DClusteredEnergy"),
         s.tabClue3D("Total energy (fraction)", "Clus3DClusteredFractionEnergy"),
         s.tabClue3D("Total energy (profile)", "Clus3DMeanClusteredEnergy", plotType=LineHistogram1D),

@@ -487,6 +487,9 @@ class Cluster2DPointType(MyHistogram):
 ###################   3D clusters  ##################
 clus3D_mainOrAllTracksters_axis = hist.axis.StrCategory(["allTracksters", "mainTrackster"], name="mainOrAllTracksters",
     label="For 3D clusters, whether to consider for each event all 3D clusters (allTracksters) or only the highest energy 3D cluster (mainTrackster)")
+# Important note : You should not project on clus3D_mainOrAllTracksters_axis, as this would duplicate all the main tracksters
+# You should always slice on either of the two values
+
 
 #clus3D_minNumLayerCluster_axis = hist.axis.Integer(start=0, stop=10, name="clus3D_minNumLayerCluster", 
 #    label="Minimum number of 2D clusters to make a 3D cluster (not inclusive, ie 5 keeps clusters with 5 2D clusters but not 4 layers)")
@@ -531,7 +534,7 @@ class Clus3DPositionZ(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(),
             zPosition_axis(name="clus3D_z", label="3D cluster z position (cm)"),
-            label = "3D cluster Z position",
+            label = "3D cluster Z position\n(using log-weighted positions of layer clusters)",
             binCountLabel="3D clusters count",
             profileOn=HistogramVariable('clus3D_energy', 'Mean of 3D cluster total reconstructed energy in each z bin (GeV)'),
             weightOn=HistogramVariable('clus3D_energy', 'Sum of 3D cluster energies in each z bin (GeV)')
@@ -540,6 +543,20 @@ class Clus3DPositionZ(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.clusters3D, valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
         self.fillFromDf(comp.clusters3D_largestCluster, valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
+
+class Clus3DMeanPositionZFctBeamEnergy(MyHistogram):
+    """ Profile of 3D cluster z position (log-weighted energies, see CLUE3D code), as a function of beam energy"""
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(name="beamEnergy_custom"), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(),
+            label = "3D cluster, profile Z position\n(using log-weighted positions of layer clusters)",
+            binCountLabel="!!use profile!! 3D clusters count",
+            profileOn=HistogramVariable('clus3D_z', 'Mean of 3D cluster z position for each beam energy (cm)'),
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.clusters3D, valuesNotInDf={"mainOrAllTracksters": "allTracksters"}, mapping={"beamEnergy_custom":"beamEnergy"})
+        self.fillFromDf(comp.clusters3D_largestCluster, valuesNotInDf={"mainOrAllTracksters": "mainTrackster"}, mapping={"beamEnergy_custom":"beamEnergy"})
+
 
 # Here clus3D_size is a plot axis
 class Clus3DSize(MyHistogram):
