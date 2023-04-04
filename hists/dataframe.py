@@ -549,6 +549,22 @@ class DataframeComputations:
         final_df["clus3D_diff_impact_y"] = final_df["clus3D_y"] - final_df["impactY"]
         return final_df
 
+    @cached_property
+    def clusters3D_merged_rechits(self):
+        """ Merge clusters3D dataframe with clusters2D then rechits 
+        Index : event, clus3D_id, rechits_layer, rechits_id
+        Columns : beamEnergy	clus3D_energy	clus3D_size	clus2D_id	rechits_x	rechits_y	rechits_energy"""
+        # First merge everything to get rechits information
+        return (
+            pd.merge(
+                self.clusters3D_with_clus2D_id.reset_index("clus3D_id"), # reset clus3D_id index so it does not get lost in the merge
+                self.clusters2D_merged_rechit[["rechits_id", "rechits_layer", "rechits_x", "rechits_y", "rechits_energy"]],
+                on=["event", "clus2D_id"]
+            )
+            # To assign series later, we need a unique multiindex so we use rechits_id
+            # Also set clus3D_id for later groupby
+            .set_index(["clus3D_id", "rechits_layer", "rechits_id"], append=True)
+        )
 
     @cached_property
     def clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(self):
@@ -562,17 +578,7 @@ class DataframeComputations:
         Colums : beamEnergy rechits_layer	clus3D_energy	clus3D_size	clus2D_id	rechits_x	rechits_y	rechits_distanceToBarycenter
         rechits_id rechits_energy	rechit_energy_logWeighted	rechits_x_times_logWeight	rechits_y_times_logWeight
         """
-        # First merge everything to get rechits information
-        df = (
-            pd.merge(
-                self.clusters3D_with_clus2D_id.reset_index("clus3D_id"), # reset clus3D_id index so it does not get lost in the merge
-                self.clusters2D_merged_rechit[["rechits_id", "rechits_layer", "rechits_x", "rechits_y", "rechits_energy"]],
-                on=["event", "clus2D_id"]
-            )
-            # To assign series later, we need a unique multiindex so we use rechits_id
-            # Also set clus3D_id for later groupby
-            .set_index(["clus3D_id", "rechits_layer", "rechits_id"], append=True)
-        ) # Now index is event, clus3D_id, rechits_layer, rechits_id
+        df = self.clusters3D_merged_rechits.copy()
         
         # Compute Wi = max(0: thresholdW0 + ln(E / sumE)) where sumE is the sum of rechits energies in same layer and belonging to same 3D cluster
         df["rechit_energy_logWeighted"] = (
@@ -608,6 +614,20 @@ class DataframeComputations:
 
         # Drop rechits_layer index as needed for filling histograms (and rechits_id because not needed)
         return df.reset_index(["rechits_layer", "rechits_id"])
+
+    @cached_property
+    def clusters3D_rechits_distanceToImpact(self):
+        """ Merges clusters3D with rechits, then computes distance to impact for each rechit
+        Index : event	clus3D_id	rechits_layer	rechits_id	
+        Columns : beamEnergy	clus3D_energy	clus3D_size	clus2D_id	rechits_x	rechits_y	rechits_energy	impactX	impactY	rechits_distanceToImpact"""
+        df = pd.merge(
+            self.clusters3D_merged_rechits, self.impact,
+            left_on=["event", "rechits_layer"],
+            right_index=True
+        )
+        df["rechits_distanceToImpact"] = np.sqrt((df["rechits_x"]-df["impactX"])**2 + (df["rechits_y"]-df["impactY"])**2)
+        df["rechits_energy_sumPerLayer"] = df.rechits_energy.groupby(["event", "clus3D_id", "rechits_layer"]).sum()
+        return df
 
 def clusters3D_filterLargestCluster(clusters3D_df : pd.DataFrame, dropDuplicates=["event"]) -> pd.Series:
     """
