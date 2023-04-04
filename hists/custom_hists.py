@@ -863,3 +863,30 @@ class Clus3DRechitsDistanceToImpact_AreaNormalized(MyHistogram):
         self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"layer":"rechits_layer"})
+
+class Clus3DImpactVsBarycenter(MyHistogram):
+    """ Distance between extrapolated DWC track on layer and barycenter on layer (for all 3D clusters and all layers)"""
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(), layerAxis,
+            hist.axis.Regular(bins=100, start=0., stop=15., name="distance_impactToBarycenter", label="Distance between extrapolated DWC impact on layer and 3D cluster barycenter (cm)"),
+            label="Distance between extrapolated DWC impact on layer and 3D cluster barycenter",
+            binCountLabel="Event x 3D cluster count x layer count",
+            weightOn=HistogramVariable("clus2D_energy_sum", "Sum (for all events, 3D clusters, layers) of the 3D clustered energy on a layer (GeV)")
+        )
+    
+    def loadFromComp(self, comp:DataframeComputations):
+        (rechits_x_barycenter, rechits_y_barycenter, rechits_energy_sumPerLayer) = comp.clusters3D_computeBarycenter
+        df = pd.merge(
+            comp.clusters3D_energyClusteredPerLayer, comp.impact,
+            left_on=["event", "clus2D_layer"],
+            right_index=True
+        ).rename_axis(index={"clus2D_layer":"rechits_layer"}) # Rename so that substraction of series is correct
+
+        df["distance_impactToBarycenter"] = np.sqrt((rechits_x_barycenter-df["impactX"])**2 + (rechits_y_barycenter-df["impactY"])**2)
+        df = df.reset_index("rechits_layer")
+        self.fillFromDf(df, 
+            valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
+            mapping={"layer":"rechits_layer"})
+        self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
+            valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
+            mapping={"layer":"rechits_layer"})
