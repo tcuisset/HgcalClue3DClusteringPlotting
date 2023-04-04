@@ -566,25 +566,25 @@ class DataframeComputations:
             .set_index(["clus3D_id", "rechits_layer", "rechits_id"], append=True)
         )
 
-    @cached_property
-    def clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(self):
-        """ Compute, for all rechits in a 3D cluster, the distance of the rechit position to the barycenter.
+    @property
+    def clusters3D_computeBarycenter(self):
+        """ Compute barycenter of 3D clusters.
         The barycenter is computed, for each event, cluster 3D and layer, using rechits log weighted positions.
         Uses thresholdW0 from parameters.py. The total energy sum used for the log is the sum of energies of all rechits in
         the considered 3D cluster *on the same layer* (as is done by CLUE2D for computing layer cluster positions,
         except possibly considering more than one layer cluster per layer in case the 3D cluster has more than one).
-
-        Index : event, clus3D_id
-        Colums : beamEnergy rechits_layer	clus3D_energy	clus3D_size	clus2D_id	rechits_x	rechits_y	rechits_distanceToBarycenter
-        rechits_id rechits_energy	rechit_energy_logWeighted	rechits_x_times_logWeight	rechits_y_times_logWeight
+        Returns 3-tuple : 
+         - rechits_x_barycenter : pd.Series, indexed by event, clus3D_id, rechits_layer
+         - rechits_y_barycenter
+         - rechits_energy_sumPerLayer : sum of all rechits energies on a layer (simple sum, no log weights). pd.Series, indexed by event, clus3D_id, rechits_layer, 
         """
-        df = self.clusters3D_merged_rechits.copy()
-        
         # Compute Wi = max(0: thresholdW0 + ln(E / sumE)) where sumE is the sum of rechits energies in same layer and belonging to same 3D cluster
-        df["rechit_energy_logWeighted"] = (
+        # Use assign to make a copy
+        df = self.clusters3D_merged_rechits
+        df = df.assign(rechit_energy_logWeighted=(
             (thresholdW0 + np.log(df.rechits_energy / df.rechits_energy.groupby(by=["event", "clus3D_id", "rechits_layer"]).sum()))
             .clip(lower=0.) # Does max(0; ...)
-        )
+        ))
 
         ### Start computing barycenter = ( sum_i Xi * Wi ) / ( sum Wi )
         # Compute x * Wi
@@ -606,11 +606,31 @@ class DataframeComputations:
         rechits_x_barycenter = df_groupedPerLayer["rechits_x_times_logWeight_sumPerLayer"]/df_groupedPerLayer["rechits_logWeight_sumPerLayer"]
         rechits_y_barycenter = df_groupedPerLayer["rechits_y_times_logWeight_sumPerLayer"]/df_groupedPerLayer["rechits_logWeight_sumPerLayer"]
 
+        return (rechits_x_barycenter, rechits_y_barycenter, df_groupedPerLayer.rechits_energy_sumPerLayer)
+
+    @cached_property
+    def clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(self):
+        """ Compute, for all rechits in a 3D cluster, the distance of the rechit position to the barycenter.
+        The barycenter is computed, for each event, cluster 3D and layer, using rechits log weighted positions.
+        Uses thresholdW0 from parameters.py. The total energy sum used for the log is the sum of energies of all rechits in
+        the considered 3D cluster *on the same layer* (as is done by CLUE2D for computing layer cluster positions,
+        except possibly considering more than one layer cluster per layer in case the 3D cluster has more than one).
+
+        Index : event, clus3D_id
+        Colums : beamEnergy rechits_layer	clus3D_energy	clus3D_size	clus2D_id	rechits_x	rechits_y	rechits_distanceToBarycenter
+        rechits_id rechits_energy	rechit_energy_logWeighted	rechits_x_times_logWeight	rechits_y_times_logWeight
+        """
+        (rechits_x_barycenter, rechits_y_barycenter, rechits_energy_sumPerLayer) = self.clusters3D_computeBarycenter
+
+        df = self.clusters3D_merged_rechits
         # Distance to barycenter (rechits_x_barycenter gets broadcasted over rechits_id level)
-        df["rechits_distanceToBarycenter"] = np.sqrt((df["rechits_x"]-rechits_x_barycenter)**2 + (df["rechits_y"]-rechits_y_barycenter)**2)
+        # Use assign to make a copy
+        df = df.assign(
+            rechits_distanceToBarycenter=np.sqrt((df["rechits_x"]-rechits_x_barycenter)**2 + (df["rechits_y"]-rechits_y_barycenter)**2)
+        )
         
         # For normalization
-        df["rechits_energy_sumPerLayer"] = df_groupedPerLayer.rechits_energy_sumPerLayer
+        df["rechits_energy_sumPerLayer"] = rechits_energy_sumPerLayer
 
         # Drop rechits_layer index as needed for filling histograms (and rechits_id because not needed)
         return df.reset_index(["rechits_layer", "rechits_id"])
