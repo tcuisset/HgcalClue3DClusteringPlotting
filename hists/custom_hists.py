@@ -892,6 +892,8 @@ class Clus3DRechitsDistanceToBarycenter_AreaNormalized(MyHistogram):
     """ Distance to barycenter for rechits member of 3D cluster.
     Barycenter position is computed using log weights, per event, 3D cluster, and layer.
     For profile : normalized by 3D cluster energy on layer and by area (in cm^-2)
+    Note : currently, the profile is done so that all rechits have the same weight
+    It might be better if all events had the same weight instead
     To be plotted against distance to barycenter;
     Be careful with projections. """ 
     def __init__(self) -> None:
@@ -923,6 +925,8 @@ class Clus3DRechitsDistanceToBarycenter_AreaNormalized(MyHistogram):
 class Clus3DRechitsDistanceToImpact_AreaNormalized(MyHistogram):
     """ Distance to impact (DWC) for rechits member of 3D cluster.
     For profile : normalized by 3D cluster energy on layer and by area (in cm^-2)
+    Note : currently, the profile is done so that all rechits have the same weight
+    It might be better if all events had the same weight instead
     To be plotted against distance to barycenter;
     Be careful with projections. """ 
     def __init__(self) -> None:
