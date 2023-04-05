@@ -14,4 +14,4 @@ curdoc().add_root(row(
         s.tabStandard("PointType", "Cluster2DPointType", plotType="2d")
     ])
 ))
-
+curdoc().title = "2D clusters (2D plots)"

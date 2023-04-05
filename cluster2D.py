@@ -24,4 +24,4 @@ curdoc().add_root(row(
         s.tabStandard("Delta", "Cluster2DDelta"),
     ])
 ))
-
+curdoc().title = "2D clusters"

@@ -61,3 +61,4 @@ curdoc().add_root(row(
     ])
 ))
 
+curdoc().title = "Global overlay plots"

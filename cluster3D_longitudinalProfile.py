@@ -13,3 +13,4 @@ curdoc().add_root(row(
         s.tabClue3DProfile("Interval holding fraction (length)", "Clus3DIntervalHoldingFractionOfEnergy_IntervalLength"),
     ])
 ))
+curdoc().title = "Longitudinal profile of 3D clusters"

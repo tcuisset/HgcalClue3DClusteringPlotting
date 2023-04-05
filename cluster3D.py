@@ -23,3 +23,5 @@ curdoc().add_root(row(
         s.tabClue3D("Distance DWC impact/barycenter", "Clus3DImpactVsBarycenter"),
     ])
 ))
+
+curdoc().title = "3D clusters"

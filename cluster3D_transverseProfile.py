@@ -14,3 +14,5 @@ curdoc().add_root(row(
         s.tabClue3D("Transverse p.(impact, area norm.)", "Clus3DRechitsDistanceToImpact_AreaNormalized", y_axis_type="log"),
     ])
 ))
+
+curdoc().title = "Transverse profile of 3D clusters"

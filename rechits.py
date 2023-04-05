@@ -26,3 +26,4 @@ curdoc().add_root(row(
     ])
 ))
 
+curdoc().title = "Rechits"

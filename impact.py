@@ -13,4 +13,4 @@ curdoc().add_root(row(
     ])
 ))
 
-
+curdoc().title = "Impact from DWC"

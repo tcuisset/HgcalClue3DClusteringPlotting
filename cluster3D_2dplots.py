@@ -13,3 +13,5 @@ curdoc().add_root(row(
         s.tabClue3D("Spatial resolution", "Clus3DSpatialResolutionUsingLayerWithMax2DEnergyXY", plotType="2d")
     ])
 ))
+
+curdoc().title = "3D clusters (2D plots)"
