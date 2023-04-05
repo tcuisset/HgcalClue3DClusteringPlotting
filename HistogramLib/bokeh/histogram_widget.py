@@ -132,7 +132,7 @@ class LineHistogram1D(AbstractMultiHistogram):
         super().__init__(*args, **kwargs)
 
         xAxis = self.metadata.axes[0]
-        if issubclass(type(xAxis), bh.axis.IntCategory): #or issubclass(type(xAxis), bh.axis.StrCategory)
+        if issubclass(type(xAxis), bh.axis.IntCategory) or issubclass(type(xAxis), bh.axis.StrCategory):
             # int category axis : we need to map bin indices to their values
             # using xAxis.size() does not include overflow/undeflow
             self.source.data["x_bins_edges"] = [xAxis.bin(index) for index in range(xAxis.size)]
