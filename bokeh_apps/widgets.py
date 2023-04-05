@@ -3,6 +3,7 @@ import bokeh.models
 from HistogramLib.bokeh.selector_widgets import *
 from HistogramLib.histogram import HistogramKind
 from hists.parameters import beamEnergies
+from hists.custom_hists import intervalHoldingFractionOfEnergy_energyFraction_axis
 
 def makeLayerSelector():
     return ExplodeSelector(RangeAxisSelector("layer",
@@ -56,6 +57,15 @@ def makeCluster3DSizeSelector():
         end=10,
         value=1
     )
+
+def makeIntervalEnergyFractionSelector():
+    """ For longitudinal profiles, which fraction of energy to use for determining shortest interval holding fraction of energy"""
+    ax = intervalHoldingFractionOfEnergy_energyFraction_axis
+    return ExplodeSelector(RadioButtonGroupAxisSelector(ax.name,
+        name=ax.name, title="Energy fraction of 3D cluster",
+        labels=[ax.bin(i) for i in range(ax.size)],
+        active=0
+    ))
 
 class HistIdSelectorImpl(Selector):
     selectorType = SelectorType.HISTOGRAM_ID

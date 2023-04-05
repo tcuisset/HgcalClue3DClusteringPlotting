@@ -42,6 +42,7 @@ class Selectors:
         self.histKindSelector = HistogramKindRadioButton()
         self.normalizePlots = DensityHistogramToggle()
         self.mainOrAllTrackstersSelector = makeMainOrAllTrackstersSelector()
+        self.intervalEnergyFractionSelector = makeIntervalEnergyFractionSelector()
 
         self.selectorsStandardBegin = [self.datatype_selector, self.clueParamSelector, 
                 self.beamEnergySelector, self.layerSelector, self.pointTypeSelector]
@@ -54,6 +55,8 @@ class Selectors:
         self.selectorsClue3DBegin = self.selectorsStandardBegin + [self.mainOrAllTrackstersSelector,
             self.clus3DSizeSelector]
         self.selectorsClue3D = self.selectorsClue3DBegin + self.selectorsStandardEnd
+
+        self.selectorsClue3DLongitudinalProfile = self.selectorsClue3DBegin + [self.intervalEnergyFractionSelector] + self.selectorsStandardEnd
 
     def MakePlot(self, histName:str, selectors, plotType:str|AbstractHistogram="1d", **kwargs):
         if plotType == "1d":
@@ -76,6 +79,8 @@ class Selectors:
         return TabPanel(title=tabTitle, child=self.MakePlot(*args, selectors=self.selectorsRechits, **kwargs))
     def tabClue3D(self, tabTitle:str, *args, **kwargs):
         return TabPanel(title=tabTitle, child=self.MakePlot(*args, selectors=self.selectorsClue3D, **kwargs))
+    def tabClue3DProfile(self, tabTitle:str, *args, **kwargs):
+        return TabPanel(title=tabTitle, child=self.MakePlot(*args, selectors=self.selectorsClue3DLongitudinalProfile, **kwargs))
 
     def makeWidgetColumnStandard(self):
         return column(*(selector.model for selector in self.selectorsStandard))
@@ -83,3 +88,5 @@ class Selectors:
         return column(*(selector.model for selector in self.selectorsRechits))
     def makeWidgetColumnClue3D(self):
         return column(*(selector.model for selector in self.selectorsClue3D))
+    def makeWidgetColumnClue3DProfile(self):
+        return column(*(selector.model for selector in self.selectorsClue3DLongitudinalProfile))

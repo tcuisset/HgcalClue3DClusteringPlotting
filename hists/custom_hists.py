@@ -749,6 +749,75 @@ class Clus3DClusteredFractionEnergy(MyHistogram):
         self.fillFromDf(comp.join_divideByBeamEnergy(comp.clusters3D_largestCluster, "clus3D_energy"), 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
 
+# It does not make sense to project on this axis
+intervalHoldingFractionOfEnergy_energyFraction_axis = hist.axis.StrCategory(
+    ["0.68", "0.9", "0.95"],
+    name="intervalEnergyFraction", label="Computing the shortest interval that holds at least this fraction of 3D cluster energy")
+
+class Clus3DIntervalHoldingFractionOfEnergy_Min(MyHistogram):
+    """ ! Do not project on intervalHoldingFractionOfEnergy_energyFraction_axis """
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(),
+            intervalHoldingFractionOfEnergy_energyFraction_axis,
+            layerAxis_custom(name="intervalFractionEnergy_minLayer", label="Minimum layer of smallest interval holding at least fraction of 3D cluster energy"),
+            label="Shortest layer interval holding at least fraction of total 3D cluster energy\nminimum layer of interval",
+            binCountLabel="3D cluster count",
+            profileOn=HistogramVariable('clus3D_energy', 'Mean of the 3D cluster energy in this bin (GeV)'),
+            weightOn=HistogramVariable('clus3D_energy', 'Sum of the 3D cluster energies in this bin (GeV)'),
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        for i in range(intervalHoldingFractionOfEnergy_energyFraction_axis.size):
+            fraction = intervalHoldingFractionOfEnergy_energyFraction_axis.bin(i)
+            df = comp.clusters3D_intervalHoldingFractionOfEnergy_joined(float(fraction))
+            self.fillFromDf(df, 
+                valuesNotInDf={"mainOrAllTracksters": "allTracksters", "intervalEnergyFraction":fraction})
+            self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
+                valuesNotInDf={"mainOrAllTracksters": "mainTrackster", "intervalEnergyFraction":fraction})
+
+class Clus3DIntervalHoldingFractionOfEnergy_Max(MyHistogram):
+    """ ! Do not project on intervalHoldingFractionOfEnergy_energyFraction_axis """
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(),
+            intervalHoldingFractionOfEnergy_energyFraction_axis,
+            layerAxis_custom(name="intervalFractionEnergy_maxLayer", label="Maximum layer of smallest interval holding at least fraction of 3D cluster energy"),
+            label="Shortest layer interval holding at least fraction of total 3D cluster energy\nmaximum layer of interval",
+            binCountLabel="3D cluster count",
+            profileOn=HistogramVariable('clus3D_energy', 'Mean of the 3D cluster energy in this bin (GeV)'),
+            weightOn=HistogramVariable('clus3D_energy', 'Sum of the 3D cluster energies in this bin (GeV)'),
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        for i in range(intervalHoldingFractionOfEnergy_energyFraction_axis.size):
+            fraction = intervalHoldingFractionOfEnergy_energyFraction_axis.bin(i)
+            df = comp.clusters3D_intervalHoldingFractionOfEnergy_joined(float(fraction))
+            self.fillFromDf(df, 
+                valuesNotInDf={"mainOrAllTracksters": "allTracksters", "intervalEnergyFraction":fraction})
+            self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
+                valuesNotInDf={"mainOrAllTracksters": "mainTrackster", "intervalEnergyFraction":fraction})
+
+class Clus3DIntervalHoldingFractionOfEnergy_IntervalLength(MyHistogram):
+    """ ! Do not project on intervalHoldingFractionOfEnergy_energyFraction_axis """
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(),
+            intervalHoldingFractionOfEnergy_energyFraction_axis,
+            layerAxis_custom(name="intervalFractionEnergy_length", label="Number of layers of smallest interval holding at least fraction of 3D cluster energy"),
+            label="Shortest layer interval holding at least fraction of total 3D cluster energy\nNumber of layers of interval",
+            binCountLabel="3D cluster count",
+            profileOn=HistogramVariable('clus3D_energy', 'Mean of the 3D cluster energy in this bin (GeV)'),
+            weightOn=HistogramVariable('clus3D_energy', 'Sum of the 3D cluster energies in this bin (GeV)'),
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        for i in range(intervalHoldingFractionOfEnergy_energyFraction_axis.size):
+            fraction = intervalHoldingFractionOfEnergy_energyFraction_axis.bin(i)
+            df = comp.clusters3D_intervalHoldingFractionOfEnergy_joined(float(fraction))
+            df = df.assign(intervalFractionEnergy_length=df["intervalFractionEnergy_maxLayer"]-df["intervalFractionEnergy_minLayer"]+1)
+            self.fillFromDf(df, 
+                valuesNotInDf={"mainOrAllTracksters": "allTracksters", "intervalEnergyFraction":fraction})
+            self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
+                valuesNotInDf={"mainOrAllTracksters": "mainTrackster", "intervalEnergyFraction":fraction})
+
 
 
 class Clus3DRechitsDistanceToBarycenter_EnergyFractionNormalized(MyHistogram):

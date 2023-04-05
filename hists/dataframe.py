@@ -1,5 +1,5 @@
 import math
-from functools import cached_property, cache
+from functools import cached_property, partial
 import operator
 
 import numpy as np
@@ -7,6 +7,30 @@ import pandas as pd
 import awkward as ak
 
 from .parameters import synchrotronBeamEnergiesMap, thresholdW0
+
+
+import functools
+import weakref
+
+def memoized_method(*lru_args, **lru_kwargs):
+    """Small code taken from https://stackoverflow.com/a/33672499 
+    So we can cache method results with cache that is per instance rather than per class
+    as using @functools.cache leads to memery leaks when used on an instance method"""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapped_func(self, *args, **kwargs):
+            # We're storing the wrapped method inside the instance. If we had
+            # a strong reference to self the instance would never die.
+            self_weak = weakref.ref(self)
+            @functools.wraps(func)
+            @functools.lru_cache(*lru_args, **lru_kwargs)
+            def cached_method(*args, **kwargs):
+                return func(self_weak(), *args, **kwargs)
+            setattr(self, func.__name__, cached_method)
+            return cached_method(*args, **kwargs)
+        return wrapped_func
+    return decorator
+
 
 def divideByBeamEnergy(df:pd.DataFrame, colName:str) -> pd.DataFrame:
     """ Add a columns named colName_fractionOfSynchrotronBeamEnergy """
@@ -648,6 +672,46 @@ class DataframeComputations:
         df["rechits_distanceToImpact"] = np.sqrt((df["rechits_x"]-df["impactX"])**2 + (df["rechits_y"]-df["impactY"])**2)
         df["rechits_energy_sumPerLayer"] = df.rechits_energy.groupby(["event", "clus3D_id", "rechits_layer"]).sum()
         return df
+    
+    
+    def clusters3D_intervalHoldingFractionOfEnergy(self, fraction:float) -> pd.DataFrame:
+        """ Compute, for each 3D cluster, the shortest interval [first layer; last layer] that contains at least fraction of the 3D cluster energy
+        For now it is pure Python so it is very slow
+        Index : event, clus3D_id
+        Columns : intervalFractionEnergy_minLayer	intervalFractionEnergy_maxLayer
+        """
+        def computeShortestInterval(series:pd.Series, fraction:float) -> pd.DataFrame:
+            """ Compute the actual shortest interval. Params : 
+             - series : a Pandas series indexed by event, clus3D_id, clus2D_layer """
+            layers = series.index.levels[2] # List of layers 
+            totalEnergyFraction = fraction*np.sum(series)
+            bestInterval = (layers[0], layers[-1])
+            j = 0
+            for i, i_layer in enumerate(layers):
+                j = max(j, i)
+                
+                while np.sum(series[i:j+1]) < totalEnergyFraction:
+                    if j >= len(series): # Impossible to find a covering interval at this stage
+                        return pd.DataFrame({"intervalFractionEnergy_minLayer":bestInterval[0], "intervalFractionEnergy_maxLayer":bestInterval[1]}, index=[0])
+                    j += 1
+                j_layer = layers[j]
+                if j_layer-i_layer < bestInterval[1] - bestInterval[0]:
+                    bestInterval = (i_layer, j_layer)
+            
+            return pd.DataFrame({"intervalFractionEnergy_minLayer":bestInterval[0], "intervalFractionEnergy_maxLayer":bestInterval[1]}, index=[0])
+        
+        
+        return self.clusters3D_energyClusteredPerLayer.clus2D_energy_sum.groupby(["event", "clus3D_id"]).apply(
+            partial(computeShortestInterval, fraction=fraction)
+        ).reset_index(level=2, drop=True)
+    
+    @memoized_method(maxsize=None)
+    def clusters3D_intervalHoldingFractionOfEnergy_joined(self, fraction:float) -> pd.DataFrame:
+        """ Same as clusters3D_intervalHoldingFractionOfEnergy but with 3D cluster info 
+        Index : event, clus3D_id
+        Columns : intervalFractionEnergy_minLayer	intervalFractionEnergy_maxLayer	beamEnergy	clus3D_x	clus3D_y	clus3D_z	clus3D_energy	clus3D_size"""
+        return pd.concat([self.clusters3D_intervalHoldingFractionOfEnergy(fraction=fraction), self.clusters3D], axis="columns")
+
 
 def clusters3D_filterLargestCluster(clusters3D_df : pd.DataFrame, dropDuplicates=["event"]) -> pd.Series:
     """
