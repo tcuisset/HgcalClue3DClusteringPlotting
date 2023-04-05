@@ -1,5 +1,5 @@
 import math
-from bokeh.layouts import row
+from bokeh.layouts import row, column
 import bokeh.models
 from bokeh.models.formatters import CustomJSTickFormatter
 
@@ -47,11 +47,17 @@ class ExplodeSelector(Selector):
 
 class ProjectionSelectorImpl(Selector):
     selectorType = SelectorType.PROJECTION
-    def __init__(self, axisName:str, onChangeValue='value') -> None:
+    def __init__(self, axisName:str, onChangeValue:str='value', modelForCallback:bokeh.models.Model|None=None) -> None:
+        """ Parameters : 
+         - axisName : Name of histogram axis for projection
+         - onChangeValue : name of the Bokeh model property to register on_change callback on
+         - modelForCallback : Bokeh model to register on_change callback on. If None (the default), uses self.model """
         self.axisName = axisName
         self.selection = SliceFixedSelection()
         self._updateSelection()
-        self.model.on_change(onChangeValue, self._modelCallback)
+        if modelForCallback is None:
+            modelForCallback = self.model
+        modelForCallback.on_change(onChangeValue, self._modelCallback)
         self.callbacks = []
 
     def _modelCallback(self, attr, old, new):
@@ -105,13 +111,18 @@ class MultiSelectAxisSelector(ProjectionSelectorImpl, ExplodableSelector):
 
 class RadioButtonGroupAxisSelector(ProjectionSelectorImpl, ExplodableSelector):
     """ You need to pass labels as kwargs with the same labels as category axis values """
-    def __init__(self, axisName:str, **kwargs) -> None:
-        self.model = bokeh.models.RadioButtonGroup(**kwargs)
-        super().__init__(axisName, onChangeValue='active')
-        self.allSelections = [SliceFixedSelection(SingleValueHistogramSlice(self.axisName, label)) for label in self.model.labels]
+    def __init__(self, axisName:str, title=None, **kwargs) -> None:
+        """ title : if not None, add a title"""
+        self.buttonGroup = bokeh.models.RadioButtonGroup(**kwargs)
+        if title is None:
+            self.model = self.buttonGroup
+        else:
+            self.model = column(bokeh.models.Div(text=title), self.buttonGroup)
+        super().__init__(axisName, onChangeValue='active', modelForCallback=self.buttonGroup)
+        self.allSelections = [SliceFixedSelection(SingleValueHistogramSlice(self.axisName, label)) for label in self.buttonGroup.labels]
     
     def _updateSelection(self) -> None:
-        self.selection.sliceObject = SingleValueHistogramSlice(self.axisName, self.model.labels[self.model.active])
+        self.selection.sliceObject = SingleValueHistogramSlice(self.axisName, self.buttonGroup.labels[self.buttonGroup.active])
 
 class SliderMinWithOverflowAxisSelector(ProjectionSelectorImpl):
     """ Projects on [value:] with upper overflow bin included (undeflow excluded)"""
