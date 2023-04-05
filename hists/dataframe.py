@@ -709,8 +709,10 @@ class DataframeComputations:
     def clusters3D_intervalHoldingFractionOfEnergy_joined(self, fraction:float) -> pd.DataFrame:
         """ Same as clusters3D_intervalHoldingFractionOfEnergy but with 3D cluster info 
         Index : event, clus3D_id
-        Columns : intervalFractionEnergy_minLayer	intervalFractionEnergy_maxLayer	beamEnergy	clus3D_x	clus3D_y	clus3D_z	clus3D_energy	clus3D_size"""
-        return pd.concat([self.clusters3D_intervalHoldingFractionOfEnergy(fraction=fraction), self.clusters3D], axis="columns")
+        Columns : intervalFractionEnergy_minLayer	intervalFractionEnergy_maxLayer intervalFractionEnergy_length beamEnergy	clus3D_x	clus3D_y	clus3D_z	clus3D_energy	clus3D_size"""
+        df = pd.concat([self.clusters3D_intervalHoldingFractionOfEnergy(fraction=fraction), self.clusters3D], axis="columns")
+        df["intervalFractionEnergy_length"] = df["intervalFractionEnergy_maxLayer"]-df["intervalFractionEnergy_minLayer"]+1
+        return df
 
 
 def clusters3D_filterLargestCluster(clusters3D_df : pd.DataFrame, dropDuplicates=["event"]) -> pd.Series:

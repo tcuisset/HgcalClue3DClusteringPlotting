@@ -812,7 +812,25 @@ class Clus3DIntervalHoldingFractionOfEnergy_IntervalLength(MyHistogram):
         for i in range(intervalHoldingFractionOfEnergy_energyFraction_axis.size):
             fraction = intervalHoldingFractionOfEnergy_energyFraction_axis.bin(i)
             df = comp.clusters3D_intervalHoldingFractionOfEnergy_joined(float(fraction))
-            df = df.assign(intervalFractionEnergy_length=df["intervalFractionEnergy_maxLayer"]-df["intervalFractionEnergy_minLayer"]+1)
+            self.fillFromDf(df, 
+                valuesNotInDf={"mainOrAllTracksters": "allTracksters", "intervalEnergyFraction":fraction})
+            self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
+                valuesNotInDf={"mainOrAllTracksters": "mainTrackster", "intervalEnergyFraction":fraction})
+
+class Clus3DIntervalHoldingFractionOfEnergy_MeanIntervalLength(MyHistogram):
+    """ ! Do not project on intervalHoldingFractionOfEnergy_energyFraction_axis """
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(),
+            intervalHoldingFractionOfEnergy_energyFraction_axis,
+            label="Shortest layer interval holding at least fraction of total 3D cluster energy\nNumber of layers of interval",
+            binCountLabel="!Use profile! 3D cluster count",
+            profileOn=HistogramVariable('intervalFractionEnergy_length', 'Mean of number of layers of smallest interval holding at least fraction of 3D cluster energy'),
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        for i in range(intervalHoldingFractionOfEnergy_energyFraction_axis.size):
+            fraction = intervalHoldingFractionOfEnergy_energyFraction_axis.bin(i)
+            df = comp.clusters3D_intervalHoldingFractionOfEnergy_joined(float(fraction))
             self.fillFromDf(df, 
                 valuesNotInDf={"mainOrAllTracksters": "allTracksters", "intervalEnergyFraction":fraction})
             self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
