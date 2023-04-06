@@ -674,36 +674,62 @@ class DataframeComputations:
         return df
     
     
-    def clusters3D_intervalHoldingFractionOfEnergy(self, fraction:float) -> pd.DataFrame:
+    def clusters3D_intervalHoldingFractionOfEnergy(self, fraction:float, engine:str|None=None) -> pd.DataFrame:
         """ Compute, for each 3D cluster, the shortest interval [first layer; last layer] that contains at least fraction of the 3D cluster energy
-        For now it is pure Python so it is very slow
+        Parameters :
+         - fraction
+         - engine : can be python, cython, None (None prefers Cython)
         Index : event, clus3D_id
         Columns : intervalFractionEnergy_minLayer	intervalFractionEnergy_maxLayer
         """
-        def computeShortestInterval(series:pd.Series, fraction:float) -> pd.DataFrame:
-            """ Compute the actual shortest interval. Params : 
-             - series : a Pandas series indexed by event, clus3D_id, clus2D_layer """
-            layers = series.index.levels[2] # List of layers 
-            totalEnergyFraction = fraction*np.sum(series)
-            bestInterval = (layers[0], layers[-1])
-            j = 0
-            for i, i_layer in enumerate(layers):
-                j = max(j, i)
+        try:
+            # Use Cython version in priority
+            if engine is None or engine == "cython":
+                from .dataframe_cython import computeShortestInterval
+                agg_lambda = lambda series : computeShortestInterval(series.to_numpy(), series.index.levels[2].to_numpy(), fraction)
+            else:
+                raise Exception()
+        except Exception as e:
+            if engine == "cython":
+                raise e
+            # Python fallback implementation (very slow)
+            def computeShortestInterval(series:pd.Series, fraction:float) -> tuple[int, int]:
+                """ Compute the actual shortest interval. Params : 
+                - series : a Pandas series indexed by event, clus3D_id, clus2D_layer """
+                layers = series.index.levels[2] # List of layers 
+                totalEnergyFraction = fraction*np.sum(series)
+                bestInterval = (layers[0], layers[-1])
+                j = 0
+                for i, i_layer in enumerate(layers):
+                    j = max(j, i)
+                    
+                    while np.sum(series[i:j+1]) < totalEnergyFraction:
+                        if j >= len(series): # Impossible to find a covering interval at this stage
+                            return bestInterval
+                            #return pd.DataFrame({"intervalFractionEnergy_minLayer":bestInterval[0], "intervalFractionEnergy_maxLayer":bestInterval[1]}, index=[0])
+                        j += 1
+                    j_layer = layers[j]
+                    if j_layer-i_layer < bestInterval[1] - bestInterval[0]:
+                        bestInterval = (i_layer, j_layer)
                 
-                while np.sum(series[i:j+1]) < totalEnergyFraction:
-                    if j >= len(series): # Impossible to find a covering interval at this stage
-                        return pd.DataFrame({"intervalFractionEnergy_minLayer":bestInterval[0], "intervalFractionEnergy_maxLayer":bestInterval[1]}, index=[0])
-                    j += 1
-                j_layer = layers[j]
-                if j_layer-i_layer < bestInterval[1] - bestInterval[0]:
-                    bestInterval = (i_layer, j_layer)
-            
-            return pd.DataFrame({"intervalFractionEnergy_minLayer":bestInterval[0], "intervalFractionEnergy_maxLayer":bestInterval[1]}, index=[0])
-        
-        
-        return self.clusters3D_energyClusteredPerLayer.clus2D_energy_sum.groupby(["event", "clus3D_id"]).apply(
-            partial(computeShortestInterval, fraction=fraction)
-        ).reset_index(level=2, drop=True)
+                return bestInterval
+                #return pd.DataFrame({"intervalFractionEnergy_minLayer":bestInterval[0], "intervalFractionEnergy_maxLayer":bestInterval[1]}, index=[0])
+            agg_lambda = partial(computeShortestInterval, fraction=fraction)
+
+        series = (self.clusters3D_energyClusteredPerLayer.clus2D_energy_sum
+            .groupby(["event", "clus3D_id"])
+            .agg(agg_lambda)
+        )
+        series.name = "intervalFractionEnergy_minMaxLayer"
+
+        # Unpack the tuples
+        df = pd.DataFrame(series)
+        df["intervalFractionEnergy_minLayer"], df["intervalFractionEnergy_maxLayer"] = zip(*series)
+        return df.drop("intervalFractionEnergy_minMaxLayer", axis="columns")
+
+        # return self.clusters3D_energyClusteredPerLayer.clus2D_energy_sum.groupby(["event", "clus3D_id"]).apply(
+        #     partial(computeShortestInterval, fraction=fraction)
+        # ).reset_index(level=2, drop=True)
     
     @memoized_method(maxsize=None)
     def clusters3D_intervalHoldingFractionOfEnergy_joined(self, fraction:float) -> pd.DataFrame:
