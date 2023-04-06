@@ -346,19 +346,19 @@ class DataframeComputations:
     def clusters3D_largestClusterIndex(self) -> pd.MultiIndex:
         """
         Compute for each event, the index of the 3D cluster with the largest clustered energy (clus3D_energy)
-        (in case of equality returns the first one in dataset)
+        (in case of equality returns the one that comes later in the dataset)
         Returns a MultiIndex (event, clus3D_id), to be used with loc (on a df indexed by (event, clus3D_id) ):
         ex : clusters3D.loc[clusters3D_largestClusterIndex]
-        (not sorted)
         """
-        df = (self.clusters3D
+        return pd.MultiIndex.from_frame(# Make a multiindex out of it
+            self.clusters3D
             [["clus3D_energy"]] # Dataframe is index=(event, clus3D_id), columns=clus3D_energy
-            .reset_index()
-            .sort_values("clus3D_energy", ascending=False)
-            .drop_duplicates("event") # Keep for each event only the clus3D_id with highest clus3D_energy
+            .reset_index() # So we can sort_values on event
+            .sort_values(["event", "clus3D_energy"], ascending=True) # Ascending so that event nb does not get unsorted
+            .drop_duplicates("event", keep="last") # Keep for each event only the clus3D_id with highest clus3D_energy, which is the last one in the list (ascending=True)
             .drop(columns="clus3D_energy")
         )
-        return pd.MultiIndex.from_frame(df) # Make a multiindex out of it
+
         # Old, slow version: 
         #return self.clusters3D.groupby(["event"])["clus3D_energy"].idxmax()
 
