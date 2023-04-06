@@ -865,7 +865,7 @@ class Clus3DRechitsDistanceToBarycenter_EnergyFractionNormalized(MyHistogram):
         self.fillFromDf(df, 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
             mapping={"layer":"rechits_layer"})
-        self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
+        self.fillFromDf(df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)], 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"layer":"rechits_layer"})
 
@@ -889,7 +889,7 @@ class Clus3DRechitsDistanceToImpact_EnergyFractionNormalized(MyHistogram):
         self.fillFromDf(df, 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
             mapping={"layer":"rechits_layer"})
-        self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
+        self.fillFromDf(df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)], 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"layer":"rechits_layer"})
 
@@ -921,7 +921,7 @@ class Clus3DRechitsDistanceToBarycenter_AreaNormalized(MyHistogram):
         self.fillFromDf(df, 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
             mapping={"layer":"rechits_layer"})
-        self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
+        self.fillFromDf(df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)], 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"layer":"rechits_layer"})
 
@@ -951,7 +951,7 @@ class Clus3DRechitsDistanceToImpact_AreaNormalized(MyHistogram):
         self.fillFromDf(df, 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
             mapping={"layer":"rechits_layer"})
-        self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
+        self.fillFromDf(df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)], 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"layer":"rechits_layer"})
 

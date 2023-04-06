@@ -1,6 +1,7 @@
 import math
 from functools import cached_property, partial
 import operator
+from typing import Any, Iterable
 
 import numpy as np
 import pandas as pd
@@ -361,6 +362,25 @@ class DataframeComputations:
 
         # Old, slow version: 
         #return self.clusters3D.groupby(["event"])["clus3D_energy"].idxmax()
+    
+    @cached_property
+    def clusters3D_largestClusterIndex_fast(self) ->Iterable[tuple[Any, ...]]:
+        """
+        Compute for each event, the index of the 3D cluster with the largest clustered energy (clus3D_energy)
+        (in case of equality returns the one that comes later in the dataset)
+        Returns an iterator over tuples (event, clus3D_id) to be used as :
+        df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)]
+        Which is much faster for large dataframes than using df.loc[clusters3D_largestClusterIndex]
+        """
+        return (# Make a multiindex out of it
+            self.clusters3D
+            [["clus3D_energy"]] # Dataframe is index=(event, clus3D_id), columns=clus3D_energy
+            .reset_index() # So we can sort_values on event
+            .sort_values(["event", "clus3D_energy"], ascending=True) # Ascending so that event nb does not get unsorted
+            .drop_duplicates("event", keep="last") # Keep for each event only the clus3D_id with highest clus3D_energy, which is the last one in the list (ascending=True)
+            .drop(columns="clus3D_energy")
+            .itertuples(index=False, name=None)
+        )
 
     @property
     def clusters3D_largestCluster(self) -> pd.DataFrame:
@@ -606,6 +626,7 @@ class DataframeComputations:
         """
         # Compute Wi = max(0: thresholdW0 + ln(E / sumE)) where sumE is the sum of rechits energies in same layer and belonging to same 3D cluster
         # Use assign to make a copy
+        # The next two lines are a significant performance bottleneck (lots of rechits)
         df = self.clusters3D_merged_rechits
         df = df.assign(rechit_energy_logWeighted=(
             (thresholdW0 + np.log(df.rechits_energy / df.rechits_energy.groupby(by=["event", "clus3D_id", "rechits_layer"]).sum()))
