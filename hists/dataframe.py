@@ -597,10 +597,12 @@ class DataframeComputations:
         Uses thresholdW0 from parameters.py. The total energy sum used for the log is the sum of energies of all rechits in
         the considered 3D cluster *on the same layer* (as is done by CLUE2D for computing layer cluster positions,
         except possibly considering more than one layer cluster per layer in case the 3D cluster has more than one).
-        Returns 3-tuple : 
-         - rechits_x_barycenter : pd.Series, indexed by event, clus3D_id, rechits_layer
-         - rechits_y_barycenter
-         - rechits_energy_sumPerLayer : sum of all rechits energies on a layer (simple sum, no log weights). pd.Series, indexed by event, clus3D_id, rechits_layer, 
+        Returns dataframe with :
+        Index : event clus3D_id rechits_layer
+        Columns : 
+           - rechits_x_barycenter, rechits_y_barycenter : barycenters per layer and 3D cluster
+           - rechits_energy_sumPerLayer : sum of all rechits energies on a layer (simple sum, no log weights)
+           - rechits_countPerLayer of rechits in the layer (and in 3D cluster, event)
         """
         # Compute Wi = max(0: thresholdW0 + ln(E / sumE)) where sumE is the sum of rechits energies in same layer and belonging to same 3D cluster
         # Use assign to make a copy
@@ -625,55 +627,79 @@ class DataframeComputations:
 
             # Sum energy per layer (not for barycenter, but for normalization)
             rechits_energy_sumPerLayer=pd.NamedAgg(column="rechits_energy", aggfunc="sum"),
+            # Count hits in layer
+            rechits_countPerLayer=pd.NamedAgg(column="rechits_energy", aggfunc="count")
         )
         # Barycenter positions : ( sum_i Xi * Wi ) / ( sum Wi )
-        rechits_x_barycenter = df_groupedPerLayer["rechits_x_times_logWeight_sumPerLayer"]/df_groupedPerLayer["rechits_logWeight_sumPerLayer"]
-        rechits_y_barycenter = df_groupedPerLayer["rechits_y_times_logWeight_sumPerLayer"]/df_groupedPerLayer["rechits_logWeight_sumPerLayer"]
+        df_groupedPerLayer["rechits_x_barycenter"] = df_groupedPerLayer["rechits_x_times_logWeight_sumPerLayer"]/df_groupedPerLayer["rechits_logWeight_sumPerLayer"]
+        df_groupedPerLayer["rechits_y_barycenter"] = df_groupedPerLayer["rechits_y_times_logWeight_sumPerLayer"]/df_groupedPerLayer["rechits_logWeight_sumPerLayer"]
 
-        return (rechits_x_barycenter, rechits_y_barycenter, df_groupedPerLayer.rechits_energy_sumPerLayer)
+        return df_groupedPerLayer[["rechits_x_barycenter", "rechits_y_barycenter", "rechits_energy_sumPerLayer", "rechits_countPerLayer"]]
 
-    @cached_property
-    def clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(self):
+    @memoized_method(maxsize=None)
+    def clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(self, dr:float):
         """ Compute, for all rechits in a 3D cluster, the distance of the rechit position to the barycenter.
         The barycenter is computed, for each event, cluster 3D and layer, using rechits log weighted positions.
         Uses thresholdW0 from parameters.py. The total energy sum used for the log is the sum of energies of all rechits in
         the considered 3D cluster *on the same layer* (as is done by CLUE2D for computing layer cluster positions,
         except possibly considering more than one layer cluster per layer in case the 3D cluster has more than one).
 
+        Parameters :
+         - dr : the bin width in radius
+
         Index : event, clus3D_id
         Colums : beamEnergy rechits_layer	clus3D_energy	clus3D_size	clus2D_id	rechits_x	rechits_y	rechits_distanceToBarycenter
         rechits_id rechits_energy	rechit_energy_logWeighted	rechits_x_times_logWeight	rechits_y_times_logWeight
         """
-        (rechits_x_barycenter, rechits_y_barycenter, rechits_energy_sumPerLayer) = self.clusters3D_computeBarycenter
 
-        df = self.clusters3D_merged_rechits
-        # Distance to barycenter (rechits_x_barycenter gets broadcasted over rechits_id level)
-        # Use assign to make a copy
-        df = df.assign(
-            rechits_distanceToBarycenter=np.sqrt((df["rechits_x"]-rechits_x_barycenter)**2 + (df["rechits_y"]-rechits_y_barycenter)**2)
+        # Faster (factor 2) method with eval:
+        return (
+            self.clusters3D_merged_rechits # Start from all rechits
+            [["beamEnergy", "clus3D_size", "rechits_x", "rechits_y", "rechits_energy"]]
+            .join(self.clusters3D_computeBarycenter) # Broadcast per-layer informations back into rechit-level dataframe
+            # Compute new columns. Using eval is slightly faster than doing it in Python (when df is very large, factor 2 gain in time)
+            .eval("""
+        rechits_distanceToBarycenter = sqrt((rechits_x - rechits_x_barycenter)**2 + (rechits_y - rechits_y_barycenter)**2)
+        rechits_energy_EnergyFractionNormalized = rechits_energy / rechits_energy_sumPerLayer
+        rechits_energy_AreaNormalized = rechits_energy_EnergyFractionNormalized / ( @math.pi * (2 * rechits_distanceToBarycenter * @dr  + @dr*@dr))
+        rechits_1_over_rechit_count = 1./rechits_countPerLayer
+        """
+            )
+            .drop(columns=["rechits_x", "rechits_y", "rechits_x_barycenter", "rechits_y_barycenter", "rechits_energy_sumPerLayer", "rechits_countPerLayer"])
+            .reset_index(["rechits_layer", "rechits_id"]) # Drop rechits_layer index as needed for filling histograms
         )
-        
-        # For normalization
-        df["rechits_energy_sumPerLayer"] = rechits_energy_sumPerLayer
 
-        # Drop rechits_layer index as needed for filling histograms (and rechits_id because not needed)
-        return df.reset_index(["rechits_layer", "rechits_id"])
-
-    @cached_property
-    def clusters3D_rechits_distanceToImpact(self):
+    @memoized_method(maxsize=None)
+    def clusters3D_rechits_distanceToImpact(self, dr:float):
         """ Merges clusters3D with rechits, then computes distance to impact for each rechit
-        Index : event	clus3D_id	rechits_layer	rechits_id	
-        Columns : beamEnergy	clus3D_energy	clus3D_size	clus2D_id	rechits_x	rechits_y	rechits_energy	impactX	impactY	rechits_distanceToImpact"""
+        Index : event	clus3D_id	rechits_id
+        Columns : rechits_layer	beamEnergy	clus3D_size	rechits_energy	rechits_distanceToImpact	rechits_energy_EnergyFractionNormalized	rechits_energy_AreaNormalized	rechits_1_over_rechit_count
+        """
         df = pd.merge(
-            self.clusters3D_merged_rechits, self.impact,
+            self.clusters3D_merged_rechits[["beamEnergy", "clus3D_size", "rechits_x", "rechits_y", "rechits_energy"]],
+            self.impact,
             left_on=["event", "rechits_layer"],
             right_index=True
         )
-        df["rechits_distanceToImpact"] = np.sqrt((df["rechits_x"]-df["impactX"])**2 + (df["rechits_y"]-df["impactY"])**2)
-        df["rechits_energy_sumPerLayer"] = df.rechits_energy.groupby(["event", "clus3D_id", "rechits_layer"]).sum()
-        return df
-    
-    
+        
+        grouped_df = df.rechits_energy.groupby(["event", "clus3D_id", "rechits_layer"]).agg(
+            rechits_energy_sumPerLayer="sum",
+            rechits_countPerLayer="count",
+        )
+        
+        return (df
+            .join(grouped_df)
+            .eval("""
+        rechits_distanceToImpact = sqrt((rechits_x - impactX)**2 + (rechits_y - impactY)**2)
+        rechits_energy_EnergyFractionNormalized = rechits_energy / rechits_energy_sumPerLayer
+        rechits_energy_AreaNormalized = rechits_energy_EnergyFractionNormalized / ( @math.pi * (2 * rechits_distanceToImpact * @dr  + @dr*@dr))
+        rechits_1_over_rechit_count = 1./rechits_countPerLayer
+        """
+            )
+            .drop(columns=["rechits_x", "rechits_y", "impactX", "impactY", "rechits_energy_sumPerLayer", "rechits_countPerLayer"])
+            .reset_index(["rechits_layer", "rechits_id"])
+        )
+
     def clusters3D_intervalHoldingFractionOfEnergy(self, fraction:float, engine:str|None=None) -> pd.DataFrame:
         """ Compute, for each 3D cluster, the shortest interval [first layer; last layer] that contains at least fraction of the 3D cluster energy
         Parameters :
