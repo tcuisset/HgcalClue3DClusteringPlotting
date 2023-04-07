@@ -3,6 +3,9 @@ import argparse
 
 import uproot
 import hist
+import pandas as pd
+# Enable Pandas Copy on Write. Leads to about 30% gain in run time and less memory usage
+pd.options.mode.copy_on_write = True
 
 from HistogramLib.histogram import MyHistogram
 from HistogramLib.store import HistogramStore, ShelfId

@@ -372,7 +372,8 @@ class DataframeComputations:
         df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)]
         Which is much faster for large dataframes than using df.loc[clusters3D_largestClusterIndex]
         """
-        return (# Make a multiindex out of it
+        # Note : list is needed since Pandas v2 as it calls len() on iterable, which does not work for zip objects (TypeError)
+        return list(# Make a multiindex out of it
             self.clusters3D
             [["clus3D_energy"]] # Dataframe is index=(event, clus3D_id), columns=clus3D_energy
             .reset_index() # So we can sort_values on event

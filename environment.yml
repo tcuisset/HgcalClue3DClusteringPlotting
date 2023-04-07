@@ -6,7 +6,7 @@ dependencies:
  - python>=3.10
  - uproot=5.*
  - awkward=2.*
- - pandas>=1.5,<2
+ - pandas=2.*
  - numexpr # For pandas.eval
  - numpy
  - hist>=2.6,<3 # Histograms
