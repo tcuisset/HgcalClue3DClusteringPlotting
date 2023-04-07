@@ -610,7 +610,7 @@ class DataframeComputations:
             .set_index(["clus3D_id", "rechits_layer", "rechits_id"], append=True)
         )
 
-    @property
+    @cached_property
     def clusters3D_computeBarycenter(self):
         """ Compute barycenter of 3D clusters.
         The barycenter is computed, for each event, cluster 3D and layer, using rechits log weighted positions.
