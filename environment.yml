@@ -7,12 +7,15 @@ dependencies:
  - uproot=5.*
  - awkward=2.*
  - pandas>=1.5,<2
- - hist>=2.6,<3
+ - numexpr # For pandas.eval
+ - numpy
+ - hist>=2.6,<3 # Histograms
  - bokeh=3.*
- - ipykernel
+ - ipykernel # notebooks
  - matplotlib>=3
- - mplhep>=0.3
- - tqdm
+ - mplhep>=0.3 # plotting CMS style
+ - plotly
+ - tqdm # progress bars
  - pip
  - pip:
     - awkward-pandas
