@@ -33,6 +33,12 @@ parser.add_argument("--datatype", dest="datatype", default="data",
     help="Can be data, sim_proton, sim_noproton")
 parser.add_argument("--clue-params", dest='clue_params', default="single-file",
     help="CLUE3D parameters name")
+
+parser.add_argument("--use-dask", action=argparse.BooleanOptionalAction, dest="use_dask", default=False, 
+    help="Use Dask multithreading")
+parser.add_argument("--dask-thread-count", dest="dask_thread_count", default=4, 
+    help="Number of threads to use for Dask")
+
 args = parser.parse_args()
 
 if args.force_input_file is not None:
@@ -56,16 +62,33 @@ for name in dir(custom_hists):
 
 print("Opening input file", flush=True)
 store = HistogramStore(output_dir, HistogramId)
-try:
-    # step_size of 50MB stranslates to about 5GB of memory usage by python, and about 4k events at a time
-    # 500MB leads to 50k events at a time, and memory usage of of around 10 GB (partly due to big histograms)
-    for (array, report) in uproot.iterate(input_file + ":clusters", step_size="500MB", library="ak", report=True):
-        print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[", flush=True)
 
-        comp = DataframeComputations(array)
-        for histogram in hist_dict.values():
-            histogram.loadFromComp(comp)
-        del comp
+try:
+    if args.use_dask:
+        custom_hists.threadCount = None # Disable histogram threaded filling since we are already multithreading with Dask
+        import dask
+        from dask.diagnostics import ProgressBar
+        dak_array = uproot.dask(input_file + ":clusters", step_size="200MB", library="ak")
+        @dask.delayed
+        def computeHistograms(array):
+            """ Parameter : array : akward array of all events"""
+            comp = DataframeComputations(array)
+            for histogram in hist_dict.values():
+                histogram.loadFromComp(comp)
+        with ProgressBar():
+            dask.compute(*(computeHistograms(delayed_ak_array) for delayed_ak_array in dak_array.to_delayed()), 
+                num_workers=args.dask_thread_count)
+
+    else:
+        # step_size of 50MB stranslates to about 5GB of memory usage by python, and about 4k events at a time
+        # 500MB leads to 50k events at a time, and memory usage of of around 10 GB (partly due to big histograms)
+        for (array, report) in uproot.iterate(input_file + ":clusters", step_size="200MB", library="ak", report=True):
+            print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[", flush=True)
+
+            comp = DataframeComputations(array)
+            for histogram in hist_dict.values():
+                histogram.loadFromComp(comp)
+            del comp
 
 except IndexError as e:
     print("WARNING : an IndexError exception ocurred. This can happen for improperly closed ROOT files.")

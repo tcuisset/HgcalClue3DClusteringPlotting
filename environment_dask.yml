@@ -1,0 +1,23 @@
+name: clustering-analysis-dask
+channels:
+ - conda-forge
+ - nodefaults
+dependencies:
+ - python>=3.10
+ - uproot=5.*
+ - awkward=2.*
+ - pandas=2.*
+ - numexpr # For pandas.eval
+ - numpy
+ - dask>=2022.7.1
+ - dask-awkward
+ - hist>=2.6,<3 # Histograms
+ - bokeh=3.*
+ - ipykernel # notebooks
+ - matplotlib>=3
+ - mplhep>=0.3 # plotting CMS style
+ - plotly
+ - tqdm # progress bars
+ - pip
+ - pip:
+    - awkward-pandas
