@@ -106,12 +106,12 @@ class DataframeComputations:
     @cached_property
     def rechits(self) -> pd.DataFrame:
         """
-        Columns : event  rechits_id  beamEnergy	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_pointType  
+        Columns : event  rechits_id  beamEnergy	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta rechits_nearestHigher rechits_pointType  
         MultiIndex : (event, rechits_id)
         """
         return ak.to_dataframe(self.array[
             ["beamEnergy", "rechits_x", "rechits_y", "rechits_z", "rechits_energy", "rechits_layer",
-            "rechits_rho", "rechits_delta", "rechits_pointType"]], 
+            "rechits_rho", "rechits_delta", "rechits_nearestHigher", "rechits_pointType"]], 
             levelname=lambda i : {0 : "event", 1:"rechits_id"}[i])
 
     @cached_property
@@ -207,6 +207,18 @@ class DataframeComputations:
             levelname=lambda i : {0 : "event", 1:"clus2D_id"}[i]
         )
 
+    @cached_property
+    def clusters2D_withNearestHigher(self) -> pd.DataFrame:
+        """
+        Builds a pandas DataFrame holding all 2D cluster information (without any rechit info)
+        MultiIndex : event  clus2D_id
+        Columns :  beamEnergy	clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_size	clus2D_rho	clus2D_delta clus2D_nearestHigher clus2D_pointType
+        """
+        return ak.to_dataframe(
+            self.array[["beamEnergy", "clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer", "clus2D_size",
+                "clus2D_rho", "clus2D_delta", "clus2D_nearestHigher", "clus2D_pointType"]],
+            levelname=lambda i : {0 : "event", 1:"clus2D_id"}[i]
+        )
 
     #Don't cache this as unlikely to be recomputed (only used by )
     @property
@@ -229,21 +241,24 @@ class DataframeComputations:
             .rename(columns={"clus2D_idxs" : "rechits_id"})
         )
 
-    @cached_property
-    def clusters2D_merged_rechit(self) -> pd.DataFrame:
+    #@memoized_method(maxsize=None) # For now not cached since only called once, in clusters3D_merged_rechits_custom
+    def clusters2D_merged_rechits(self, rechitsColumns:frozenset[str]) -> pd.DataFrame:
         """
+        Merge clusters2D with rechits
+        Parameters : rechitsColumns: columns to select from rechits Dataframe (as a frozenset so it can work with functools.cache)
         MultiIndex : event	clus2D_id	rechits_id
-        Columns : beamEnergy	clus2D_layer	clus2D_rho	clus2D_delta	clus2D_idxs	clus2D_pointType	beamEnergy_from_rechits	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_pointType
+        Columns : beamEnergy	clus2D_layer	clus2D_rho	clus2D_delta clus2D_idxs	clus2D_pointType 
+            and from rechits : rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_pointType
         beamEnergy_from_rechits is just a duplicate of beamEnergy
         """
         return pd.merge(
             self.clusters2D_with_rechit_id,     # Left : clusters2D with rechits_id column (one row per rechit of each 2D cluster)
-            self.rechits,                       # Right : rechits
+            self.rechits[list(rechitsColumns)], # Right : rechits
             how='inner',                        # Do an inner join (keeps only rechits that are in a 2D cluster, ie drop outliers). Left should be identical. 
             # Outer and right would include also rechits that are outliers (not associated to any cluster)
             left_on=["event", "rechits_id"],   # Left ; join on columns : event, rechits_id
             right_index=True,                   # Right : join on index, ie event, rechits_id
-            suffixes=(None, "_from_rechits"), # Deal with columns present on both sides (currently only beamEnergy) :
+            suffixes=(None, "_from_rechits"), # Deal with columns present on both sides (none normally) :
             #        take the column from left with same name, the one from right renamed beamEnergy_from_rechits (they should be identical anyway)
             validate="one_to_one"               # Cross-check :  Make sure there are no weird things (such as duplicate ids), should not be needed
         )
@@ -409,7 +424,7 @@ class DataframeComputations:
         )
         
     @cached_property
-    def clusters3D_merged_2D(self, clusters3D_with_clus2D_id_df=None) -> pd.DataFrame:
+    def clusters3D_merged_2D(self) -> pd.DataFrame:
         """
         Merge the dataframe clusters3D_with_clus2D_id_df with clusters2D
         Param : clusters3D_with_clus2D_id_df : the dataframe to use for left param of join
@@ -419,13 +434,14 @@ class DataframeComputations:
         MultiIndex : event	clus3D_id	clus2D_internal_id
         Columns : beamEnergy	clus3D_energy	clus3D_size	clus2D_id		clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_rho	clus2D_delta	clus2D_pointType
         as well as beamEnergy_from_2D_clusters which is just a duplicate of beamEnergy
-
         """
-        if clusters3D_with_clus2D_id_df is None:
-            clusters3D_with_clus2D_id_df = self.clusters3D_with_clus2D_id
+        return self.clusters3D_merged_2D_custom(self.clusters3D_with_clus2D_id, self.clusters2D)
+
+    def clusters3D_merged_2D_custom(self, clusters3D_with_clus2D_id_df:pd.DataFrame, clusters2D_df:pd.DataFrame) -> pd.DataFrame:
+        """ Same as above but use custom dataframes for 3D part (must habe event, clus2D_id) and 2D part (must have index (event, clus2D_id))"""
         return pd.merge(
             clusters3D_with_clus2D_id_df.reset_index(), # Left
-            self.clusters2D,                # Right
+            clusters2D_df,                # Right
             how='inner',                    # Inner join (the default). Keeps only 2D clusters that are associated to a 3D cluster (ie drop outliers)
             # Outer and right would include also rechits that are outliers (not associated to any cluster)
             left_on=["event", "clus2D_id"],  # Left : Join on event nb and ID of 2D cluster per event
@@ -436,7 +452,10 @@ class DataframeComputations:
         )#.droplevel(level="clus2D_internal_id") # remove the useless clus2D_internal_id column
     
     @cached_property
-    def clusters3D_merged_2D_impact(self, clusters3D_merged_2D_df:pd.DataFrame|None = None) -> pd.DataFrame:
+    def clusters3D_merged_2D_impact(self) -> pd.DataFrame:
+        return self.clusters3D_merged_2D_impact_custom(self.clusters3D_merged_2D)
+
+    def clusters3D_merged_2D_impact_custom(self, clusters3D_merged_2D_df:pd.DataFrame|None = None) -> pd.DataFrame:
         """
         Merge clusters3D_merged_2D with impact dataframe, to get impact info for all 2D clusters members of a 3D cluster
         Also creates clus2D_diff_impact_x and clus2D_diff_impact_y columns holding the difference between 2D cluster position and extrapolated track impact position on layer
@@ -599,11 +618,19 @@ class DataframeComputations:
         """ Merge clusters3D dataframe with clusters2D then rechits 
         Index : event, clus3D_id, rechits_layer, rechits_id
         Columns : beamEnergy	clus3D_energy	clus3D_size	clus2D_id	rechits_x	rechits_y	rechits_energy"""
+        return self.clusters3D_merged_rechits_custom(["rechits_x", "rechits_y", "rechits_energy"])
+    
+    def clusters3D_merged_rechits_custom(self, listOfColumns):
+        """ Merge clusters3D dataframe with clusters2D then rechits 
+        Parameters : listOfColumns = iterable of column names to take from self.rechits (rechits_id and rechits_layer are always included)
+        """
         # First merge everything to get rechits information
         return (
             pd.merge(
                 self.clusters3D_with_clus2D_id.reset_index("clus3D_id"), # reset clus3D_id index so it does not get lost in the merge
-                self.clusters2D_merged_rechit[["rechits_id", "rechits_layer", "rechits_x", "rechits_y", "rechits_energy"]],
+                # rechits_id is Index in rechits df
+                # Note the comma, to avoid making a set with all letters of rechits_layer
+                self.clusters2D_merged_rechits(frozenset(listOfColumns).union(("rechits_layer",))).drop(columns="beamEnergy"), 
                 on=["event", "clus2D_id"]
             )
             # To assign series later, we need a unique multiindex so we use rechits_id
