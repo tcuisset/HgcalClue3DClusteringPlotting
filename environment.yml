@@ -19,3 +19,4 @@ dependencies:
  - pip
  - pip:
     - awkward-pandas
+    - xrootd # facultative, for opening testbeam ntuples with xrootd and uproot (in notebooks)
