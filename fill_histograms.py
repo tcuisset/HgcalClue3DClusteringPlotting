@@ -58,8 +58,9 @@ print("Opening input file", flush=True)
 store = HistogramStore(output_dir, HistogramId)
 try:
     # step_size of 50MB stranslates to about 5GB of memory usage by python, and about 4k events at a time
-    # 500MB leads to 50k events at a time, and memory usage of of around 10 GB (partly due to big histograms)
-    for (array, report) in uproot.iterate(input_file + ":clusters", step_size="500MB", library="ak", report=True):
+    # 200MB leads to 20k events at a time, memory usage of 15GB
+    # 500MB leads to 50k events at a time, and memory usage of of around 30 GB 
+    for (array, report) in uproot.iterate(input_file + ":clusters", step_size="200MB", library="ak", report=True):
         print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[", flush=True)
 
         comp = DataframeComputations(array)
