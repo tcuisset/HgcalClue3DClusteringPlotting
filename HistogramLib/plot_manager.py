@@ -73,7 +73,7 @@ class PlotManager:
                 if selection.slice() is not None and selection.slice().axisName in metadata.axes.name:
                     slicedAxes.add(selection.slice().axisName)
         else:
-            slicedAxes = set(self.forcePlotAxises)
+            slicedAxes = set(metadata.axes.name).difference(self.forcePlotAxises)
 
         # We need to make sure the order of axes in the metadata is the same as that returned by HistogramView
         unslicedAxes = []
