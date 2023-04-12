@@ -686,15 +686,12 @@ class DataframeComputations:
         return df_groupedPerLayer[["rechits_x_barycenter", "rechits_y_barycenter", "rechits_energy_sumPerLayer", "rechits_countPerLayer"]]
 
     @memoized_method(maxsize=None)
-    def clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(self, dr:float):
+    def clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(self):
         """ Compute, for all rechits in a 3D cluster, the distance of the rechit position to the barycenter.
         The barycenter is computed, for each event, cluster 3D and layer, using rechits log weighted positions.
         Uses thresholdW0 from parameters.py. The total energy sum used for the log is the sum of energies of all rechits in
         the considered 3D cluster *on the same layer* (as is done by CLUE2D for computing layer cluster positions,
         except possibly considering more than one layer cluster per layer in case the 3D cluster has more than one).
-
-        Parameters :
-         - dr : the bin width in radius
 
         Index : event, clus3D_id
         Colums : beamEnergy rechits_layer	clus3D_energy	clus3D_size	clus2D_id	rechits_x	rechits_y	rechits_distanceToBarycenter
@@ -710,7 +707,6 @@ class DataframeComputations:
             .eval("""
         rechits_distanceToBarycenter = sqrt((rechits_x - rechits_x_barycenter)**2 + (rechits_y - rechits_y_barycenter)**2)
         rechits_energy_EnergyFractionNormalized = rechits_energy / rechits_energy_sumPerLayer
-        rechits_energy_AreaNormalized = rechits_energy_EnergyFractionNormalized / ( @math.pi * (2 * rechits_distanceToBarycenter * @dr  + @dr*@dr))
         rechits_1_over_rechit_count = 1./rechits_countPerLayer
         """
             )
@@ -719,10 +715,10 @@ class DataframeComputations:
         )
 
     @memoized_method(maxsize=None)
-    def clusters3D_rechits_distanceToImpact(self, dr:float):
+    def clusters3D_rechits_distanceToImpact(self):
         """ Merges clusters3D with rechits, then computes distance to impact for each rechit
         Index : event	clus3D_id	rechits_id
-        Columns : rechits_layer	beamEnergy	clus3D_size	rechits_energy	rechits_distanceToImpact	rechits_energy_EnergyFractionNormalized	rechits_energy_AreaNormalized	rechits_1_over_rechit_count
+        Columns : rechits_layer	beamEnergy	clus3D_size	rechits_energy	rechits_distanceToImpact	rechits_energy_EnergyFractionNormalized	rechits_1_over_rechit_count
         """
         df = pd.merge(
             self.clusters3D_merged_rechits[["beamEnergy", "clus3D_size", "rechits_x", "rechits_y", "rechits_energy"]],
@@ -741,10 +737,11 @@ class DataframeComputations:
             .eval("""
         rechits_distanceToImpact = sqrt((rechits_x - impactX)**2 + (rechits_y - impactY)**2)
         rechits_energy_EnergyFractionNormalized = rechits_energy / rechits_energy_sumPerLayer
-        rechits_energy_AreaNormalized = rechits_energy_EnergyFractionNormalized / ( @math.pi * (2 * rechits_distanceToImpact * @dr  + @dr*@dr))
         rechits_1_over_rechit_count = 1./rechits_countPerLayer
         """
             )
+            # Old way to compute area normalization (now it is done after filling)
+            # rechits_energy_AreaNormalized = rechits_energy_EnergyFractionNormalized / ( @math.pi * (2 * rechits_distanceToImpact * @dr  + @dr*@dr))
             .drop(columns=["rechits_x", "rechits_y", "impactX", "impactY", "rechits_energy_sumPerLayer", "rechits_countPerLayer"])
             .reset_index(["rechits_layer", "rechits_id"])
         )

@@ -6,7 +6,7 @@ import pandas as pd
 
 from .dataframe import DataframeComputations, divideByBeamEnergy
 from .parameters import beamEnergies, synchrotronBeamEnergiesMap
-from HistogramLib.histogram import MyHistogram, HistogramVariable, WeightedMeanHistogramVariable
+from HistogramLib.histogram import MyHistogram, HistogramKind, HistogramVariable, WeightedMeanHistogramVariable
 
 # Thread count to use for some big histograms (put None to disable multithreading)
 # Only use for histograms with lots of entries (like for rechits) and low number of bins (don't use for 2D histograms due to high memory usage)
@@ -36,9 +36,12 @@ diffX_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_i
 diffY_axis = hist.axis.Regular(bins=100, start=-8., stop=8., name="clus2D_diff_impact_y", label="y position difference (cm)")
 
 # Distance to barycenter/impact
-rechits_distanceToBarycenterOrImpact = partial(hist.axis.Regular, start=0, stop=10., bins=30)
-rechits_distanceToBarycenter_axis = rechits_distanceToBarycenterOrImpact(name="rechits_distanceToBarycenter", label="Distance of rechits to barycenter (cm)")
-rechits_distanceToImpact_axis = rechits_distanceToBarycenterOrImpact(name="rechits_distanceToImpact", label="Distance of rechits to Delay Wire Chamber extrapolated impact position on layer (cm)")
+rechits_distanceToBarycenterOrImpact = partial(hist.axis.Regular, start=0, stop=10., bins=30, underflow=False)
+# For area normalization the overflow bins do not make sense, so we remove them
+rechits_distanceToBarycenter_axis = rechits_distanceToBarycenterOrImpact(name="rechits_distanceToBarycenter",
+    label="Distance of rechits to barycenter (cm)", overflow=False)
+rechits_distanceToImpact_axis = rechits_distanceToBarycenterOrImpact(name="rechits_distanceToImpact", 
+    label="Distance of rechits to Delay Wire Chamber extrapolated impact position on layer (cm)", overflow=False)
 
 # Axis for plotting total clustered energy per event
 totalClusteredEnergy_axis = partial(hist.axis.Regular, bins=2000, start=0, stop=350)
@@ -867,14 +870,6 @@ class Clus3DIntervalHoldingFractionOfEnergy_MeanIntervalLength(MyHistogram):
             self.fillFromDf(df.loc[comp.clusters3D_largestClusterIndex], 
                 valuesNotInDf={"mainOrAllTracksters": "mainTrackster", "intervalEnergyFraction":fraction})
 
-def computeDrForAreaNormalization(axis:hist.axis.Regular):
-    """ Compute dr, the bin width of rechits_distanceToBarycenter_axis"""
-    unique_widths = np.unique(axis.widths.round(decimals=3))
-    if len(unique_widths) != 1: # There are at least two different bin widths
-        raise RuntimeError("Clus3DRechitsDistanceToBarycenter_AreaNormalized only supports fixed bin widths for distanceToBarycenter")
-    return unique_widths[0]
-
-
 class Clus3DRechitsDistanceToBarycenter_EnergyFractionNormalized(MyHistogram):
     """ Distance to barycenter for rechits member of 3D cluster.
     Barycenter position is computed using log weights, per event, 3D cluster, and layer.
@@ -893,7 +888,7 @@ class Clus3DRechitsDistanceToBarycenter_EnergyFractionNormalized(MyHistogram):
     
     def loadFromComp(self, comp:DataframeComputations):
         #The dr value is irrelevant here, just use the same as the one used later for caching
-        df = comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(dr=computeDrForAreaNormalization(rechits_distanceToBarycenter_axis))
+        df = comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer()
         self.fillFromDf(df, 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
             mapping={"layer":"rechits_layer"})
@@ -917,7 +912,7 @@ class Clus3DRechitsDistanceToImpact_EnergyFractionNormalized(MyHistogram):
         )
     
     def loadFromComp(self, comp:DataframeComputations):
-        df = comp.clusters3D_rechits_distanceToImpact(dr=computeDrForAreaNormalization(rechits_distanceToBarycenter_axis))
+        df = comp.clusters3D_rechits_distanceToImpact()
         self.fillFromDf(df, 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
             mapping={"layer":"rechits_layer"})
@@ -925,6 +920,29 @@ class Clus3DRechitsDistanceToImpact_EnergyFractionNormalized(MyHistogram):
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"layer":"rechits_layer"})
 
+def normalizeWeightedMeanByAnnulusArea(axis:hist.axis.Regular, h:hist.Hist):
+    """ For WeightedMean histogram that have a distance to center point axis (ususally distance to impact or barycenter),
+    normalize by the area of the annulus of each distance bin
+     - axis : the axis where the distance to center point is stored
+     - h : the histogram to normalize (must be of type WeightedMean)
+    """
+    for bin_i in range(axis.size):
+        inner_radius = axis.bin(bin_i)[0] # Annulus inner radius (Take left edge of the bin)
+        dr = axis.widths[bin_i] # Annulus "width"
+        area =  math.pi * (2 * inner_radius * dr  + dr*dr) # Annulus area
+
+        normFactor = 1./area
+
+        # For each radius bin, normalize by annulus area
+        # Just doing *= does not work (not implemented yet in boost-histogram)
+        # So do it by hand with Numpy arrays
+        new_view = h[{axis.name : bin_i}].view(flow=True)
+        new_view.value *= normFactor
+
+        # Only used for variance (copied from Boost.Histogram C++ implementation)
+        new_view._sum_of_weighted_deltas_squared *= (normFactor*normFactor) 
+
+        h[{axis.name : bin_i}] = new_view
 
 class Clus3DRechitsDistanceToBarycenter_AreaNormalized(MyHistogram):
     """ Distance to barycenter for rechits member of 3D cluster.
@@ -944,12 +962,13 @@ class Clus3DRechitsDistanceToBarycenter_AreaNormalized(MyHistogram):
             rechits_distanceToBarycenter_axis,
             label="Distance to barycenter for rechits member of 3D cluster\n(barycenter position is computed using log weights, per event, 3D cluster, and layer)",
             binCountLabel="Rechits count (use profile)",
-            weightedMeanOn=WeightedMeanHistogramVariable(sampleName="rechits_energy_AreaNormalized", weightName="rechits_1_over_rechit_count",
+            # Note : the area normalization is done after filling
+            weightedMeanOn=WeightedMeanHistogramVariable(sampleName="rechits_energy_EnergyFractionNormalized", weightName="rechits_1_over_rechit_count",
                 label="Mean (over events and 3D clusters) of the sum of rechits energies,\nnormalized by 3D cluster energy on layer and by area of crown (in cm^-2)")
         )
     
     def loadFromComp(self, comp:DataframeComputations):
-        df = comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(computeDrForAreaNormalization(rechits_distanceToBarycenter_axis))
+        df = comp.clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer()
         self.fillFromDf(df, 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
             mapping={"layer":"rechits_layer"})
@@ -957,11 +976,14 @@ class Clus3DRechitsDistanceToBarycenter_AreaNormalized(MyHistogram):
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"layer":"rechits_layer"})
 
+        # Normalize by annulus area
+        normalizeWeightedMeanByAnnulusArea(rechits_distanceToBarycenter_axis, self.getHistogram(HistogramKind.WEIGHTED_PROFILE))
+
 class Clus3DRechitsDistanceToImpact_AreaNormalized(MyHistogram):
     """ Distance to impact (DWC) for rechits member of 3D cluster.
 
     For profile : uses a weighted profile, with 
-        sample=N{hits on layer} * E{hit} / (A{crown of parameter dr and radius distance to barycenter} * sumE{hits on layer in this 3D cluster})
+        sample=N{hits on layer} * E{hit} / (A{annulus of width dr and radius distance to barycenter} * sumE{hits on layer in this 3D cluster})
         weight=1 / N{hits on layer}
     such that all 3D clusters have the same weight in profile whatever the number of hits they contain.
     Unit is cm^-2
@@ -974,18 +996,22 @@ class Clus3DRechitsDistanceToImpact_AreaNormalized(MyHistogram):
             rechits_distanceToImpact_axis,
             label="Distance to DWC impact for rechits member of 3D cluster\n(extrapolated position on layer from Delay Wire Chambers)",
             binCountLabel="Rechits count",
-            weightedMeanOn=WeightedMeanHistogramVariable(sampleName="rechits_energy_AreaNormalized", weightName="rechits_1_over_rechit_count",
+            # Note : the area normalization is done after filling
+            weightedMeanOn=WeightedMeanHistogramVariable(sampleName="rechits_energy_EnergyFractionNormalized", weightName="rechits_1_over_rechit_count",
                 label="Mean (over events and 3D clusters) of the sum of rechits energies,\nnormalized by 3D cluster energy on layer and by area of crown (in cm^-2)")
         )
     
     def loadFromComp(self, comp:DataframeComputations):
-        df = comp.clusters3D_rechits_distanceToImpact(computeDrForAreaNormalization(rechits_distanceToImpact_axis))
+        df = comp.clusters3D_rechits_distanceToImpact()
         self.fillFromDf(df, 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
             mapping={"layer":"rechits_layer"})
         self.fillFromDf(df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)], 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"layer":"rechits_layer"})
+        # Normalize by annulus area
+        normalizeWeightedMeanByAnnulusArea(rechits_distanceToImpact_axis, self.getHistogram(HistogramKind.WEIGHTED_PROFILE))
+
 
 class Clus3DImpactVsBarycenter(MyHistogram):
     """ Distance between extrapolated DWC track on layer and barycenter on layer (for all 3D clusters and all layers)"""
