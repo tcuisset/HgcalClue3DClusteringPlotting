@@ -749,11 +749,12 @@ class DataframeComputations:
             .reset_index(["rechits_layer", "rechits_id"])
         )
 
-    def clusters3D_intervalHoldingFractionOfEnergy(self, fraction:float, engine:str|None=None) -> pd.DataFrame:
+    def clusters3D_intervalHoldingFractionOfEnergy(self, fraction:float, engine:str|None=None, maskLayer:int=None) -> pd.DataFrame:
         """ Compute, for each 3D cluster, the shortest interval [first layer; last layer] that contains at least fraction of the 3D cluster energy
         Parameters :
          - fraction
          - engine : can be python, cython, None (None prefers Cython)
+         - maskLayer : if not None, then mask this layer number when computing intervals (also mask for computing total 3D cluster energy for fraction computation)
         Index : event, clus3D_id
         Columns : intervalFractionEnergy_minLayer	intervalFractionEnergy_maxLayer
         """
@@ -791,7 +792,14 @@ class DataframeComputations:
                 #return pd.DataFrame({"intervalFractionEnergy_minLayer":bestInterval[0], "intervalFractionEnergy_maxLayer":bestInterval[1]}, index=[0])
             agg_lambda = partial(computeShortestInterval, fraction=fraction)
 
-        series = (self.clusters3D_energyClusteredPerLayer.clus2D_energy_sum
+
+        if maskLayer is None:
+            masked_series = self.clusters3D_energyClusteredPerLayer.clus2D_energy_sum
+        else:
+            masked_series = self.clusters3D_energyClusteredPerLayer[["clus2D_energy_sum"]].reset_index(level="clus2D_layer")
+            masked_series = masked_series[masked_series.clus2D_layer != maskLayer].set_index("clus2D_layer", append=True).clus2D_energy_sum
+        
+        series = (masked_series
             .groupby(["event", "clus3D_id"])
             .agg(agg_lambda)
         )
@@ -807,11 +815,12 @@ class DataframeComputations:
         # ).reset_index(level=2, drop=True)
     
     @memoized_method(maxsize=None)
-    def clusters3D_intervalHoldingFractionOfEnergy_joined(self, fraction:float) -> pd.DataFrame:
+    def clusters3D_intervalHoldingFractionOfEnergy_joined(self, fraction:float, maskLayer:int|None=None) -> pd.DataFrame:
         """ Same as clusters3D_intervalHoldingFractionOfEnergy but with 3D cluster info 
+        Note that if using maskLayer, then 3D clusters that span one layer that is exactly maskLayer are dropped.
         Index : event, clus3D_id
         Columns : intervalFractionEnergy_minLayer	intervalFractionEnergy_maxLayer intervalFractionEnergy_length beamEnergy	clus3D_x	clus3D_y	clus3D_z	clus3D_energy	clus3D_size"""
-        df = pd.concat([self.clusters3D_intervalHoldingFractionOfEnergy(fraction=fraction), self.clusters3D], axis="columns")
+        df = self.clusters3D_intervalHoldingFractionOfEnergy(fraction=fraction, maskLayer=maskLayer).join(self.clusters3D)
         df["intervalFractionEnergy_length"] = df["intervalFractionEnergy_maxLayer"]-df["intervalFractionEnergy_minLayer"]+1
         return df
 
