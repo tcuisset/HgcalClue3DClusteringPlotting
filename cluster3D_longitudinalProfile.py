@@ -20,6 +20,7 @@ curdoc().add_root(row(
         s.tabClue3DProfile("Interval holding fraction (maxLayer)", "Clus3DIntervalHoldingFractionOfEnergy",
             forcePlotAxises=["intervalFractionEnergy_maxLayer"]),
         s.tabClue3DProfile("Interval holding fraction (length)", "Clus3DIntervalHoldingFractionOfEnergy_IntervalLength"),
+        s.tabClue3DProfile("Interval holding fraction (length) (mask layer 10)", "Clus3DIntervalHoldingFractionOfEnergy_IntervalLength_MaskLayer10"),
         TabPanel(title="Interval holding fraction (length, fct beamEnergy)", 
             child=s.MakePlot("Clus3DIntervalHoldingFractionOfEnergy_MeanIntervalLength", selectors=selectorsWithoutBeamEnergy,
                 plotType=LineHistogram1D)),
