@@ -11,8 +11,8 @@ from utils import *
 
 
 class LayerVisualization(BaseVisualization):
-    def __init__(self, comp:DataframeComputations, eventNb, layerNb) -> None:
-        super().__init__(comp, eventNb)
+    def __init__(self, event:LoadedEvent, layerNb:int) -> None:
+        super().__init__(event)
         self.layerNb = layerNb
         self.fig = go.Figure(
             layout=go.Layout(
@@ -36,7 +36,7 @@ class LayerVisualization(BaseVisualization):
         return self.clus2D_df[self.clus2D_df.clus2D_layer == self.layerNb]
     
     def add2DClusters(self):
-        showLegend = True
+        #showLegend = True
         for clus3D_id, grouped_df in self.clus2D_df_onLayer.groupby("clus3D_id"):
             self.fig.add_trace(go.Scatter(
                 mode="markers",

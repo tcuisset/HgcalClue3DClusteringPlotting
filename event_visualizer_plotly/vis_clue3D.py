@@ -9,8 +9,8 @@ from utils import *
 
 
 class Clue3DVisualization(BaseVisualization):
-    def __init__(self, comp:DataframeComputations, eventNb) -> None:
-        super().__init__(comp, eventNb)
+    def __init__(self, event:LoadedEvent) -> None:
+        super().__init__(event)
         self.fig = create3DFigure()
 
         color_cycle = itertools.cycle(px.colors.qualitative.Plotly)

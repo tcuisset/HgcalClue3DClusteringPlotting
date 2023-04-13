@@ -1,9 +1,60 @@
 import math
 import collections
 
+import uproot
 import plotly.graph_objects as go
 
 from hists.dataframe import *
+
+EventID = collections.namedtuple("EventID", ["ntupleNumber", "event"])
+
+class EventLoader:
+    def __init__(self, pathToFile:str) -> None:
+        """ pathToFile is path to CLUE_clusters.root file (included)"""
+        self.file = uproot.open(pathToFile)
+        self.tree:uproot.TTree = self.file["clusters"]
+
+    @cached_property
+    def clueParameters(self):
+        return self.file["clueParams"].members
+    
+    @cached_property
+    def clue3DParameters(self):
+        return self.file["clue3DParams"].members
+
+    def locateEvent(self, eventId:EventID) -> uproot.behaviors.TBranch.Report:
+        for array, report in self.tree.iterate(["ntupleNumber", "event"], report=True, library="np",
+            cut=f"(ntupleNumber == {eventId.ntupleNumber}) & (event=={eventId.event})", step_size=1000):
+            if len(array["ntupleNumber"]) > 0:
+                return report
+        return None
+
+    def loadEvent(self, eventId:EventID):# -> LoadedEvent:
+        eventLocation = self.locateEvent(eventId)
+        if eventLocation is None:
+            raise RuntimeError("Could not find event")
+        eventList = self.tree.arrays(cut=f"(ntupleNumber == {eventId.ntupleNumber}) & (event=={eventId.event})",
+            entry_start=eventLocation.tree_entry_start, entry_stop=eventLocation.tree_entry_stop)
+        if len(eventList) > 1:
+            print("WARNING : duplicate event numbers")
+        if len(eventList) < 1:
+            raise RuntimeError("Could not find event") 
+        return LoadedEvent(eventList[0], self)
+
+class LoadedEvent:
+    def __init__(self, record:ak.Record, el:EventLoader) -> None:
+        self.comp = DataframeComputations(ak.Array([record]))
+        self.el = el
+
+    @property
+    def clueParameters(self):
+        return self.el.clueParameters
+    
+    @property
+    def clue3DParameters(self):
+        return self.el.clue3DParameters
+
+
 
 def create3DFigure() -> go.Figure:
     fig = go.Figure(
@@ -39,21 +90,21 @@ def makeCumulativeEnergy(df:pd.DataFrame, prefix:str):
     return new_df
 
 class BaseVisualization:
-    def __init__(self, comp:DataframeComputations, eventNb) -> None:
+    def __init__(self, event:LoadedEvent) -> None:
         #self.fig.update_layout(legend=dict(groupclick="togglegroup"))
-        self.comp = comp
-        self.eventNb = eventNb
+        self.event = event
 
     @cached_property
     def clus3D_df(self):
-        return self.comp.clusters3D.loc[self.eventNb]
+        return self.event.comp.clusters3D.loc[0]
     
+    #Note that in the dataframes event is not the same as the "event number" in the ntuples
     @cached_property
     def clus2D_df(self):
-        df_clus2D = (self.comp
-            .clusters3D_merged_2D_custom(self.comp.clusters3D_with_clus2D_id, self.comp.clusters2D_withNearestHigher)
+        df_clus2D = (self.event.comp
+            .clusters3D_merged_2D_custom(self.event.comp.clusters3D_with_clus2D_id, self.event.comp.clusters2D_withNearestHigher)
             .set_index(["event", "clus3D_id", "clus2D_id"])
-            .loc[self.eventNb]
+            .loc[0]
         )
         return (df_clus2D
             .join(df_clus2D[["clus2D_x", "clus2D_y", "clus2D_z"]], on=["clus3D_id", "clus2D_nearestHigher"], rsuffix="_ofNearestHigher")
@@ -66,10 +117,10 @@ class BaseVisualization:
 
     @cached_property
     def rechits_df(self):
-        df_rechits = (self.comp
+        df_rechits = (self.event.comp
             .clusters3D_merged_rechits_custom(["rechits_x", "rechits_y", "rechits_z", "rechits_energy", 
                 "rechits_rho", "rechits_delta", "rechits_nearestHigher", "rechits_pointType"])
-            .loc[self.eventNb]
+            .loc[0]
 
             .reset_index(level=["clus3D_id", "rechits_layer"])
             .pipe(makeCumulativeEnergy, prefix="rechits")
