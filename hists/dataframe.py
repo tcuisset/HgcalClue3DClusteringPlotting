@@ -179,7 +179,7 @@ class DataframeComputations:
 
     @cached_property
     def layerToZMapping(self) -> dict[int, float]:
-        """ Returns a dict layer_nb -> layer z position """
+        """ Returns a dict layer_nb -> layer z position (there is a key for a layer only if there is a rechit at this layer in at least one loaded event)"""
         return self.rechits[["rechits_z", "rechits_layer"]].groupby("rechits_layer").first()["rechits_z"].to_dict()
 
     @property

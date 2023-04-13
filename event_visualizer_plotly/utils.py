@@ -129,6 +129,13 @@ class BaseVisualization:
         )
         return df_rechits.join(df_rechits[["rechits_id", "rechits_x", "rechits_y", "rechits_z"]].set_index("rechits_id"), on=["rechits_nearestHigher"], rsuffix="_ofNearestHigher")
     
+    @property
+    def impact_df(self) -> pd.DataFrame:
+        """ Index : event (always 0)
+        Columns : layer impactX impactY impactZ (impactZ is mapped from layer)
+        Only rows which have a rechit in the event are kept"""
+        df = self.event.comp.impact.reset_index(level="layer")
+        return df.assign(impactZ=df.layer.map(self.event.comp.layerToZMapping)).dropna()
 
 def makeArrow3D(x1, x2, y1, y2, z1, z2, dictLine=dict(), dictCone=dict(), color="blue"):
     traces = []

@@ -22,6 +22,10 @@ class LayerVisualization(BaseVisualization):
                 autosize=True
             )
         )
+        self.fig.update_yaxes( # Same scale for x and y
+            scaleanchor="x",
+            scaleratio=1,
+        )
 
         color_cycle = itertools.cycle(px.colors.qualitative.Plotly)
         self.mapClus3Did_color = {clus3D_id : next(color_cycle) for clus3D_id in self.clus3D_df.index.get_level_values(0).drop_duplicates().to_list()}
@@ -140,4 +144,20 @@ class LayerVisualization(BaseVisualization):
 
             self.fig.add_shape(type="circle", xref="x", yref="y", 
                 x0=center[0]-radius, x1=center[0]+radius, y0=center[1]-radius, y1=center[1]+radius)
+        return self
+    
+    def addImpactPoint(self):
+        impacts = self.impact_df[self.impact_df.layer == self.layerNb]
+
+        self.fig.add_trace(go.Scatter(
+            mode="markers",
+            name="Impact from DWC",
+            x=impacts.impactX, y=impacts.impactY,
+            marker=dict(
+                color="black",
+                size=8,
+                symbol="x"
+            ),
+            hoverinfo='skip',
+        ))
         return self

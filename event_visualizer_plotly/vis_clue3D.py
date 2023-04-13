@@ -128,3 +128,18 @@ class Clue3DVisualization(BaseVisualization):
                 )
                 showLegend = False
         return self
+
+
+    def addImpactTrajectory(self):
+        impacts = self.impact_df
+        self.fig.add_trace(go.Scatter3d(
+            mode="lines",
+            name="Impact from DWC",
+            x=impacts.impactX, y=impacts.impactY, z=impacts.impactZ,
+            line=dict(
+                color="black",
+                width=3,
+            ),
+            hoverinfo='skip',
+        ))
+        return self
