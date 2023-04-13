@@ -28,11 +28,11 @@ class LayerVisualization(BaseVisualization):
         self.mapClus2Did_color = {clus2D_id : next(color_cycle) for clus2D_id in self.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()}
 
     @property
-    def rechits_df_onLayer(self):
+    def rechits_df_onLayer(self) -> pd.DataFrame:
         return self.rechits_df[self.rechits_df.rechits_layer == self.layerNb]
     
     @property
-    def clus2D_df_onLayer(self):
+    def clus2D_df_onLayer(self) -> pd.DataFrame:
         return self.clus2D_df[self.clus2D_df.clus2D_layer == self.layerNb]
     
     def add2DClusters(self):
@@ -129,6 +129,15 @@ class LayerVisualization(BaseVisualization):
 
         return self
 
-    # def addCircleSearchForComputingClusterPosition(self, thresholdW0):
-    #     """ Draw a circle around each 2D cluster representing the search area for rechits to compute the 2D cluster position.
-    #     ie a circle centered on the maximum energy cell of the cluster and of radius thresholdW0 """
+    def addCircleSearchForComputingClusterPosition(self):
+        """ Draw a circle around each 2D cluster representing the search area for rechits to compute the 2D cluster position.
+        ie a circle centered on the maximum energy cell of the cluster and of radius sqrt(positionDeltaRho2) """
+        radius:float = math.sqrt(self.event.clueParameters["positionDeltaRho2"])
+
+        
+        for row in self.rechits_df_onLayer[self.rechits_df_onLayer.rechits_pointType == 1].itertuples():
+            center = np.array([row.rechits_x, row.rechits_y])
+
+            self.fig.add_shape(type="circle", xref="x", yref="y", 
+                x0=center[0]-radius, x1=center[0]+radius, y0=center[1]-radius, y1=center[1]+radius)
+        return self
