@@ -1,4 +1,5 @@
-
+import uproot
+import functools
 
 # Nominal beam energies
 beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
@@ -37,3 +38,19 @@ layerToZMapping = {1: 13.8774995803833,
 
 # Value of threshold to compute log-weights of hits energies (weight = max(0; thresholdW0 + ln(E/(totalE)))) (in GeV)
 thresholdW0 = 2.9 
+
+@functools.lru_cache()
+def loadClueParameters(clueClustersFile:str):
+    return (
+        uproot.open(clueClustersFile)
+        ["clueParams"]
+        .members
+    )
+
+@functools.lru_cache()
+def loadClue3DParameters(clueClustersFile:str):
+    return (
+        uproot.open(clueClustersFile)
+        ["clue3DParams"]
+        .members
+    )
