@@ -11,7 +11,7 @@ from utils import *
 class Clue3DVisualization(BaseVisualization):
     def __init__(self, event:LoadedEvent) -> None:
         super().__init__(event)
-        self.fig = create3DFigure()
+        self.fig = create3DFigure(f"CLUE3D visualization - ntuple {event.record.ntupleNumber}, event {event.record.event} - e+ {event.record.beamEnergy} GeV")
 
         color_cycle = itertools.cycle(px.colors.qualitative.Plotly)
         self.mapClus3Did_color = NaNColorMap(

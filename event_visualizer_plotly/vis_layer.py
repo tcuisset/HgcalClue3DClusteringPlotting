@@ -16,7 +16,7 @@ class LayerVisualization(BaseVisualization):
         self.layerNb = layerNb
         self.fig = go.Figure(
             layout=go.Layout(
-                title=go.layout.Title(text=f"Layer {layerNb} view"),
+                title=go.layout.Title(text=f"Layer visualization - ntuple {event.record.ntupleNumber}, event {event.record.event} - e+ {event.record.beamEnergy} GeV - Layer {layerNb}"),
                 #width=1200,
                 #height=600,
                 autosize=True

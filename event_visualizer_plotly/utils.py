@@ -62,10 +62,10 @@ class LoadedEvent:
 
 
 
-def create3DFigure() -> go.Figure:
+def create3DFigure(title:str) -> go.Figure:
     fig = go.Figure(
         layout=go.Layout(
-            title=go.layout.Title(text="Event visualizer"),
+            title=go.layout.Title(text=title),
             #width=1200,
             #height=600,
             autosize=True
