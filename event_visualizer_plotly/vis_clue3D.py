@@ -14,35 +14,35 @@ class Clue3DVisualization(BaseVisualization):
         self.fig = create3DFigure()
 
         color_cycle = itertools.cycle(px.colors.qualitative.Plotly)
-        self.mapClus3Did_color = {clus3D_id : next(color_cycle) for clus3D_id in self.clus3D_df.index.get_level_values(0).drop_duplicates().to_list()}
-        self.mapClus2Did_color = {clus2D_id : next(color_cycle) for clus2D_id in self.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()}
-
-    def makeAll(self) -> go.Figure:
-        self.add3DClusters()
-        self.add2DClusters()
-        return self.fig
-
-
+        self.mapClus3Did_color = NaNColorMap(
+            {clus3D_id : next(color_cycle) for clus3D_id in self.clus3D_df.index.get_level_values("clus3D_id").drop_duplicates().to_list()},
+            next(color_cycle))
+        self.mapClus2Did_color = NaNColorMap(
+            {clus2D_id : next(color_cycle) for clus2D_id in self.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()},
+            next(color_cycle))
 
 
     def add3DClusters(self):
+        markerSizeScale = MarkerSizeLogScaler(self.clus3D_df.clus3D_energy, maxMarkerSize=40)
         self.fig.add_trace(go.Scatter3d(
             name="3D tracksters",
             x=self.clus3D_df["clus3D_x"], y=self.clus3D_df["clus3D_y"], z=self.clus3D_df["clus3D_z"], 
             mode="markers",
             marker=dict(
                 symbol="cross",
-                color=list(self.mapClus3Did_color.values()),
-                size=self.clus3D_df["clus3D_size"]*2,
+                color=self.clus3D_df.index.to_series().map(self.mapClus3Did_color),
+                size=markerSizeScale.scale(self.clus3D_df["clus3D_energy"]),
             ),
-            hovertemplate="clus3D_x=%{x}<br>clus3D_y=%{y}<br>clus3D_z=%{z}<br>clus3D_size=%{marker.size}<extra></extra>",
+            customdata=np.dstack((self.clus3D_df["clus3D_energy"], self.clus3D_df["clus3D_size"]))[0],
+            hovertemplate="clus3D_energy=%{customdata[0]:.2g} GeV<br>clus3D_x=%{x}<br>clus3D_y=%{y}<br>clus3D_z=%{z}<br>clus3D_size=%{customdata[1]}<extra></extra>",
             )
         )
         return self
 
     def add2DClusters(self):
         showLegend = True
-        for clus3D_id, grouped_df in self.clus2D_df.groupby("clus3D_id"):
+        markerSizeScale = MarkerSizeLogScaler(self.clus2D_df.clus2D_energy, maxMarkerSize=30)
+        for clus3D_id, grouped_df in self.clus2D_df.groupby("clus3D_id", dropna=False):
             self.fig.add_trace(go.Scatter3d(
                 mode="markers",
                 legendgroup="cluster2D",
@@ -51,27 +51,35 @@ class Clue3DVisualization(BaseVisualization):
                 x=grouped_df["clus2D_x"], y=grouped_df["clus2D_y"], z=grouped_df["clus2D_z"], 
                 marker=dict(
                     symbol="circle",
-                    color=self.clus2D_df.index.get_level_values(level="clus2D_id").map(self.mapClus2Did_color),
-                    size=grouped_df["clus2D_size"],
+                    color=self.clus2D_df.index.to_series().map(self.mapClus2Did_color),
+                    #size=grouped_df["clus2D_size"],
+                    size=markerSizeScale.scale(grouped_df["clus2D_energy"]),
                     line=dict(
-                        color=self.mapClus3Did_color[clus3D_id],
+                        color=self.mapClus3Did_color(clus3D_id),
                         width=3.
-                    )
+                    ),
                 ),
                 customdata=np.dstack((grouped_df.clus2D_energy, grouped_df.clus2D_rho, grouped_df.clus2D_delta,
                     grouped_df.clus2D_pointType.map({0:"Follower", 1:"Seed", 2:"Outlier"}),
-                    grouped_df.clus2D_layer))[0],
+                    grouped_df.clus2D_layer, grouped_df.clus2D_size))[0],
                 #hovertemplate="clus2D_x=%{x}<br>clus2D_y=%{y}<br>clus2D_z=%{z}<br>clus2D_size=%{marker.size}<extra></extra>",
                 hovertemplate=(
                     "2D cluster : %{customdata[3]}<br>"
                     "Layer : %{customdata[4]}<br>"
                     "Energy: %{customdata[0]:.2g} GeV<br>Rho: %{customdata[1]:.2g} GeV<br>"
                     "Delta: %{customdata[2]:.2g} cm<br>"
-                    "Size: %{marker.size}"
+                    "Size: %{customdata[5]}"
                 )
             ))
 
+            # dropna drops layer clusters which have nearestHigher = -1
             for row in grouped_df.dropna().itertuples(index=False, name="Cluster2D"):
+                if row.clus2D_pointType != 0:
+                    # in CLUE3D layer clusters can have a nearestHigher but still be an outlier if distance to neareast higher is larger than outlierDeltaFactor * critical_transverse_distance
+                    # Also a seed can have a nearestHigher set
+                    # In these two cases do not draw the arrow
+                    # Note that it is also possible for pointType == 1 (ie follower) but having no nearest higher
+                    continue
                 self.fig.add_traces(makeArrow3D(
                     row.clus2D_x, row.clus2D_x_ofNearestHigher, row.clus2D_y, row.clus2D_y_ofNearestHigher, row.clus2D_z, row.clus2D_z_ofNearestHigher,
                     dictLine=dict(
@@ -82,7 +90,7 @@ class Clue3DVisualization(BaseVisualization):
                     ), dictCone=dict(
                         legendgroup="clus2D_chain"
                     ),
-                    color=self.mapClus3Did_color[clus3D_id],
+                    color=self.mapClus3Did_color(clus3D_id),
                     )
                 )
 
@@ -91,7 +99,8 @@ class Clue3DVisualization(BaseVisualization):
         
     def addRechits(self):
         showLegend = True
-        for index, grouped_df in self.rechits_df.groupby(level=["clus3D_id", "clus2D_id"]):
+        markerSizeScale = MarkerSizeLogScaler(self.rechits_df.rechits_energy, maxMarkerSize=25, minMarkerSize=1)
+        for index, grouped_df in self.rechits_df.groupby(by=["clus3D_id", "clus2D_id"], dropna=False):
             self.fig.add_trace(go.Scatter3d(
                 mode="markers",
                 legendgroup="rechits",
@@ -100,19 +109,24 @@ class Clue3DVisualization(BaseVisualization):
                 x=grouped_df["rechits_x"], y=grouped_df["rechits_y"], z=grouped_df["rechits_z"], 
                 marker=dict(
                     symbol="circle",
-                    color=self.mapClus2Did_color[index[1]],
-                    size=np.log(grouped_df["rechits_energy"]/0.0002).clip(lower=1),
+                    color=self.mapClus2Did_color(index[1]),
+                    size=markerSizeScale.scale(grouped_df["rechits_energy"]),
                 ),
                 customdata=np.dstack((grouped_df.rechits_energy, grouped_df.rechits_rho, grouped_df.rechits_delta,
-                    grouped_df.rechits_pointType.map({0:"Follower", 1:"Seed", 2:"Outlier"})))[0],
+                    getPointTypeStringForRechits(clus2D_id=index[1], grouped_df=grouped_df), 
+                    grouped_df.rechits_layer))[0],
                 #hovertemplate="clus2D_x=%{x}<br>clus2D_y=%{y}<br>clus2D_z=%{z}<br>clus2D_size=%{marker.size}<extra></extra>",
                 hovertemplate=(
                     "Rechit : %{customdata[3]}<br>"
+                    "Layer : %{customdata[4]}<br>"
                     "Energy: %{customdata[0]:.2g} GeV<br>Rho: %{customdata[1]:.2g} GeV<br>"
                     "Delta: %{customdata[2]:.2g} cm"
                 )
             ))
             for row in grouped_df.dropna().itertuples(index=False):
+                if row.rechits_pointType != 0:
+                    # Drop non-followers 
+                    continue
                 self.fig.add_traces(makeArrow3D(
                     row.rechits_x, row.rechits_x_ofNearestHigher, row.rechits_y, row.rechits_y_ofNearestHigher, row.rechits_z, row.rechits_z_ofNearestHigher,
                     dictLine=dict(
@@ -123,7 +137,7 @@ class Clue3DVisualization(BaseVisualization):
                     ), dictCone=dict(
                         legendgroup="rechits_chain"
                     ),
-                    color=self.mapClus2Did_color[index[1]],
+                    color=self.mapClus2Did_color(index[1]),
                     )
                 )
                 showLegend = False

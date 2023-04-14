@@ -28,8 +28,12 @@ class LayerVisualization(BaseVisualization):
         )
 
         color_cycle = itertools.cycle(px.colors.qualitative.Plotly)
-        self.mapClus3Did_color = {clus3D_id : next(color_cycle) for clus3D_id in self.clus3D_df.index.get_level_values(0).drop_duplicates().to_list()}
-        self.mapClus2Did_color = {clus2D_id : next(color_cycle) for clus2D_id in self.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()}
+        self.mapClus3Did_color = NaNColorMap(
+            {clus3D_id : next(color_cycle) for clus3D_id in self.clus3D_df.index.get_level_values("clus3D_id").drop_duplicates().to_list()},
+            next(color_cycle))
+        self.mapClus2Did_color = NaNColorMap(
+            {clus2D_id : next(color_cycle) for clus2D_id in self.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()},
+            next(color_cycle))
 
     @property
     def rechits_df_onLayer(self) -> pd.DataFrame:
@@ -39,9 +43,15 @@ class LayerVisualization(BaseVisualization):
     def clus2D_df_onLayer(self) -> pd.DataFrame:
         return self.clus2D_df[self.clus2D_df.clus2D_layer == self.layerNb]
     
+    @cached_property
+    def totalEnergyOnLayer(self) -> float:
+        return self.rechits_df_onLayer.rechits_energy.sum()
+    @cached_property
+    def maxRechitEnergyOnLayer(self) -> float:
+        return self.rechits_df_onLayer.rechits_energy.max()
+    
     def add2DClusters(self):
-        #showLegend = True
-        for clus3D_id, grouped_df in self.clus2D_df_onLayer.groupby("clus3D_id"):
+        for clus3D_id, grouped_df in self.clus2D_df_onLayer.groupby("clus3D_id", dropna=False):
             self.fig.add_trace(go.Scatter(
                 mode="markers",
                 legendgroup="cluster2D",
@@ -50,10 +60,10 @@ class LayerVisualization(BaseVisualization):
                 x=grouped_df["clus2D_x"], y=grouped_df["clus2D_y"],
                 marker=dict(
                     symbol="circle",
-                    color=self.clus2D_df_onLayer.index.get_level_values(level="clus2D_id").map(self.mapClus2Did_color),
+                    color=grouped_df.index.map(self.mapClus2Did_color),
                     size=grouped_df["clus2D_size"],
                     line=dict(
-                        color=self.mapClus3Did_color[clus3D_id],
+                        color=self.mapClus3Did_color(clus3D_id),
                         width=3.
                     )
                 ),
@@ -68,28 +78,14 @@ class LayerVisualization(BaseVisualization):
                 )
             ))
 
-            # for row in grouped_df.dropna().itertuples(index=False, name="Cluster2D"):
-            #     x1, x2, y1, y2, z1, z2 = row.clus2D_x, row.clus2D_x_ofNearestHigher, row.clus2D_y, row.clus2D_y_ofNearestHigher, row.clus2D_z, row.clus2D_z_ofNearestHigher
-            #     self.fig.add_traces(go.Scatter(
-            #         mode="lines+markers",
-            #         name="Cluster 2D chain",
-            #         showlegend=showLegend,
-            #         hoverinfo='skip',
-            #         x=[x1, x2],
-            #         y=[y1, y2],
-            #         marker=dict(
-            #             symbol="arrow",
-            #             color=self.mapClus3Did_color[clus3D_id],
-            #         ),
-            #         line_width=max(1, math.log(row.clus2D_cumulativeEnergy/0.1)), #line width in pixels
-            #     ))
-
-            #     showLegend = False
         return self
         
     def addRechits(self):
+        markerSizeScale = MarkerSizeLogScaler(self.rechits_df_onLayer.rechits_energy, maxMarkerSize=25, minMarkerSize=2)
+        #markerSizeScale = MarkerSizeLinearScaler(self.rechits_df_onLayer.rechits_energy, maxMarkerSize=10)
         showLegend = True
-        for index, grouped_df in self.rechits_df_onLayer.groupby(level=["clus3D_id", "clus2D_id"]):
+        for index, grouped_df in self.rechits_df_onLayer.groupby(by=["clus3D_id", "clus2D_id"], dropna=False):
+            # dropna=False to keep outlier rechits and rechits members of outlier layer cluster
             self.fig.add_trace(go.Scatter(
                 mode="markers",
                 legendgroup="rechits",
@@ -98,19 +94,23 @@ class LayerVisualization(BaseVisualization):
                 x=grouped_df["rechits_x"], y=grouped_df["rechits_y"], 
                 marker=dict(
                     symbol="circle",
-                    color=self.mapClus2Did_color[index[1]],
-                    size=np.log(grouped_df["rechits_energy"]/0.00001).clip(lower=1),
+                    color=self.mapClus2Did_color(index[1]),
+                    size=markerSizeScale.scale(grouped_df["rechits_energy"]),
                 ),
                 customdata=np.dstack((grouped_df.rechits_energy, grouped_df.rechits_rho, grouped_df.rechits_delta,
-                    grouped_df.rechits_pointType.map({0:"Follower", 1:"Seed", 2:"Outlier"})))[0],
+                    getPointTypeStringForRechits(clus2D_id=index[1], grouped_df=grouped_df)))[0],
                 #hovertemplate="clus2D_x=%{x}<br>clus2D_y=%{y}<br>clus2D_z=%{z}<br>clus2D_size=%{marker.size}<extra></extra>",
                 hovertemplate=(
                     "Rechit : %{customdata[3]}<br>"
                     "Energy: %{customdata[0]:.2g} GeV<br>Rho: %{customdata[1]:.2g} GeV<br>"
                     "Delta: %{customdata[2]:.2g} cm"
+                    #"Size : %{marker.size}"
                 )
             ))
-            for row in grouped_df.dropna().itertuples(index=False):
+            for row in grouped_df.dropna(subset=["rechits_x_ofNearestHigher"]).itertuples(index=False):
+                if row.rechits_pointType != 0:
+                    # Drop non-followers 
+                    continue
                 x1, x2, y1, y2 = row.rechits_x, row.rechits_x_ofNearestHigher, row.rechits_y, row.rechits_y_ofNearestHigher,
                 self.fig.add_traces(go.Scatter(
                     mode="markers+lines",
@@ -122,7 +122,7 @@ class LayerVisualization(BaseVisualization):
                     y=[y1, y2],
                     marker=dict(
                         symbol="arrow",
-                        color=self.mapClus2Did_color[index[1]],
+                        color=self.mapClus2Did_color(index[1]),
                         size=10,
                         angleref="previous",
                         #standoff=8,
