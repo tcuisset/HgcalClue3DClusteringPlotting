@@ -3,7 +3,7 @@ import bokeh.models
 from HistogramLib.bokeh.selector_widgets import *
 from HistogramLib.histogram import HistogramKind
 from hists.parameters import beamEnergies
-from hists.custom_hists import intervalHoldingFractionOfEnergy_energyFraction_axis
+from hists.custom_hists import intervalHoldingFractionOfEnergy_energyFraction_axis, intervalHoldingFraction_maskLayer
 
 def makeLayerSelector():
     return ExplodeSelector(RangeAxisSelector("layer",
@@ -67,6 +67,14 @@ def makeIntervalEnergyFractionSelector():
         active=0
     ))
 
+def makeIntervalEnergyFractionMaskLayer():
+    """ For longitudinal profiles, layers to mask in the computation """
+    ax = intervalHoldingFraction_maskLayer
+    return ExplodeSelector(RadioButtonGroupAxisSelector(ax.name,
+        name=ax.name, title="Mask layer for interval computation",
+        labels=[ax.bin(i) for i in range(ax.size)],
+        active=0
+    ))
 class HistIdSelectorImpl(Selector):
     selectorType = SelectorType.HISTOGRAM_ID
     def __init__(self, keyName, onChangeValue='value') -> None:

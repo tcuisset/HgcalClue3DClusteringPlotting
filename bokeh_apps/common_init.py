@@ -43,6 +43,7 @@ class Selectors:
         self.normalizePlots = DensityHistogramToggle()
         self.mainOrAllTrackstersSelector = makeMainOrAllTrackstersSelector()
         self.intervalEnergyFractionSelector = makeIntervalEnergyFractionSelector()
+        self.intervalEnergyFractionMaskLayer = makeIntervalEnergyFractionMaskLayer()
 
         self.selectorsStandardBegin = [self.datatype_selector, self.clueParamSelector, 
                 self.beamEnergySelector, self.layerSelector, self.pointTypeSelector]
@@ -56,7 +57,7 @@ class Selectors:
             self.clus3DSizeSelector]
         self.selectorsClue3D = self.selectorsClue3DBegin + self.selectorsStandardEnd
 
-        self.selectorsClue3DLongitudinalProfile = self.selectorsClue3DBegin + [self.intervalEnergyFractionSelector] + self.selectorsStandardEnd
+        self.selectorsClue3DLongitudinalProfile = self.selectorsClue3DBegin + [self.intervalEnergyFractionSelector, self.intervalEnergyFractionMaskLayer] + self.selectorsStandardEnd
 
     def MakePlot(self, histName:str, selectors, plotType:str|AbstractHistogram="1d", **kwargs):
         if plotType == "1d":
