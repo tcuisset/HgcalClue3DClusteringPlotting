@@ -982,7 +982,8 @@ class Clus3DRechitsDistanceToBarycenter_AreaNormalized(MyHistogram):
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"layer":"rechits_layer"})
 
-        # Normalize by annulus area
+    def postFillCallback(self):
+        # Normalize by annulus area. To be done in postFillCallback so it is called only once after all the filling is done
         normalizeWeightedMeanByAnnulusArea(rechits_distanceToBarycenter_axis, self.getHistogram(HistogramKind.WEIGHTED_PROFILE))
 
 class RechitsDistanceToImpact_AreaNormalized(MyHistogram):
@@ -1009,7 +1010,9 @@ class RechitsDistanceToImpact_AreaNormalized(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         df = comp.rechits_distanceToImpact
         self.fillFromDf(df, mapping={"layer":"rechits_layer"})
-        # Normalize by annulus area
+
+    def postFillCallback(self):
+        # Normalize by annulus area. To be done in postFillCallback so it is called only once after all the filling is done
         normalizeWeightedMeanByAnnulusArea(rechits_distanceToImpact_axis, self.getHistogram(HistogramKind.WEIGHTED_PROFILE))
 
 class Clus2DRechitsDistanceToImpact_AreaNormalized(MyHistogram):
@@ -1036,7 +1039,9 @@ class Clus2DRechitsDistanceToImpact_AreaNormalized(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         df = comp.clusters2D_rechits_distanceToImpact
         self.fillFromDf(df, mapping={"layer":"rechits_layer"})
-        # Normalize by annulus area
+
+    def postFillCallback(self):
+        # Normalize by annulus area. To be done in postFillCallback so it is called only once after all the filling is done
         normalizeWeightedMeanByAnnulusArea(rechits_distanceToImpact_axis, self.getHistogram(HistogramKind.WEIGHTED_PROFILE))
 
 
@@ -1071,7 +1076,9 @@ class Clus3DRechitsDistanceToImpact_AreaNormalized(MyHistogram):
         self.fillFromDf(df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)], 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"layer":"rechits_layer"})
-        # Normalize by annulus area
+            
+    def postFillCallback(self):
+        # Normalize by annulus area. To be done in postFillCallback so it is called only once after all the filling is done
         normalizeWeightedMeanByAnnulusArea(rechits_distanceToImpact_axis, self.getHistogram(HistogramKind.WEIGHTED_PROFILE))
 
 

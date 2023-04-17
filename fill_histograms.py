@@ -77,6 +77,7 @@ except IndexError as e:
 print("Writing histograms to file...", flush=True)
 for h_name, h in hist_dict.items():
     print(h_name, flush=True)
+    h.postFillCallback()
     histId = HistogramId(clueParamName=args.clue_params, datatype=args.datatype, histName=h_name)
     store.save(histId, h, makedirs=True, saveMetadata=args.save_metadata)
 

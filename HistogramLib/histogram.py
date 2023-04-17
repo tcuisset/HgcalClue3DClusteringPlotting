@@ -216,7 +216,10 @@ class MyHistogram():
     def getEmptyCopy(self):
         return MyHistogram(*self.axes)
 
-
+    def postFillCallback(self) -> None:
+        """ Function that is called only once, after all filling and merging is done, just prior saving to file
+        Used for post-fill normalization. """
+        pass
 
 
 
