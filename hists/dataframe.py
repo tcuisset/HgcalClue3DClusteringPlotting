@@ -79,7 +79,7 @@ class DataframeComputations:
         # rsuffix is in case we already have beamEnergy column in df
         return df.join(self.beamEnergy, on="event", rsuffix="_right").pipe(divideByBeamEnergy, colName=colName)
 
-    @property
+    @cached_property
     def impact(self) -> pd.DataFrame:
         """ 
         Columns : event   layer   impactX  impactY  
@@ -246,9 +246,9 @@ class DataframeComputations:
         """
         Merge clusters2D with rechits
         Parameters : rechitsColumns: columns to select from rechits Dataframe (as a frozenset so it can work with functools.cache)
-        MultiIndex : event	clus2D_id	rechits_id
+        MultiIndex : event	clus2D_id	
         Columns : beamEnergy	clus2D_layer	clus2D_rho	clus2D_delta clus2D_idxs	clus2D_pointType 
-            and from rechits : rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_pointType
+            and from rechits : rechits_id rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_pointType
         beamEnergy_from_rechits is just a duplicate of beamEnergy
         """
         return pd.merge(
@@ -685,7 +685,7 @@ class DataframeComputations:
 
         return df_groupedPerLayer[["rechits_x_barycenter", "rechits_y_barycenter", "rechits_energy_sumPerLayer", "rechits_countPerLayer"]]
 
-    @memoized_method(maxsize=None)
+    @cached_property
     def clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(self):
         """ Compute, for all rechits in a 3D cluster, the distance of the rechit position to the barycenter.
         The barycenter is computed, for each event, cluster 3D and layer, using rechits log weighted positions.
@@ -714,7 +714,66 @@ class DataframeComputations:
             .reset_index(["rechits_layer", "rechits_id"]) # Drop rechits_layer index as needed for filling histograms
         )
 
-    @memoized_method(maxsize=None)
+    @cached_property
+    def rechits_distanceToImpact(self):
+        df = pd.merge(
+            (self.rechits[["beamEnergy", "rechits_layer", "rechits_x", "rechits_y", "rechits_energy"]]
+                .set_index("rechits_layer", append=True)
+                .reorder_levels(["event", "rechits_layer", "rechits_id"])
+            ),
+            self.impact,
+            left_on=["event", "rechits_layer"],
+            right_index=True
+        )
+        
+        grouped_df = df.rechits_energy.groupby(by=["event", "rechits_layer"]).agg(
+            rechits_energy_sumPerLayer="sum",
+            rechits_countPerLayer="count",
+        )
+
+        return (df
+            .join(grouped_df)
+            .eval("""
+        rechits_distanceToImpact = sqrt((rechits_x - impactX)**2 + (rechits_y - impactY)**2)
+        rechits_energy_EnergyFractionNormalized = rechits_energy / rechits_energy_sumPerLayer
+        rechits_1_over_rechit_count = 1./rechits_countPerLayer
+        """
+            )
+            .drop(columns=["rechits_x", "rechits_y", "impactX", "impactY", "rechits_energy_sumPerLayer", "rechits_countPerLayer"])
+            .reset_index(["rechits_layer", "rechits_id"])
+        )
+
+    @cached_property
+    def clusters2D_rechits_distanceToImpact(self):
+        df = pd.merge(
+            (self.clusters2D_merged_rechits(frozenset(["beamEnergy", "rechits_layer", "rechits_x", "rechits_y", "rechits_energy"]))
+                [["beamEnergy", "rechits_layer", "rechits_x", "rechits_y", "rechits_energy"]] # remove all clus2D_*
+                .set_index("rechits_layer", append=True)
+                .reorder_levels(["event", "rechits_layer", "clus2D_id"])
+            ),
+            self.impact,
+            left_on=["event", "rechits_layer"],
+            right_index=True
+        )
+        
+        grouped_df = df.rechits_energy.groupby(by=["event", "rechits_layer"]).agg(
+            rechits_energy_sumPerLayer="sum",
+            rechits_countPerLayer="count",
+        )
+
+        return (df
+            .join(grouped_df)
+            .eval("""
+        rechits_distanceToImpact = sqrt((rechits_x - impactX)**2 + (rechits_y - impactY)**2)
+        rechits_energy_EnergyFractionNormalized = rechits_energy / rechits_energy_sumPerLayer
+        rechits_1_over_rechit_count = 1./rechits_countPerLayer
+        """
+            )
+            .drop(columns=["rechits_x", "rechits_y", "impactX", "impactY", "rechits_energy_sumPerLayer", "rechits_countPerLayer"])
+            .reset_index(["rechits_layer"])
+        )
+
+    @cached_property
     def clusters3D_rechits_distanceToImpact(self):
         """ Merges clusters3D with rechits, then computes distance to impact for each rechit
         Index : event	clus3D_id	rechits_id
