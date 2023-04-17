@@ -2,7 +2,7 @@ import os
 import argparse
 
 import uproot
-import hist
+import tqdm
 import pandas as pd
 # Enable Pandas Copy on Write. Leads to about 30% gain in run time and less memory usage
 pd.options.mode.copy_on_write = True
@@ -56,17 +56,21 @@ for name in dir(custom_hists):
 
 print("Opening input file", flush=True)
 store = HistogramStore(output_dir, HistogramId)
-try:
-    # step_size of 50MB stranslates to about 5GB of memory usage by python, and about 4k events at a time
-    # 200MB leads to 20k events at a time, memory usage of 15GB
-    # 500MB leads to 50k events at a time, and memory usage of of around 30 GB 
-    for (array, report) in uproot.iterate(input_file + ":clusters", step_size="200MB", library="ak", report=True):
-        print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[", flush=True)
 
-        comp = DataframeComputations(array)
-        for histogram in hist_dict.values():
-            histogram.loadFromComp(comp)
-        del comp
+CLUE_tree:uproot.TTree = uproot.open(input_file + ":clusters")
+try:
+    with tqdm.tqdm(total=CLUE_tree.num_entries) as pbar:
+        # step_size of 50MB stranslates to about 5GB of memory usage by python, and about 4k events at a time
+        # 200MB leads to 20k events at a time, memory usage of 15GB
+        # 500MB leads to 50k events at a time, and memory usage of of around 30 GB 
+        for (array, report) in CLUE_tree.iterate(step_size="200MB", library="ak", report=True):
+            pbar.update(report.stop-report.start)
+            #print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[", flush=True)
+
+            comp = DataframeComputations(array)
+            for histogram in hist_dict.values():
+                histogram.loadFromComp(comp)
+            del comp
 
 except IndexError as e:
     print("WARNING : an IndexError exception ocurred. This can happen for improperly closed ROOT files.")

@@ -15,6 +15,7 @@ dependencies:
  - matplotlib>=3
  - mplhep>=0.3 # plotting CMS style
  - plotly
+ - python-kaleido # for saving plotly plots to png
  - tqdm # progress bars
  - pip
  - pip:
