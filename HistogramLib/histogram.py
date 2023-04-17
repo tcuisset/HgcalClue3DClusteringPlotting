@@ -152,8 +152,8 @@ class MyHistogram():
     def getHistogram(self, kind:HistogramKind) -> hist.Hist:
         if kind in self.histDict:
             return self.histDict[kind]
-        elif HistogramKind.PROFILE in self.histDict:
-            return self.histDict[HistogramKind.PROFILE]
+        #elif HistogramKind.PROFILE in self.histDict:
+        #    return self.histDict[HistogramKind.PROFILE]
         else:
             raise ValueError("Histogram kind could not be found")
     
