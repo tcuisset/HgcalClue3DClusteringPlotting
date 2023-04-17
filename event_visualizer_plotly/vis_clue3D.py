@@ -73,7 +73,7 @@ class Clue3DVisualization(BaseVisualization):
             ))
 
             # dropna drops layer clusters which have nearestHigher = -1
-            for row in grouped_df.dropna().itertuples(index=False, name="Cluster2D"):
+            for row in grouped_df.dropna(subset="clus2D_x_ofNearestHigher").itertuples(index=False, name="Cluster2D"):
                 if row.clus2D_pointType != 0:
                     # in CLUE3D layer clusters can have a nearestHigher but still be an outlier if distance to neareast higher is larger than outlierDeltaFactor * critical_transverse_distance
                     # Also a seed can have a nearestHigher set
@@ -123,7 +123,7 @@ class Clue3DVisualization(BaseVisualization):
                     "Delta: %{customdata[2]:.2g} cm"
                 )
             ))
-            for row in grouped_df.dropna().itertuples(index=False):
+            for row in grouped_df.dropna(subset="rechits_x_ofNearestHigher").itertuples(index=False):
                 if row.rechits_pointType != 0:
                     # Drop non-followers 
                     continue
