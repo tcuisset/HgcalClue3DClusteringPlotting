@@ -573,7 +573,7 @@ class Clus3DMeanPositionZFctBeamEnergy(MyHistogram):
 class Clus3DSize(MyHistogram):
     def __init__(self) -> None:
         super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis,
-            cluster3D_size_axis(name="clus3D_size_custom", stop=50),
+            cluster3D_size_axis(name="clus3D_size_custom", stop=100),
             label = "3D cluster size",
             binCountLabel="3D clusters count",
             profileOn=HistogramVariable('clus3D_energy', 'Mean of 3D cluster energy in each bin (GeV)'),
