@@ -4,10 +4,7 @@ from functools import cached_property
 import plotly.express as px
 import plotly.graph_objects as go
 
-from hists.dataframe import *
-from utils import *
-
-
+from .utils import *
 
 
 class LayerVisualization(BaseVisualization):

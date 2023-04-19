@@ -1,11 +1,14 @@
 import math
 import collections
+from functools import cached_property
 
 import uproot
+import awkward as ak
+import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 
 import hists.parameters
-from hists.dataframe import *
 
 EventID = collections.namedtuple("EventID", ["ntupleNumber", "event"])
 
@@ -48,7 +51,6 @@ class EventLoader:
 
 class LoadedEvent:
     def __init__(self, record:ak.Record, el:EventLoader) -> None:
-        #self.comp:DataframeComputations = DataframeComputations(ak.Array([record]))
         self.record:ak.Record = record
         self.el:EventLoader = el
 
@@ -68,7 +70,8 @@ def create3DFigure(title:str) -> go.Figure:
             title=go.layout.Title(text=title),
             #width=1200,
             #height=600,
-            autosize=True
+            autosize=True,
+            dragmode="orbit"
         )
     )
     camera = dict(
