@@ -31,7 +31,11 @@ app.layout = html.Div([
         marks={beamEnergy:f"{beamEnergy} GeV" for beamEnergy in beamEnergies},
         id="beamEnergy", value=100),
     dcc.Slider(min=1, max=28, step=1, value=5, id="layer"),
-    dcc.RadioItems(options={"default" : "Default", "ratio" : "Ratio"}, value="default", inline=True, id="ratioPlot"),
+    html.Div(children=[
+        dcc.RadioItems(options={"default" : "Default", "ratio" : "Ratio"}, value="default", inline=True, id="ratioPlot"),
+        #dcc.RadioItems(options=[""])
+    ]),
+    
     html.Img(id="plot")
 ])
 
@@ -40,7 +44,7 @@ hist_folder = '/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d/v33'
 #clueParams = "single-file"
 clueParams = "cmssw"
 histStore = HistogramStore(hist_folder, HistogramId)
-datatypeToLegendMap = {"data":"Data"}
+datatypeToLegendMap = {"data":"Data", "sim_proton_v46_patchMIP":"Simulation"}
 
 
 def loadHists(layer:int, beamEnergy:int, datatypes:list[str]=["data", "sim_proton_v46_patchMIP"]) -> tuple[list[hist.Hist], list[str]]:
@@ -74,6 +78,7 @@ def makePlotMultiDatatype(layer:int, beamEnergy:int, datatypes:list[str]):
     ax = fig.subplots()
     ax.set_xlabel("Distance to extrapolated impact point (cm)")
     ax.set_xlim(0, 6)
+    ax.set_ylim(3e-4, 3)
     ax.set_ylabel(r"$\frac{1}{E_{cluster}} \frac{dE_{hit}}{dA} (cm^{-2})$")
     ax.set_yscale("log")
     
@@ -142,4 +147,4 @@ def update_graph(beamEnergy, layer, ratioPlot:bool):
     return mplFigureToUrl(fig)
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, port=8051)
