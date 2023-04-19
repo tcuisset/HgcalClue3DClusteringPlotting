@@ -1,0 +1,9 @@
+# this is a subset of requirements meant for the event visualizer using dash
+uproot=5.*
+awkward=2.*
+pandas=2.*
+numpy
+hist>=2.6,<3
+plotly
+dash
+awkward-pandas
