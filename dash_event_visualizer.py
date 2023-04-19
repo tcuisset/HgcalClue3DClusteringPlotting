@@ -1,13 +1,20 @@
+import argparse
+
 from dash import Dash, html, Input, Output, dcc
 import uproot
 import awkward as ak
 
-import sys
-sys
 from hists.parameters import beamEnergies, ntupleNumbersPerBeamEnergy
 from event_visualizer_plotly.utils import EventLoader, EventID
 from event_visualizer_plotly.vis_clue3D import Clue3DVisualization
 from event_visualizer_plotly.vis_layer import LayerVisualization
+
+parser = argparse.ArgumentParser(
+    prog="dash_event_visualizer",
+    description="CLUE3D event visualizer using Dash",
+)
+parser.add_argument('-p', '--port', default=80)
+args = parser.parse_args()
 
 eventLoader = EventLoader('/data_cms_upgrade/cuisset/testbeam18/clue3d/v33/cmssw/data/CLUE_clusters.root')
 
@@ -85,4 +92,4 @@ def update_plot3D(ntupleNumber, eventNb, layer):
     return fig
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8051, host="llruicms01")
+    app.run_server(debug=True, port=args.port, host="llruicms01")
