@@ -1,1 +1,1 @@
-APP_FILE=dash_event_visualizer.py
+APP_SCRIPT=dash_event_visualizer_pod.sh

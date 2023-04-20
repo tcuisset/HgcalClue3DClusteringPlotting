@@ -23,7 +23,7 @@ class Clue3DVisualization(BaseVisualization):
 
 
     def add3DClusters(self):
-        markerSizeScale = MarkerSizeLogScaler(self.clus3D_df.clus3D_energy, maxMarkerSize=40)
+        markerSizeScale = MarkerSizeLogScaler(self.clus3D_df.clus3D_energy, maxMarkerSize=60, minMarkerSize=30)
         self.fig.add_trace(go.Scatter3d(
             name="3D tracksters",
             x=self.clus3D_df["clus3D_x"], y=self.clus3D_df["clus3D_y"], z=self.clus3D_df["clus3D_z"], 
@@ -34,7 +34,7 @@ class Clue3DVisualization(BaseVisualization):
                 size=markerSizeScale.scale(self.clus3D_df["clus3D_energy"]),
             ),
             customdata=np.dstack((self.clus3D_df["clus3D_energy"], self.clus3D_df["clus3D_size"]))[0],
-            hovertemplate="clus3D_energy=%{customdata[0]:.2g} GeV<br>clus3D_x=%{x}<br>clus3D_y=%{y}<br>clus3D_z=%{z}<br>clus3D_size=%{customdata[1]}<extra></extra>",
+            hovertemplate="clus3D_energy=%{customdata[0]:.3g} GeV<br>clus3D_x=%{x}<br>clus3D_y=%{y}<br>clus3D_z=%{z}<br>clus3D_size=%{customdata[1]}<extra></extra>",
             )
         )
         return self
