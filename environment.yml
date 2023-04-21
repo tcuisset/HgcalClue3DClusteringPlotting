@@ -19,7 +19,11 @@ dependencies:
  - dash
  - jupyter-dash
  - tqdm # progress bars
+ - uncertainties=3.*
+ - scikit-learn # for wpca (somehow missing from dependencies)
+ - snakeviz # (facultative, for visualization of profileer results)
  - pip
  - pip:
     - awkward-pandas
     - xrootd # facultative, for opening testbeam ntuples with xrootd and uproot (in notebooks)
+    - wpca # for weighted PCA of 3D clusters
