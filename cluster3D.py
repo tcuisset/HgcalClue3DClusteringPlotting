@@ -14,6 +14,7 @@ curdoc().add_root(row(
         s.tabClue3D("Total energy (fraction)", "Clus3DClusteredFractionEnergy"),
         s.tabClue3D("Total energy (profile)", "Clus3DMeanClusteredEnergy", plotType=LineHistogram1D),
         s.tabClue3D("Cluster size", "Clus3DSize"),
+        s.tabClue3D("Nb of tracksters per event", "Clus3DNbOfTrackstersPerEvent"),
         s.tabClue3D("Nb of 2D clusters per layer", "Clus3DNumberOf2DClustersPerLayer"),
         s.tabClue3D("First layer of cluster", "Clus3DFirstLayerOfCluster"),
         s.tabClue3D("Last layer of cluster", "Clus3DLastLayerOfCluster"), 

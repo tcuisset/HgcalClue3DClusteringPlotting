@@ -358,6 +358,16 @@ class DataframeComputations:
             levelname=lambda i : {0 : "event", 1:"clus3D_id"}[i])
         )
 
+    @property
+    def clusters3D_countPerEvent(self) -> pd.DataFrame:
+        """ Count 3D clusters for each event
+        Index : event
+        Columns : beamEnergy clus3D_count """
+        return self.clusters3D.groupby("event").agg(
+            beamEnergy=pd.NamedAgg("beamEnergy", "first"),
+            clus3D_count=pd.NamedAgg("beamEnergy", "count")
+        )
+
     @cached_property
     def clusters3D_largestClusterIndex(self) -> pd.MultiIndex:
         """

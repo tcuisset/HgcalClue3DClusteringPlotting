@@ -584,6 +584,16 @@ class Clus3DSize(MyHistogram):
         self.fillFromDf(comp.clusters3D, {"clus3D_size_custom" : "clus3D_size"}, valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
         self.fillFromDf(comp.clusters3D_largestCluster, {"clus3D_size_custom" : "clus3D_size"}, valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
 
+class Clus3DNbOfTrackstersPerEvent(MyHistogram):
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(),
+            hist.axis.Integer(start=0, stop=30, name="clus3D_count", label="Number of 3D clusters per event"),
+            label = "Nb of tracksters per event",
+            binCountLabel="Event count",
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.clusters3D_countPerEvent)
 
 # Warning : Takes a lot of memory (~5GB on file)
 class Clus3DSpatialResolutionOf2DClusters(MyHistogram):
