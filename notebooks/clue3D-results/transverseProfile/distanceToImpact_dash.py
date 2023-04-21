@@ -34,6 +34,7 @@ app.layout = html.Div([
     html.Div(children=[
         dcc.RadioItems(options={"default" : "Default", "ratio" : "Ratio"}, value="default", inline=True, id="ratioPlot"),
         #dcc.RadioItems(options=[""])
+        dcc.Slider(min=1, max=10, step=10/30, value=6, id="maxDistanceToPlot"),
     ]),
     
     html.Img(id="plot")
@@ -67,7 +68,7 @@ def addLumiLegend(main_ax, datatypes, layer, beamEnergy):
     hep.cms.lumitext(f"Layer {layer} - $e^+$ {str(beamEnergy)} GeV", ax=main_ax)
     main_ax.legend()
 
-def makePlotMultiDatatype(layer:int, beamEnergy:int, datatypes:list[str]):
+def makePlotMultiDatatype(layer:int, beamEnergy:int, datatypes:list[str], maxDistanceToPlot=6):
     """ Plot distribution of distance to impact on a layer 
     See in custom_hists for how y is computed"""
     hists, labels = loadHists(layer, beamEnergy, datatypes)
@@ -77,7 +78,7 @@ def makePlotMultiDatatype(layer:int, beamEnergy:int, datatypes:list[str]):
     fig = plt.figure()
     ax = fig.subplots()
     ax.set_xlabel("Distance to extrapolated impact point (cm)")
-    ax.set_xlim(0, 6)
+    ax.set_xlim(0, maxDistanceToPlot)
     ax.set_ylim(3e-4, 3)
     ax.set_ylabel(r"$\frac{1}{E_{cluster}} \frac{dE_{hit}}{dA} (cm^{-2})$")
     ax.set_yscale("log")
@@ -87,7 +88,7 @@ def makePlotMultiDatatype(layer:int, beamEnergy:int, datatypes:list[str]):
     addLumiLegend(ax, datatypes, layer, beamEnergy)
     return fig
 
-def makePlotRatio(layer:int, beamEnergy:int, datatypes:list[str]):
+def makePlotRatio(layer:int, beamEnergy:int, datatypes:list[str], maxDistanceToPlot=6):
     if len(datatypes) != 2:
         raise RuntimeError()
     hists, labels = loadHists(layer, beamEnergy, datatypes)
@@ -117,7 +118,7 @@ def makePlotRatio(layer:int, beamEnergy:int, datatypes:list[str]):
     main_ax.set_ylabel(r"$\frac{1}{E_{cluster}} \frac{dE_{hit}}{dA} (cm^{-2})$")
     main_ax.set_yscale("log")
     main_ax.set_xlabel("")
-    main_ax.set_xlim(0, 6)
+    main_ax.set_xlim(0, maxDistanceToPlot)
     subplot_ax.set_xlabel("Distance to extrapolated impact point (cm)")
 
     addLumiLegend(main_ax, datatypes, layer, beamEnergy)
@@ -137,13 +138,13 @@ def mplFigureToUrl(fig=None):
 @app.callback(
     Output(component_id='plot', component_property='src'),
     [Input(component_id = 'beamEnergy', component_property='value'),
-    Input("layer", "value"), Input("ratioPlot", "value")]
+    Input("layer", "value"), Input("ratioPlot", "value"), Input("maxDistanceToPlot", "value")]
 )
-def update_graph(beamEnergy, layer, ratioPlot:bool):
+def update_graph(beamEnergy, layer, ratioPlot:bool, maxDistanceToPlot):
     if ratioPlot == "ratio":
-        fig = makePlotRatio(layer, beamEnergy=beamEnergy, datatypes=["data", "sim_proton_v46_patchMIP"])
+        fig = makePlotRatio(layer, beamEnergy=beamEnergy, datatypes=["data", "sim_proton_v46_patchMIP"], maxDistanceToPlot=maxDistanceToPlot)
     else:
-        fig = makePlotMultiDatatype(layer, beamEnergy=beamEnergy, datatypes=["data", "sim_proton_v46_patchMIP"])
+        fig = makePlotMultiDatatype(layer, beamEnergy=beamEnergy, datatypes=["data", "sim_proton_v46_patchMIP"], maxDistanceToPlot=maxDistanceToPlot)
     return mplFigureToUrl(fig)
 
 if __name__ == '__main__':

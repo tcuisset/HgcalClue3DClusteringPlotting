@@ -9,6 +9,7 @@ dependencies:
  - pandas=2.*
  - numexpr # For pandas.eval
  - numpy
+ - scipy # for curve_fit
  - hist>=2.6,<3 # Histograms
  - bokeh=3.*
  - ipykernel # notebooks
