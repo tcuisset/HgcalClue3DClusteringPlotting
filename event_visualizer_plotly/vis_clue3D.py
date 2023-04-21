@@ -5,7 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 #from hists.dataframe import *
-from .utils import *
+from event_visualizer_plotly.utils import *
 
 
 class Clue3DVisualization(BaseVisualization):

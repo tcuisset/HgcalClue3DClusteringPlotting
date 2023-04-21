@@ -8,6 +8,7 @@ from hists.parameters import beamEnergies, ntupleNumbersPerBeamEnergy
 from event_visualizer_plotly.utils import EventLoader, EventID
 from event_visualizer_plotly.vis_clue3D import Clue3DVisualization
 from event_visualizer_plotly.vis_layer import LayerVisualization
+from event_visualizer_plotly.vis_longitudinal_profile import LongitudinalProfileVisualization
 
 parser = argparse.ArgumentParser(
     prog="dash_event_visualizer",
@@ -48,6 +49,9 @@ app.layout = html.Div([
         dcc.Tab(label="Layer view", children=[
             dcc.Graph(id="plot_layer", style={"height":"100%"})
         ]),
+        dcc.Tab(label="Longitudinal profile", children=[
+            dcc.Graph(id="plot_longitudinal-profile", style={"height":"100%"})
+        ]),
     ], parent_style={'flex': '1 1 auto'}, content_style={'flex': '1 1 auto'})
     
 ], style={'display': 'flex', 'flex-flow': 'column', "height":"100vh"})
@@ -86,13 +90,26 @@ def update_plot3D(ntupleNumber, eventNb):
     Output("plot_layer", "figure"),
     [Input("ntupleNumber", "value"), Input("event", "value"), Input("layer", "value")]
 )
-def update_plot3D(ntupleNumber, eventNb, layer):
+def update_plot_layer(ntupleNumber, eventNb, layer):
     event = eventLoader.loadEvent(EventID(ntupleNumber, eventNb))
     fig = (LayerVisualization(event, layerNb=layer)
         .add2DClusters()
         .addRechits()
         .addImpactPoint()
         .addCircleSearchForComputingClusterPosition()
+    ).fig
+    fig.update_layout(dict(uirevision=1))
+    return fig
+
+@app.callback(
+    Output("plot_longitudinal-profile", "figure"),
+    [Input("ntupleNumber", "value"), Input("event", "value")]
+)
+def update_plot_longitudinal_profile(ntupleNumber, eventNb):
+    event = eventLoader.loadEvent(EventID(ntupleNumber, eventNb))
+    fig = (LongitudinalProfileVisualization(event)
+        .addRechitsProfile()
+        .addClueProfile()
     ).fig
     fig.update_layout(dict(uirevision=1))
     return fig
