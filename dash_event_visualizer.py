@@ -75,7 +75,10 @@ def update_available_events(ntupleNumber):
     [Input("ntupleNumber", "value"), Input("event", "value")]
 )
 def update_plot3D(ntupleNumber, eventNb):
-    event = eventLoader.loadEvent(EventID(ntupleNumber, eventNb))
+    try:
+        event = eventLoader.loadEvent(EventID(ntupleNumber, eventNb))
+    except RuntimeError:
+        return None
     fig = (Clue3DVisualization(event)
         .add3DClusters()
         .add2DClusters()
@@ -91,7 +94,10 @@ def update_plot3D(ntupleNumber, eventNb):
     [Input("ntupleNumber", "value"), Input("event", "value"), Input("layer", "value")]
 )
 def update_plot_layer(ntupleNumber, eventNb, layer):
-    event = eventLoader.loadEvent(EventID(ntupleNumber, eventNb))
+    try:
+        event = eventLoader.loadEvent(EventID(ntupleNumber, eventNb))
+    except RuntimeError:
+        return None
     fig = (LayerVisualization(event, layerNb=layer)
         .add2DClusters()
         .addRechits()
@@ -106,7 +112,10 @@ def update_plot_layer(ntupleNumber, eventNb, layer):
     [Input("ntupleNumber", "value"), Input("event", "value")]
 )
 def update_plot_longitudinal_profile(ntupleNumber, eventNb):
-    event = eventLoader.loadEvent(EventID(ntupleNumber, eventNb))
+    try:
+        event = eventLoader.loadEvent(EventID(ntupleNumber, eventNb))
+    except RuntimeError:
+        return None
     fig = (LongitudinalProfileVisualization(event)
         .addRechitsProfile()
         .addClueProfile()
