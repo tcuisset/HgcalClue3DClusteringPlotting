@@ -157,3 +157,12 @@ class Clue3DVisualization(BaseVisualization):
             hoverinfo='skip',
         ))
         return self
+
+
+    def addDetectorCylinder(self):
+        """ Plot detector cylinder (very approximate detector area) """
+        x, y, z = makeCylinderCoordinates(r=7, h=53.9-13.8, z0=13.8, axisX=3.85, axisY=-2.53) # For data
+        self.fig.add_trace(go.Surface(x=x, y=y, z=z, colorscale=[[0, 'blue'],[1, 'blue']], 
+            opacity=0.5, hoverinfo="skip", showscale=False, showlegend=True, visible="legendonly",
+            name="Approx detector size"))
+        return self

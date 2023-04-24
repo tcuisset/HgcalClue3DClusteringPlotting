@@ -271,4 +271,16 @@ class MarkerSizeLogScaler:
         return (self._b * (np.log(series) - self._ln_a)).clip(lower=1)
     
 
-    
+def makeCylinderCoordinates(r, h, axisX=0, axisY=0, z0=0, nt=100, nv =50):
+    """
+    parametrize the cylinder of axis (z), of radius r, height h, base point z coordinate z0
+    axisX and axisY are the x and y coordinates of the axis
+    Returns x, y, z points coordinates
+    """
+    theta = np.linspace(0, 2*np.pi, nt)
+    v = np.linspace(z0, z0+h, nv )
+    theta, v = np.meshgrid(theta, v)
+    x = r*np.cos(theta) + axisX
+    y = r*np.sin(theta) + axisY
+    z = v
+    return x, y, z

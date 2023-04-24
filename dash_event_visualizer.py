@@ -86,6 +86,7 @@ def update_available_events(ntupleNumber):
 def makePlotClue3D(event:LoadedEvent):
     """ Returns a Plotly figure representing the CLUE3D vis from a loaded event """
     fig = (Clue3DVisualization(event)
+        .addDetectorCylinder()
         .add3DClusters()
         .add2DClusters()
         .addRechits()
