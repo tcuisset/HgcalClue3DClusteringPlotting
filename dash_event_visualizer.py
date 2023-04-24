@@ -34,7 +34,7 @@ application = app.server
 legendDivStyle = {'flex': '0 1 auto', 'margin':"10px"}
 app.layout = html.Div([
     html.Div([
-        dcc.Location(id="url", refresh="callback-nav"), # For some reason  "callback-nav" works but False does not
+        dcc.Location(id="url", refresh=False), # For some reason  "callback-nav" works but False does not
         html.H1(children='CLUE3D event visualizer (right-click to rotate, left-click to move)'),
         html.Div(children=[
             html.Div("Beam energy (GeV) :", style=legendDivStyle),
@@ -108,15 +108,25 @@ def makePlotLongitudinalProfile(event:LoadedEvent):
     fig.update_layout(dict(uirevision=1))
     return fig
 
+@app.callback(
+    [Output("ntupleNumber", "value"), Output("event", "value"), Output("url", "search")],
+    [Input("ntupleNumber", "value"), Input("event", "value"), Input("url", "search")]
+)
 def figureOutUrlUpdates(ntupleNumber, eventNb, urlSearchValue):
     trig_id = dash.callback_context.triggered_id
+
+    try:
+        parsed_url_query = urllib.parse.parse_qs(urlSearchValue[1:]) # Drop the leading "?"
+        parsedUrlTuple = parsed_url_query["ntuple"][0], parsed_url_query["event"][0]
+        if parsedUrlTuple == (ntupleNumber, eventNb):
+            # In case the url matches the selectors, don't update
+            raise PreventUpdate()
+    except KeyError:
+        raise PreventUpdate()
+
     if trig_id == "url" or trig_id is None:
         # Update inputs from URL value
-        parsed_url_query = urllib.parse.parse_qs(urlSearchValue[1:]) # Drop the leading "?"
-        try:
-            return parsed_url_query["ntuple"][0], parsed_url_query["event"][0], urlSearchValue
-        except KeyError:
-            raise PreventUpdate()
+        return parsedUrlTuple[0], parsedUrlTuple[1], urlSearchValue
     else:
         # Update URL from inputs
         return ntupleNumber, eventNb, "?"+urllib.parse.urlencode({"event":eventNb, "ntuple":ntupleNumber})
@@ -126,17 +136,15 @@ def loadEvent(ntuple, event) -> LoadedEvent:
         return eventLoader.loadEvent(EventID(ntuple, event))
     raise RuntimeError()
 
+
 @app.callback(
-    [Output("ntupleNumber", "value"), Output("event", "value"), Output("url", "search"),
-    Output("plot_3D", "figure"), Output("plot_layer", "figure"), Output("plot_longitudinal-profile", "figure")],
-    [Input("ntupleNumber", "value"), Input("event", "value"), Input("url", "search"), State("layer", "value")]
+    [Output("plot_3D", "figure"), Output("plot_layer", "figure"), Output("plot_longitudinal-profile", "figure")],
+    [Input("ntupleNumber", "value"), Input("event", "value"), State("layer", "value")]
 )
-def mainEventUpdate(ntupleNumber, eventNb, urlSearchValue, layer):
+def mainEventUpdate(ntupleNumber, eventNb, layer):
     """ Main callback to update all the plots at the same time.
     layer is State as there is another callback updateOnlyLayerPlot to update just the layer view """
-    #triggered = dash.ctx.triggered_prop_ids # for debugging
-    ntupleNumber, eventNb, urlSearchValue = figureOutUrlUpdates(ntupleNumber, eventNb, urlSearchValue)
-    
+    print(dash.ctx.triggered_prop_ids)
     try:
         event = loadEvent(ntupleNumber, eventNb)
         plot_3D = makePlotClue3D(event)
@@ -147,7 +155,7 @@ def mainEventUpdate(ntupleNumber, eventNb, urlSearchValue, layer):
         plot_layer = None
         plot_longitudinal = None
     
-    return ntupleNumber, eventNb, urlSearchValue, plot_3D, plot_layer, plot_longitudinal
+    return plot_3D, plot_layer, plot_longitudinal
 
 
 @app.callback(
@@ -169,4 +177,5 @@ if __name__ == '__main__':
         run_kwargs["host"] = args.host
     if args.debug:
         run_kwargs["threaded"] = False # For easier debugging
+    print(run_kwargs)
     app.run(**run_kwargs)
