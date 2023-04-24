@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser(
     prog="dash_event_visualizer",
     description="CLUE3D event visualizer using Dash",
 )
-parser.add_argument('-p', '--port', default=8080, help="Port to listen on")
+parser.add_argument('-p', '--port', default=8051, help="Port to listen on")
 parser.add_argument('-i', '--input-file', default="/eos/user/t/tcuisset/hgcal/testbeam18-clue3d/v33/cmssw/data/CLUE_clusters.root",
     dest="input_file", help="Path to CLUE_clusters.root file (included)")
 parser.add_argument('-d', '--debug', action=argparse.BooleanOptionalAction, help="Enable debug mode", dest="debug", default=True)
@@ -29,11 +29,12 @@ args = parser.parse_args()
 eventLoader = EventLoader(args.input_file)
 
 app = Dash(__name__)
+application = app.server
 
 legendDivStyle = {'flex': '0 1 auto', 'margin':"10px"}
 app.layout = html.Div([
     html.Div([
-        dcc.Location(id="url", refresh=False),
+        dcc.Location(id="url", refresh="callback-nav"), # For some reason  "callback-nav" works but False does not
         html.H1(children='CLUE3D event visualizer (right-click to rotate, left-click to move)'),
         html.Div(children=[
             html.Div("Beam energy (GeV) :", style=legendDivStyle),
@@ -113,7 +114,7 @@ def figureOutUrlUpdates(ntupleNumber, eventNb, urlSearchValue):
         # Update inputs from URL value
         parsed_url_query = urllib.parse.parse_qs(urlSearchValue[1:]) # Drop the leading "?"
         try:
-            return parsed_url_query["ntuple"], parsed_url_query["event"], urlSearchValue
+            return parsed_url_query["ntuple"][0], parsed_url_query["event"][0], urlSearchValue
         except KeyError:
             raise PreventUpdate()
     else:
@@ -133,6 +134,7 @@ def loadEvent(ntuple, event) -> LoadedEvent:
 def mainEventUpdate(ntupleNumber, eventNb, urlSearchValue, layer):
     """ Main callback to update all the plots at the same time.
     layer is State as there is another callback updateOnlyLayerPlot to update just the layer view """
+    #triggered = dash.ctx.triggered_prop_ids # for debugging
     ntupleNumber, eventNb, urlSearchValue = figureOutUrlUpdates(ntupleNumber, eventNb, urlSearchValue)
     
     try:
@@ -162,7 +164,9 @@ def updateOnlyLayerPlot(ntupleNumber, eventNb, layer):
     return makePlotLayer(event, layer)
 
 if __name__ == '__main__':
-    if args.host is None:
-        app.run(debug=args.debug, port=args.port)
-    else:
-        app.run(debug=args.debug, port=args.port, host=args.host)
+    run_kwargs = {"debug": args.debug, "port":args.port}
+    if args.host is not None:
+        run_kwargs["host"] = args.host
+    if args.debug:
+        run_kwargs["threaded"] = False # For easier debugging
+    app.run(**run_kwargs)
