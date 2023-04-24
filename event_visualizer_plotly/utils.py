@@ -62,14 +62,16 @@ def create3DFigure(title:str) -> go.Figure:
             #width=1200,
             #height=600,
             autosize=True,
-            dragmode="orbit"
+            dragmode="orbit",
+            scene=dict(
+                aspectratio=dict(x=1., y=1., z=3.),
+                camera = dict(
+                    eye=dict(x=0, y=0., z=-2.5),
+                    up=dict(x=0, y=0, z=1),
+                ),
+            ),
         )
     )
-    camera = dict(
-        eye=dict(x=0, y=0., z=-2.5),
-        up=dict(x=0, y=0, z=1),
-    )
-    fig.update_layout(scene_camera=camera)
     return fig
 
 

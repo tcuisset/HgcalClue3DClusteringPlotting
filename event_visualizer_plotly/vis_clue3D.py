@@ -21,6 +21,36 @@ class Clue3DVisualization(BaseVisualization):
             {clus2D_id : next(color_cycle) for clus2D_id in self.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()},
             next(color_cycle))
 
+    def addSliders(self):
+        updatemenu_kwargs = dict(xanchor="left", yanchor="top", y=1.3)
+        xLeft=0.7
+        self.fig.update_layout(updatemenus=[
+            go.layout.Updatemenu(
+                buttons=[
+                    go.layout.updatemenu.Button(
+                        label=f"Aspect ratio Z : {aspectRatioZ}",
+                        method="relayout",
+                        args=[{"scene.aspectratio.z" : aspectRatioZ} ]# the dot notation is needed
+                    )
+                for aspectRatioZ in [1., 2., 3., 4., 5., 7., 10.]],
+                active=2, 
+                x=xLeft,
+                **updatemenu_kwargs
+            ),
+            go.layout.Updatemenu(
+                buttons=[
+                    go.layout.updatemenu.Button(
+                        label=f"Outer rim width: {outerRimWidth}",
+                        method="restyle", # We should use the traceIndices parameter as well for performance : https://plotly.com/javascript/plotlyjs-function-reference/#plotlyrestyle
+                        args=[{"marker.line.width" : outerRimWidth}], # the dot notation is needed
+                    )
+                for outerRimWidth in [1, 3, 5, 7, 10, 15, 20, 40, 100, 300]],
+                active=1,
+                x=xLeft+0.15,
+                **updatemenu_kwargs
+            ),
+        ])
+        return self
 
     def add3DClusters(self):
         markerSizeScale = MarkerSizeLogScaler(self.clus3D_df.clus3D_energy, maxMarkerSize=60, minMarkerSize=30)
@@ -56,7 +86,7 @@ class Clue3DVisualization(BaseVisualization):
                     size=markerSizeScale.scale(grouped_df["clus2D_energy"]),
                     line=dict(
                         color=self.mapClus3Did_color(clus3D_id),
-                        width=3.
+                        width=3
                     ),
                 ),
                 customdata=np.dstack((grouped_df.clus2D_energy, grouped_df.clus2D_rho, grouped_df.clus2D_delta,

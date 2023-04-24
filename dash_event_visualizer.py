@@ -91,6 +91,7 @@ def makePlotClue3D(event:LoadedEvent):
         .add2DClusters()
         .addRechits()
         .addImpactTrajectory()
+        .addSliders()
     ).fig
     fig.update_layout(dict(uirevision=1)) # Keep the current view in any case. See https://community.plotly.com/t/preserving-ui-state-like-zoom-in-dcc-graph-with-uirevision-with-dash/15793
     return fig
