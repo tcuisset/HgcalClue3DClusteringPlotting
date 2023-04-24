@@ -51,7 +51,7 @@ class EventLoader:
 
 class LoadedEvent:
     def __init__(self, record:ak.Record, el:EventLoader) -> None:
-        self.record:ak.Record = record
+        self.record:ak.Record = ak.to_packed(record) # Pack the event so reduces greatly the pickled size
         self.clueParameters = el.clueParameters
         self.clue3DParameters = el.clueParameters
 
