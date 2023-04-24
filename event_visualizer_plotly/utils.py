@@ -52,17 +52,8 @@ class EventLoader:
 class LoadedEvent:
     def __init__(self, record:ak.Record, el:EventLoader) -> None:
         self.record:ak.Record = record
-        self.el:EventLoader = el
-
-    @property
-    def clueParameters(self):
-        return self.el.clueParameters
-    
-    @property
-    def clue3DParameters(self):
-        return self.el.clue3DParameters
-
-
+        self.clueParameters = el.clueParameters
+        self.clue3DParameters = el.clueParameters
 
 def create3DFigure(title:str) -> go.Figure:
     fig = go.Figure(
