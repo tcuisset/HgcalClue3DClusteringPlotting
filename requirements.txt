@@ -6,4 +6,5 @@ numpy
 hist >=2.6, <3
 plotly == 5.*
 dash == 2.9.*
+Flask-Caching
 awkward-pandas

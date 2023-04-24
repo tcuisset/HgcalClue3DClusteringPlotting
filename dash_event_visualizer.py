@@ -4,6 +4,7 @@ import urllib.parse
 import dash
 from dash import Dash, html, Input, Output, State, dcc
 from dash.exceptions import PreventUpdate
+import flask_caching
 import uproot
 import awkward as ak
 
@@ -31,10 +32,17 @@ eventLoader = EventLoader(args.input_file)
 app = Dash(__name__)
 application = app.server
 
+cache = flask_caching.Cache(app.server, config={
+    "CACHE_TYPE":"FileSystemCache",
+    "CACHE_DIR":"./.cache"
+})
+
 legendDivStyle = {'flex': '0 1 auto', 'margin':"10px"}
 app.layout = html.Div([
     html.Div([
         dcc.Location(id="url", refresh=False), # For some reason  "callback-nav" works but False does not
+        dcc.Store(id="signal-event-ready"),
+
         html.H1(children='CLUE3D event visualizer (right-click to rotate, left-click to move)'),
         html.Div(children=[
             html.Div("Beam energy (GeV) :", style=legendDivStyle),
@@ -75,7 +83,6 @@ def update_ntupleNumber(beamEnergy):
 def update_available_events(ntupleNumber):
     return eventLoader.tree.arrays(cut=f"(ntupleNumber == {ntupleNumber})", filter_name=["event"]).event
 
-
 def makePlotClue3D(event:LoadedEvent):
     """ Returns a Plotly figure representing the CLUE3D vis from a loaded event """
     fig = (Clue3DVisualization(event)
@@ -86,7 +93,6 @@ def makePlotClue3D(event:LoadedEvent):
     ).fig
     fig.update_layout(dict(uirevision=1)) # Keep the current view in any case. See https://community.plotly.com/t/preserving-ui-state-like-zoom-in-dcc-graph-with-uirevision-with-dash/15793
     return fig
-
 
 def makePlotLayer(event:LoadedEvent, layer:int):
     """ Returns a Plotly figure representing the per-layer vis from a loaded event """
@@ -115,46 +121,63 @@ def makePlotLongitudinalProfile(event:LoadedEvent):
 )
 def simpleUrlUpdate(urlSearchValue):
     """ On initial load, set settings from URL"""
+    print("simpleUrlUpdate", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
     try:
         parsed_url_query = urllib.parse.parse_qs(urlSearchValue[1:]) # Drop the leading "?"
         return int(parsed_url_query["beamEnergy"][0]), int(parsed_url_query["ntuple"][0]), int(parsed_url_query["event"][0])
     except KeyError:
         raise PreventUpdate()
 
-def loadEvent(ntuple, event) -> LoadedEvent:
-    if ntuple is not None and event is not None:
-        return eventLoader.loadEvent(EventID(ntuple, event))
+@cache.memoize(timeout=60*5) # cache for 5 minutes 
+def loadEvent(ntuple, eventNb) -> LoadedEvent:
+    if ntuple is not None and eventNb is not None:
+        return eventLoader.loadEvent(EventID(ntuple, eventNb))
     raise RuntimeError()
 
 @app.callback(
-    [Output("plot_3D", "figure"), Output("plot_layer", "figure"), Output("plot_longitudinal-profile", "figure")],
-    [Input("ntupleNumber", "value"), Input("event", "value"), State("layer", "value")]
+    Output("signal-event-ready", "data"),
+    [Input("ntupleNumber", "value"), Input("event", "value")],
 )
-def mainEventUpdate(ntupleNumber, eventNb, layer):
+def loadEventCallback(ntuple, event):
+    print("loadEventCallback", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
+    if ntuple is not None and event is not None:
+        loadEvent(ntuple, event) # just load the cache, discard results
+    return dict(ntupleNumber=ntuple, event=event)
+
+@app.callback(
+    [Output("plot_3D", "figure"), Output("plot_longitudinal-profile", "figure")],
+    [Input("signal-event-ready", "data")]
+)
+def mainEventUpdate(storeData):
     """ Main callback to update all the plots at the same time.
     layer is State as there is another callback updateOnlyLayerPlot to update just the layer view """
+    if storeData is None:
+        return None, None
+    eventNb, ntupleNumber = storeData["event"], storeData["ntupleNumber"]
+
     print("mainEventUpdate", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
     print(flush=True)
+    if eventNb is None or ntupleNumber is None:
+        return None, None
     try:
         event = loadEvent(ntupleNumber, eventNb)
         plot_3D = makePlotClue3D(event)
-        plot_layer = makePlotLayer(event, layer)
         plot_longitudinal = makePlotLongitudinalProfile(event)
     except RuntimeError:
         plot_3D = None
-        plot_layer = None
         plot_longitudinal = None
     
-    return plot_3D, plot_layer, plot_longitudinal
+    return plot_3D, plot_longitudinal
 
 
 @app.callback(
-    Output("plot_layer", "figure", allow_duplicate=True),
-    [State("ntupleNumber", "value"), State("event", "value"), Input("layer", "value")],
+    Output("plot_layer", "figure"),
+    [Input("signal-event-ready", "data"), Input("layer", "value")],
     prevent_initial_call=True, # On intial loading the layer view is loaded by the main callback mainEventUpdate
 )
-def updateOnlyLayerPlot(ntupleNumber, eventNb, layer):
+def updateOnlyLayerPlot(storeData, layer):
     """ Small callback to only update the layer view """
+    eventNb, ntupleNumber = storeData["event"], storeData["ntupleNumber"]
     try:
         event = loadEvent(ntupleNumber, eventNb)
     except RuntimeError:

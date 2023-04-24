@@ -2,4 +2,5 @@
 build
 # Auto generated C code by Cython
 hists/dataframe_cython.c
-
+# Dash app cache
+.cache
