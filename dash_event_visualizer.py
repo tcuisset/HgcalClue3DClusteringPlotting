@@ -66,7 +66,7 @@ app.layout = html.Div([
     [Input("beamEnergy", "value")]
 )
 def update_ntupleNumber(beamEnergy):
-    return ntupleNumbersPerBeamEnergy[beamEnergy]
+    return ntupleNumbersPerBeamEnergy[int(beamEnergy)]
 
 @app.callback(
     Output("event", "options"),
@@ -108,34 +108,23 @@ def makePlotLongitudinalProfile(event:LoadedEvent):
     fig.update_layout(dict(uirevision=1))
     return fig
 
-@app.callback(
-    [Output("ntupleNumber", "value"), Output("event", "value"), Output("url", "search")],
-    [Input("ntupleNumber", "value"), Input("event", "value"), Input("url", "search")]
-)
-def figureOutUrlUpdates(ntupleNumber, eventNb, urlSearchValue):
-    trig_id = dash.callback_context.triggered_id
 
+@app.callback(
+    [Output("beamEnergy", "value"), Output("ntupleNumber", "value"), Output("event", "value")],
+    [Input("url", "search")]
+)
+def simpleUrlUpdate(urlSearchValue):
+    """ On initial load, set settings from URL"""
     try:
         parsed_url_query = urllib.parse.parse_qs(urlSearchValue[1:]) # Drop the leading "?"
-        parsedUrlTuple = parsed_url_query["ntuple"][0], parsed_url_query["event"][0]
-        if parsedUrlTuple == (ntupleNumber, eventNb):
-            # In case the url matches the selectors, don't update
-            raise PreventUpdate()
+        return int(parsed_url_query["beamEnergy"][0]), int(parsed_url_query["ntuple"][0]), int(parsed_url_query["event"][0])
     except KeyError:
         raise PreventUpdate()
-
-    if trig_id == "url" or trig_id is None:
-        # Update inputs from URL value
-        return parsedUrlTuple[0], parsedUrlTuple[1], urlSearchValue
-    else:
-        # Update URL from inputs
-        return ntupleNumber, eventNb, "?"+urllib.parse.urlencode({"event":eventNb, "ntuple":ntupleNumber})
 
 def loadEvent(ntuple, event) -> LoadedEvent:
     if ntuple is not None and event is not None:
         return eventLoader.loadEvent(EventID(ntuple, event))
     raise RuntimeError()
-
 
 @app.callback(
     [Output("plot_3D", "figure"), Output("plot_layer", "figure"), Output("plot_longitudinal-profile", "figure")],
@@ -144,7 +133,8 @@ def loadEvent(ntuple, event) -> LoadedEvent:
 def mainEventUpdate(ntupleNumber, eventNb, layer):
     """ Main callback to update all the plots at the same time.
     layer is State as there is another callback updateOnlyLayerPlot to update just the layer view """
-    print(dash.ctx.triggered_prop_ids)
+    print("mainEventUpdate", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
+    print(flush=True)
     try:
         event = loadEvent(ntupleNumber, eventNb)
         plot_3D = makePlotClue3D(event)
@@ -175,7 +165,7 @@ if __name__ == '__main__':
     run_kwargs = {"debug": args.debug, "port":args.port}
     if args.host is not None:
         run_kwargs["host"] = args.host
-    if args.debug:
-        run_kwargs["threaded"] = False # For easier debugging
+    #if args.debug:
+    #    run_kwargs["threaded"] = False # For easier debugging
     print(run_kwargs)
     app.run(**run_kwargs)
