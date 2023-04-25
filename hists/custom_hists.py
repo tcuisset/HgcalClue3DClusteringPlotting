@@ -537,7 +537,7 @@ class Clus3DSpatialResolutionUsingLayerWithMax2DEnergyXY(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.clusters3D_impact_usingLayerWithMax2DClusteredEnergy, valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
         self.fillFromDf((comp.clusters3D_impact_usingLayerWithMax2DClusteredEnergy
-                .set_index(["event", "clus3D_id"])
+                .set_index(["eventInternal", "clus3D_id"])
                 .loc[comp.clusters3D_largestClusterIndex]),
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
 
@@ -662,7 +662,7 @@ class Clus3DNumberOf2DClustersPerLayer(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.clusters3D_merged_2D, 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
-        self.fillFromDf(comp.clusters3D_merged_2D.set_index(["event", "clus3D_id"]).loc[comp.clusters3D_largestClusterIndex], 
+        self.fillFromDf(comp.clusters3D_merged_2D.set_index(["eventInternal", "clus3D_id"]).loc[comp.clusters3D_largestClusterIndex], 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
 
 # Note : here layer is meant as a plot axis (not to be used with a slider)
@@ -695,7 +695,7 @@ class Clus3DLayerWithMaximumClusteredEnergy(MyHistogram):
     def loadFromComp(self, comp:DataframeComputations):
         self.fillFromDf(comp.clusters3D_layerWithMaxClusteredEnergy, 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
-        self.fillFromDf(comp.clusters3D_layerWithMaxClusteredEnergy.set_index(["event", "clus3D_id"]).loc[comp.clusters3D_largestClusterIndex], 
+        self.fillFromDf(comp.clusters3D_layerWithMaxClusteredEnergy.set_index(["eventInternal", "clus3D_id"]).loc[comp.clusters3D_largestClusterIndex], 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
 
 class Clus3DMeanLayerWithMaximumClusteredEnergy(MyHistogram):
@@ -711,7 +711,7 @@ class Clus3DMeanLayerWithMaximumClusteredEnergy(MyHistogram):
         self.fillFromDf(comp.clusters3D_layerWithMaxClusteredEnergy, 
             valuesNotInDf={"mainOrAllTracksters": "allTracksters"},
             mapping={"beamEnergy_custom":"beamEnergy"})
-        self.fillFromDf(comp.clusters3D_layerWithMaxClusteredEnergy.set_index(["event", "clus3D_id"]).loc[comp.clusters3D_largestClusterIndex], 
+        self.fillFromDf(comp.clusters3D_layerWithMaxClusteredEnergy.set_index(["eventInternal", "clus3D_id"]).loc[comp.clusters3D_largestClusterIndex], 
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"beamEnergy_custom":"beamEnergy"})
 
@@ -1106,7 +1106,7 @@ class Clus3DImpactVsBarycenter(MyHistogram):
         barycenter_df = comp.clusters3D_computeBarycenter
         df = pd.merge(
             comp.clusters3D_energyClusteredPerLayer, comp.impact,
-            left_on=["event", "clus2D_layer"],
+            left_on=["eventInternal", "clus2D_layer"],
             right_index=True
         ).rename_axis(index={"clus2D_layer":"rechits_layer"}) # Rename so that substraction of series is correct
         # barycenter_df and df have the same index so we should be able to substract them
