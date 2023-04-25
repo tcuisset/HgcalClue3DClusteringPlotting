@@ -1119,7 +1119,7 @@ class Clus3DImpactVsBarycenter(MyHistogram):
             valuesNotInDf={"mainOrAllTracksters": "mainTrackster"},
             mapping={"layer":"rechits_layer"})
 
-anglePCAToImpact = partial(hist.axis.Regular, bins=1000, start=0, stop=math.pi/2, #name="clus3D_angle_pca_impact",
+anglePCAToImpact = partial(hist.axis.Regular, bins=1000, start=0, stop=math.pi/2, transform=hist.axis.transform.sqrt,
     label="Angle between shower direction estimated from PCA and extrapolated track from DWC")
 class Clus3DAnglePCAToImpact(MyHistogram):
     def __init__(self) -> None:
