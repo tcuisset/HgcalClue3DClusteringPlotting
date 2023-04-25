@@ -194,6 +194,16 @@ class DataframeComputations:
         df.index.names = ["event", "impactZ"] # Rename layer -> impactZ
         return df
 
+    def clusters2D_custom(self, columnsList:list[str]) -> pd.DataFrame:
+        """ Builds a pandas DataFrame holding 2D cluster info (without rechits ids)
+        Parameter : columnsList : columns to include
+        Returns : MultiIndexed df, with index : event, clus2D_id
+        """
+        return ak.to_dataframe(
+            self.array[columnsList],
+            levelname=lambda i : {0 : "event", 1:"clus2D_id"}[i]
+        )
+    
     @cached_property
     def clusters2D(self) -> pd.DataFrame:
         """
@@ -201,11 +211,8 @@ class DataframeComputations:
         MultiIndex : event  clus2D_id
         Columns :  beamEnergy	clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_size	clus2D_rho	clus2D_delta	clus2D_pointType
         """
-        return ak.to_dataframe(
-            self.array[["beamEnergy", "clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer", "clus2D_size",
-                "clus2D_rho", "clus2D_delta", "clus2D_pointType"]],
-            levelname=lambda i : {0 : "event", 1:"clus2D_id"}[i]
-        )
+        return self.clusters2D_custom(["beamEnergy", "clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer", "clus2D_size",
+                "clus2D_rho", "clus2D_delta", "clus2D_pointType"])
 
     @cached_property
     def clusters2D_withNearestHigher(self) -> pd.DataFrame:
@@ -214,11 +221,8 @@ class DataframeComputations:
         MultiIndex : event  clus2D_id
         Columns :  beamEnergy	clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_size	clus2D_rho	clus2D_delta clus2D_nearestHigher clus2D_pointType
         """
-        return ak.to_dataframe(
-            self.array[["beamEnergy", "clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer", "clus2D_size",
-                "clus2D_rho", "clus2D_delta", "clus2D_nearestHigher", "clus2D_pointType"]],
-            levelname=lambda i : {0 : "event", 1:"clus2D_id"}[i]
-        )
+        return self.clusters2D_custom(["beamEnergy", "clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer", "clus2D_size",
+                "clus2D_rho", "clus2D_delta", "clus2D_nearestHigher", "clus2D_pointType"])
 
     #Don't cache this as unlikely to be recomputed (only used by )
     @property
@@ -418,14 +422,14 @@ class DataframeComputations:
         return self.clusters3D.loc[self.clusters3D_largestClusterIndex]
 
     #Don't cache this as unlikely to be needed again after caching clusters3D_merged_2D
-    @property
-    def clusters3D_with_clus2D_id(self) -> pd.DataFrame:
-        """
+    def clusters3D_with_clus2D_id(self, extraColumns:list[str]=[]) -> pd.DataFrame:
+        """ Makes a Dataframe with clusters3D info and 2D clusters ID (to be joined later)
+        Param : extraColumns : extra columns to add beside clus3D_energy	clus3D_layer clus3D_size clus2D_id
         MultiIndex : event  clus3D_id
         Columns : 	clus3D_energy	clus3D_layer clus3D_size clus2D_id   # clus3D_x	clus3D_y	clus3D_z
         """
         return (ak.to_dataframe(
-            self.array[["beamEnergy", "clus3D_energy", "clus3D_size", "clus3D_idxs"]], # "clus3D_x", "clus3D_y", "clus3D_z",
+            self.array[list(set(["beamEnergy", "clus3D_energy", "clus3D_size", "clus3D_idxs"]).union(extraColumns))],
             levelname=lambda i : {0 : "event", 1:"clus3D_id", 2:"clus2D_internal_id"}[i]
         )
         # clus2D_internal_id is an identifier counting 2D clusters in each 3D cluster (it is NOT the same as clus2D_id, which is unique per event, whilst clus2D_internal_id is only unique per 3D cluster)
@@ -445,7 +449,7 @@ class DataframeComputations:
         Columns : beamEnergy	clus3D_energy	clus3D_size	clus2D_id		clus2D_x	clus2D_y	clus2D_z	clus2D_energy	clus2D_layer	clus2D_rho	clus2D_delta	clus2D_pointType
         as well as beamEnergy_from_2D_clusters which is just a duplicate of beamEnergy
         """
-        return self.clusters3D_merged_2D_custom(self.clusters3D_with_clus2D_id, self.clusters2D)
+        return self.clusters3D_merged_2D_custom(self.clusters3D_with_clus2D_id(), self.clusters2D)
 
     def clusters3D_merged_2D_custom(self, clusters3D_with_clus2D_id_df:pd.DataFrame, clusters2D_df:pd.DataFrame) -> pd.DataFrame:
         """ Same as above but use custom dataframes for 3D part (must habe event, clus2D_id) and 2D part (must have index (event, clus2D_id))"""
@@ -490,26 +494,28 @@ class DataframeComputations:
         return merged_df
 
     
-    def clusters3D_firstLastLayer(self, clusters3D_merged_2D_df:pd.DataFrame) -> pd.DataFrame:
+    def clusters3D_firstLastLayer(self, clusters3D_merged_2D_df:pd.DataFrame, columnsToKeep=["beamEnergy", "clus3D_energy", "clus3D_size"]) -> pd.DataFrame:
         """
         For each 3D cluster, compute the first and last layer numbers of contained 2D clusters 
-        Param : clusters3D_merged_2D_df : dataframe to consider, should be a subset of self.clusters3D_merged_2D
+        Param : 
+         - clusters3D_merged_2D_df : dataframe to consider, should be a subset of self.clusters3D_merged_2D
+         - columnsToKeep : list of columns that should be kept during grouping (should be 3D-cluster or event related columns)
         Returns : 
         MultiIndex : event, clus3D_id
-        Columns : beamEnergy, clus3D_energy, clus2D_minLayer, clus2D_maxLayer
+        Columns : clus2D_minLayer, clus2D_maxLayer and columnsToKeep (beamEnergy, clus3D_energy, clus3D_size by default)
 
         Should be used as :
         self.clusters3D_with_clus2D_id[.pipe(clusters3D_filterLargestCluster)].pipe(clusters3D_merged_2D).pipe(self.clusters3D_firstLastLayer)
         """
-        return (clusters3D_merged_2D_df[["event", "clus3D_id", "beamEnergy", "clus3D_energy", "clus3D_size", "clus2D_layer"]]
+        agg_kwargs = {colName : pd.NamedAgg(column=colName, aggfunc="first") for colName in columnsToKeep}
+        agg_kwargs.update(dict(
+            clus2D_minLayer=pd.NamedAgg(column="clus2D_layer", aggfunc="min"),
+            clus2D_maxLayer=pd.NamedAgg(column="clus2D_layer", aggfunc="max"),
+        ))
+
+        return (clusters3D_merged_2D_df#[["event", "clus3D_id", "beamEnergy", "clus3D_energy", "clus3D_size", "clus2D_layer"]]
             .groupby(["event", "clus3D_id"])
-            .agg(
-                clus2D_minLayer=pd.NamedAgg(column="clus2D_layer", aggfunc="min"),
-                clus2D_maxLayer=pd.NamedAgg(column="clus2D_layer", aggfunc="max"),
-                beamEnergy=pd.NamedAgg(column="beamEnergy", aggfunc="first"),
-                clus3D_energy=pd.NamedAgg(column="clus3D_energy", aggfunc="first"),
-                clus3D_size=pd.NamedAgg(column="clus3D_size", aggfunc="first")
-            )
+            .agg(**agg_kwargs)
         )
 
     # def clusters3D_indexOf3DClustersPassingMinNumLayerCut(self, minNumLayerCluster):
@@ -637,7 +643,7 @@ class DataframeComputations:
         # First merge everything to get rechits information
         return (
             pd.merge(
-                self.clusters3D_with_clus2D_id.reset_index("clus3D_id"), # reset clus3D_id index so it does not get lost in the merge
+                self.clusters3D_with_clus2D_id().reset_index("clus3D_id"), # reset clus3D_id index so it does not get lost in the merge
                 # rechits_id is Index in rechits df
                 # Note the comma, to avoid making a set with all letters of rechits_layer
                 self.clusters2D_merged_rechits(frozenset(listOfColumns).union(("rechits_layer",))).drop(columns="beamEnergy"), 
