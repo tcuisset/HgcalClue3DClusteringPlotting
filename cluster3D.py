@@ -21,9 +21,6 @@ curdoc().add_root(row(
         s.tabClue3D("Energy per layer", "Clus3DClusteredEnergyPerLayer"),
         s.tabClue3D("Layer with max energy", "Clus3DLayerWithMaximumClusteredEnergy"),
         s.tabClue3D("Layer with max energy (profile)", "Clus3DMeanLayerWithMaximumClusteredEnergy", plotType=LineHistogram1D),
-        s.tabClue3D("Distance DWC impact/barycenter", "Clus3DImpactVsBarycenter"),
-        s.tabClue3D("Angle PCA/Impact", "Clus3DAnglePCAToImpact"),
-        s.tabClue3D("Angle PCA (cleaned)/Impact", "Clus3DAnglePCAToImpact_Cleaned"),
     ])
 ))
 

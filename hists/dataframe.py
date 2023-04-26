@@ -11,8 +11,8 @@ import numpy as np
 import pandas as pd
 import awkward as ak
 
-from .parameters import synchrotronBeamEnergiesMap, thresholdW0, layerToZMapping
-from .pca import Cluster3D_PCA
+from .parameters import synchrotronBeamEnergiesMap, thresholdW0
+from .shower_axis import computeAngleSeries
 
 import functools
 import weakref
@@ -832,34 +832,20 @@ class DataframeComputations:
         """
         return self.clusters3D_merged_2D.groupby(["eventInternal", "clus3D_id"]).apply(Cluster3D_PCA)
 
-    def clusters3D_PCA_angleWithImpact(self, clusters2D_impact_df:pd.DataFrame) -> pd.Series:
+    def clusters3D_PCA_angleWithImpact(self, clusters2D_impact_df:pd.DataFrame, name:str) -> pd.Series:
         """ Compute PCA on layer clusters of each 3D cluster 
         Parameters : 
         - clusters2D_impact_df : dataframe with : Index : eventInternal, clus3D_id; Columns : "clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer", "impactX", "impactY"
             holding only layer clusters that need to be included in PCA
-        Returns Series indexed by eventInternal, clus3D_id, with as values the angle (in [0, pi/2] range) between PCA estimate and DWC track
+        - name to insert 
+        Returns Dataframe indexed by eventInternal, clus3D_id, with columns :
+        - clus3D_pca_impact_NAME_angle : the angle (in [0, pi/2] range) between PCA estimate and DWC track
+        - clus3D_pca_impact_NAME_angle_x : the angle of the vectors projected in (Oxz) plane (in [-pi/2, pi/2] range, right-handed, angle PCA-> impact)
+        - clus3D_pca_impact_NAME_angle_y : same but in (Oyz) plane
         """
-        def computeAngle(df:pd.DataFrame):
-            pca_axis = Cluster3D_PCA(df)
-
-            # Compute DWC impact vector, using the impact point on the last and first layer of 3D cluster
-            impact_df = (df
-                #[["clus2D_layer", "impactX", "impactY"]]
-                .sort_values("clus2D_layer")
-            )
-            impact_dx = impact_df.impactX.iloc[-1] - impact_df.impactX.iloc[1]
-            impact_dy = impact_df.impactY.iloc[-1] - impact_df.impactY.iloc[1]
-            # Get z position of last and first layer
-            impact_dz = layerToZMapping[impact_df.clus2D_layer.iloc[-1]] - layerToZMapping[impact_df.clus2D_layer.iloc[1]]
-            impact_vector = np.array([impact_dx, impact_dy, impact_dz])
-            impact_vector = impact_vector / np.linalg.norm(impact_vector)
-
-            # Compute angle between  dealing with edge cases https://stackoverflow.com/a/13849249
-            # adapted to use abs
-            return np.arccos(np.clip(np.abs(np.dot(pca_axis, impact_vector)), 0, 1.0))
         return (clusters2D_impact_df
             .groupby(["eventInternal", "clus3D_id"])
-            .apply(computeAngle)
+            .apply(partial(computeAngleSeries, name=name))
             #.rename("clus3D_angle_pca_impact")
         )
     
@@ -879,9 +865,9 @@ class DataframeComputations:
             .clus2D_layer.groupby(by=["eventInternal", "clus3D_id"]).nunique() >= 3
         )
         # ---- Do the PCA with no cleaning, just the filter for layer span
-        pca_filterLayerSpan = (self
-            .clusters3D_PCA_angleWithImpact(clusters3D_full_df.loc[filter_clus3D_layerSpan])
-            .rename("clus3D_angle_pca_impact_filterLayerSpan")
+        pca_filterLayerSpan = (clusters3D_full_df
+            .loc[filter_clus3D_layerSpan]
+            .pipe(self.clusters3D_PCA_angleWithImpact, "filterLayerSpan")
         )
 
         # ---- PCA with cleaning of 2D clusters
@@ -912,9 +898,9 @@ class DataframeComputations:
             .loc[filter_clus3D_layerSpan] # Filter on layer span
         )
         # Actually compute the PCA
-        pca_filterLayerSpan_cleaned2DClusters = (self
-            .clusters3D_PCA_angleWithImpact(df_highestLCEnergy)
-            .rename("clus3D_angle_pca_impact_filterLayerSpan_cleaned")
+        pca_filterLayerSpan_cleaned2DClusters = (
+            df_highestLCEnergy
+            .pipe(self.clusters3D_PCA_angleWithImpact, "filterLayerSpan_cleaned")
         )
 
         #return pca_filterLayerSpan, pca_filterLayerSpan_cleaned2DClusters

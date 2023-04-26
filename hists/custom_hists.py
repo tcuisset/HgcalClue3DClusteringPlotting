@@ -1121,10 +1121,15 @@ class Clus3DImpactVsBarycenter(MyHistogram):
 
 anglePCAToImpact = partial(hist.axis.Regular, bins=1000, start=0, stop=math.pi/2, transform=hist.axis.transform.sqrt,
     label="Angle between shower direction estimated from PCA and extrapolated track from DWC")
+anglePCAToImpact_signed = partial(hist.axis.Regular, bins=200, start=-.2, stop=.2,
+    label="Signed angle PCA to DWC")
+PCAMethod_axis = hist.axis.StrCategory(["filterLayerSpan", "filterLayerSpan_cleaned"], name="PCA_method",
+    label="Method used for computing PCA")
+
 class Clus3DAnglePCAToImpact(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(),
-            anglePCAToImpact(name="clus3D_angle_pca_impact_filterLayerSpan"),
+        super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(), PCAMethod_axis,
+            anglePCAToImpact(name="clus3D_angle_pca_impact"),
             label="For all 3D clusters, angle between shower direction estimated from PCA and extrapolated track from DWC",
             binCountLabel="3D cluster count",
             weightOn=HistogramVariable("clus3D_energy", "Sum of all 3D cluster energies in this bin"),
@@ -1133,18 +1138,22 @@ class Clus3DAnglePCAToImpact(MyHistogram):
     
     def loadFromComp(self, comp:DataframeComputations):
         df = comp.clusters3D_PCA_dataframe
-        self.fillFromDf(df, 
-            valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
-        # It is possible that the largest 3D cluster is not included in clusters3D_PCA_dataframe (in case of very weird events)
-        # in this case we must use the isin method as doing df.loc will fail with KeyError
-        self.fillFromDf(df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)], 
-            valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
+        for PCAMethod in PCAMethod_axis:
+            column_prefix = f"clus3D_pca_impact_{PCAMethod}_angle"
+            self.fillFromDf(df, mapping={"clus3D_angle_pca_impact":column_prefix},
+                valuesNotInDf={"mainOrAllTracksters": "allTracksters", "PCA_method" : PCAMethod})
+            # It is possible that the largest 3D cluster is not included in clusters3D_PCA_dataframe (in case of very weird events)
+            # in this case we must use the isin method as doing df.loc will fail with KeyError
+            self.fillFromDf(df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)],
+                 mapping={"clus3D_angle_pca_impact":column_prefix},
+                valuesNotInDf={"mainOrAllTracksters": "mainTrackster", "PCA_method" : PCAMethod})
 
-class Clus3DAnglePCAToImpact_Cleaned(MyHistogram):
+class Clus3DAnglePCAToImpact_XY(MyHistogram):
     def __init__(self) -> None:
-        super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(),
-            anglePCAToImpact(name="clus3D_angle_pca_impact_filterLayerSpan_cleaned"),
-            label="For all 3D clusters, angle between shower direction estimated from PCA (CLEANED) and extrapolated track from DWC",
+        super().__init__(beamEnergiesAxis(), clus3D_mainOrAllTracksters_axis, cluster3D_size_axis(), PCAMethod_axis,
+            anglePCAToImpact_signed(name="clus3D_angle_pca_impact_x", label="Angle from PCA axis to DWC axis, projected in (Oxz) plane"),
+            anglePCAToImpact_signed(name="clus3D_angle_pca_impact_y", label="Angle from PCA axis to DWC axis, projected in (Oyz) plane"),
+            label="For all 3D clusters, angle between shower direction estimated from PCA and extrapolated track from DWC (in (Oxz) and (Oyz) planes)",
             binCountLabel="3D cluster count",
             weightOn=HistogramVariable("clus3D_energy", "Sum of all 3D cluster energies in this bin"),
             profileOn=HistogramVariable("clus3D_energy", "Mean of all 3D cluster energies in this bin")
@@ -1152,9 +1161,13 @@ class Clus3DAnglePCAToImpact_Cleaned(MyHistogram):
     
     def loadFromComp(self, comp:DataframeComputations):
         df = comp.clusters3D_PCA_dataframe
-        self.fillFromDf(df, 
-            valuesNotInDf={"mainOrAllTracksters": "allTracksters"})
-        # It is possible that the largest 3D cluster is not included in clusters3D_PCA_dataframe (in case of very weird events)
-        # in this case we must use the isin method as doing df.loc will fail with KeyError
-        self.fillFromDf(df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)], 
-            valuesNotInDf={"mainOrAllTracksters": "mainTrackster"})
+        for PCAMethod in PCAMethod_axis:
+            column_prefix = f"clus3D_pca_impact_{PCAMethod}_angle"
+
+            self.fillFromDf(df, mapping={"clus3D_angle_pca_impact_x":column_prefix+"_x", "clus3D_angle_pca_impact_y":column_prefix+"_y"},
+                valuesNotInDf={"mainOrAllTracksters": "allTracksters", "PCA_method" : PCAMethod})
+            # It is possible that the largest 3D cluster is not included in clusters3D_PCA_dataframe (in case of very weird events)
+            # in this case we must use the isin method as doing df.loc will fail with KeyError
+            self.fillFromDf(df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)],
+                 mapping={"clus3D_angle_pca_impact":column_prefix, "clus3D_angle_pca_impact_x":column_prefix+"_x", "clus3D_angle_pca_impact_y":column_prefix+"_y"},
+                valuesNotInDf={"mainOrAllTracksters": "mainTrackster", "PCA_method" : PCAMethod})

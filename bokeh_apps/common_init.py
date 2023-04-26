@@ -44,6 +44,7 @@ class Selectors:
         self.mainOrAllTrackstersSelector = makeMainOrAllTrackstersSelector()
         self.intervalEnergyFractionSelector = makeIntervalEnergyFractionSelector()
         self.intervalEnergyFractionMaskLayer = makeIntervalEnergyFractionMaskLayer()
+        self.PCAMethodSelector = makePCAMethodSelector()
 
         self.selectorsStandardBegin = [self.datatype_selector, self.clueParamSelector, 
                 self.beamEnergySelector, self.layerSelector, self.pointTypeSelector]
@@ -58,6 +59,7 @@ class Selectors:
         self.selectorsClue3D = self.selectorsClue3DBegin + self.selectorsStandardEnd
 
         self.selectorsClue3DLongitudinalProfile = self.selectorsClue3DBegin + [self.intervalEnergyFractionSelector, self.intervalEnergyFractionMaskLayer] + self.selectorsStandardEnd
+        self.selectorsClue3DShowerPosition = self.selectorsClue3DBegin + [self.PCAMethodSelector] + self.selectorsStandardEnd
 
     def MakePlot(self, histName:str, selectors, plotType:str|AbstractHistogram="1d", **kwargs):
         if plotType == "1d":
@@ -82,6 +84,8 @@ class Selectors:
         return TabPanel(title=tabTitle, child=self.MakePlot(*args, selectors=self.selectorsClue3D, **kwargs))
     def tabClue3DProfile(self, tabTitle:str, *args, **kwargs):
         return TabPanel(title=tabTitle, child=self.MakePlot(*args, selectors=self.selectorsClue3DLongitudinalProfile, **kwargs))
+    def tabClue3DShowerPosition(self, tabTitle:str, *args, **kwargs):
+        return TabPanel(title=tabTitle, child=self.MakePlot(*args, selectors=self.selectorsClue3DShowerPosition, **kwargs))
 
     def makeWidgetColumnStandard(self):
         return column(*(selector.model for selector in self.selectorsStandard))
@@ -91,3 +95,5 @@ class Selectors:
         return column(*(selector.model for selector in self.selectorsClue3D))
     def makeWidgetColumnClue3DProfile(self):
         return column(*(selector.model for selector in self.selectorsClue3DLongitudinalProfile))
+    def makeWidgetColumnClue3DShowerPosition(self):
+        return column(*(selector.model for selector in self.selectorsClue3DShowerPosition))
