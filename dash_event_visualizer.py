@@ -57,10 +57,14 @@ app.layout = html.Div([
     ], style={'flex': '0 1 auto'}),
     dcc.Tabs([
         dcc.Tab(label="3D view", children=[
-            dcc.Graph(id="plot_3D", style={"height":"100%"}),
+            dcc.Graph(id="plot_3D", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
+                scale=3.
+            ))),
         ]),
         dcc.Tab(label="Layer view", children=[
-            dcc.Graph(id="plot_layer", style={"height":"100%"})
+            dcc.Graph(id="plot_layer", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
+                scale=4.
+            ))),
         ]),
         dcc.Tab(label="Longitudinal profile", children=[
             dcc.Graph(id="plot_longitudinal-profile", style={"height":"100%"})
