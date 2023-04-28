@@ -15,8 +15,9 @@ EventID = collections.namedtuple("EventID", ["ntupleNumber", "event"])
 class EventLoader:
     def __init__(self, pathToFile:str) -> None:
         """ pathToFile is path to CLUE_clusters.root file (included)"""
-        self.file = uproot.open(pathToFile)
+        self.file = uproot.open(pathToFile, object_cache=None, array_cache=None)
         self.tree:uproot.TTree = self.file["clusters"]
+        self.eventIndex = self._buildLocateEventIndex()
 
     @cached_property
     def clueParameters(self):
@@ -26,7 +27,31 @@ class EventLoader:
     def clue3DParameters(self):
         return self.file["clue3DParams"].members
 
-    def _locateEvent(self, eventId:EventID) -> uproot.behaviors.TBranch.Report:
+    def _buildLocateEventIndex(self):
+        # Make a dict of numpy arrays
+        event_array_dict = self.tree.arrays(filter_name=["ntupleNumber", "event"], library="np")
+
+        self._index_structured_dtype = np.dtype([("ntupleNumber", "uint16"), ("event", "uint32"), ('index', 'uint32')])
+        indexed_array = np.zeros(event_array_dict["event"].shape, dtype=self._index_structured_dtype)
+        indexed_array['ntupleNumber'] = event_array_dict["ntupleNumber"]
+        indexed_array["event"] = event_array_dict["event"]
+        indexed_array["index"] = np.arange(0, len(event_array_dict["event"]), dtype="uint32")
+        indexed_array.sort(order=["ntupleNumber", "event"]) # ignore index for sorting
+        return indexed_array
+
+
+    def _locateEvent(self, eventId:EventID) -> int|None:
+        """ Compute the index in the tree of the given event, using the event index """
+        indexInSortedArray = np.searchsorted(self.eventIndex, np.array([(eventId.ntupleNumber, eventId.event, 0)], dtype=self._index_structured_dtype), side='right')[0]
+        try:
+            foundEvent = self.eventIndex[indexInSortedArray]
+            if foundEvent["event"] == eventId.event and foundEvent["ntupleNumber"] == eventId.ntupleNumber:
+                return foundEvent["index"]
+        except IndexError:
+            pass
+        return None
+
+    def _locateEventUsingUproot(self, eventId:EventID) -> uproot.behaviors.TBranch.Report:
         for array, report in self.tree.iterate(["ntupleNumber", "event"], report=True, library="np",
             cut=f"(ntupleNumber == {eventId.ntupleNumber}) & (event=={eventId.event})", step_size=1000):
             if len(array["ntupleNumber"]) > 0:
@@ -37,10 +62,9 @@ class EventLoader:
         eventLocation = self._locateEvent(eventId)
         if eventLocation is None:
             raise RuntimeError("Could not find event")
-        eventList = self.tree.arrays(cut=f"(ntupleNumber == {eventId.ntupleNumber}) & (event=={eventId.event})",
-            entry_start=eventLocation.tree_entry_start, entry_stop=eventLocation.tree_entry_stop)
+        eventList = self.tree.arrays(entry_start=eventLocation, entry_stop=eventLocation+1)
         if len(eventList) > 1:
-            print("WARNING : duplicate event numbers")
+            print("WARNING : duplicate event numbers") # should not happen
         if len(eventList) < 1:
             raise RuntimeError("Could not find event") 
         return LoadedEvent(eventList[0], self)
