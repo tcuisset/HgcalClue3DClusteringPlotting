@@ -135,9 +135,8 @@ class LayerVisualization(BaseVisualization):
         """ Draw a circle around each 2D cluster representing the search area for rechits to compute the 2D cluster position.
         ie a circle centered on the maximum energy cell of the cluster and of radius sqrt(positionDeltaRho2) """
         radius:float = math.sqrt(self.event.clueParameters["positionDeltaRho2"])
-
-        
-        for row in self.rechits_df_onLayer[self.rechits_df_onLayer.rechits_pointType == 1].itertuples():
+        # Find for each 2D cluster the rechit with the highest energy
+        for row in self.rechits_df_onLayer.sort_values(["clus2D_id", "rechits_energy"], ascending=False).groupby("clus2D_id").first().itertuples():
             center = np.array([row.rechits_x, row.rechits_y])
 
             self.fig.add_shape(type="circle", xref="x", yref="y", 
