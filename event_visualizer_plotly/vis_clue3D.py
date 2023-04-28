@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 #from hists.dataframe import *
+import hists.parameters
 from event_visualizer_plotly.utils import *
 
 
@@ -191,7 +192,8 @@ class Clue3DVisualization(BaseVisualization):
 
     def addDetectorCylinder(self):
         """ Plot detector cylinder (very approximate detector area) """
-        x, y, z = makeCylinderCoordinates(r=7, h=53.9-13.8, z0=13.8, axisX=3.85, axisY=-2.53) # For data
+        detExt = hists.parameters.DetectorExtentData # For data
+        x, y, z = makeCylinderCoordinates(r=detExt.radius, h=detExt.depth, z0=detExt.firstLayerZ, axisX=detExt.centerX, axisY=detExt.centerY)
         self.fig.add_trace(go.Surface(x=x, y=y, z=z, colorscale=[[0, 'blue'],[1, 'blue']], 
             opacity=0.5, hoverinfo="skip", showscale=False, showlegend=True, visible="legendonly",
             name="Approx detector size"))

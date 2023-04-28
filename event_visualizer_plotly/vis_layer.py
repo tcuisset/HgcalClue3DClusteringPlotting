@@ -4,6 +4,7 @@ from functools import cached_property
 import plotly.express as px
 import plotly.graph_objects as go
 
+import hists.parameters
 from event_visualizer_plotly.utils import *
 
 
@@ -157,4 +158,16 @@ class LayerVisualization(BaseVisualization):
             ),
             hoverinfo='skip',
         ))
+        return self
+    
+    def addDetectorExtent(self):
+        """ Plot detector extent (very approximate detector area) """
+        detExt = hists.parameters.DetectorExtentData # For data
+        
+        self.fig.add_shape(type="circle",
+            xref="x", yref="y",
+            x0=detExt.centerX-detExt.radius, x1=detExt.centerX+detExt.radius,
+            y0=detExt.centerY-detExt.radius, y1=detExt.centerY+detExt.radius,
+            line_color="blue",
+        )
         return self
