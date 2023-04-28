@@ -1,5 +1,10 @@
-import argparse
+""" Event visualizer using Dash
+Environment variables to set :
+ - CLUE_INPUT_FILE : full path to CLUE_clusters.root 
+ - PORT, HOST, DASH_DEBUG : for Dash
+"""
 import urllib.parse
+import os
 
 import dash
 from dash import Dash, html, Input, Output, State, dcc
@@ -14,20 +19,25 @@ from event_visualizer_plotly.vis_clue3D import Clue3DVisualization
 from event_visualizer_plotly.vis_layer import LayerVisualization
 from event_visualizer_plotly.vis_longitudinal_profile import LongitudinalProfileVisualization
 
-parser = argparse.ArgumentParser(
-    prog="dash_event_visualizer",
-    description="CLUE3D event visualizer using Dash",
-)
-parser.add_argument('-p', '--port', default=8051, help="Port to listen on")
-parser.add_argument('-i', '--input-file', default="/eos/user/t/tcuisset/hgcal/testbeam18-clue3d/v33/cmssw/data/CLUE_clusters.root",
-    dest="input_file", help="Path to CLUE_clusters.root file (included)")
-parser.add_argument('-d', '--debug', action=argparse.BooleanOptionalAction, help="Enable debug mode", dest="debug", default=True)
-parser.add_argument('-H', '--host', dest="host", default=None,
-    help="Host name to bin on (if not specified, use Dash default  which is env variable HOST or 127.0.0.1). On llruicms you should put 'llruicms01'")
-args = parser.parse_args()
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(
+        prog="dash_event_visualizer",
+        description="CLUE3D event visualizer using Dash",
+    )
+    parser.add_argument('-p', '--port', default=8051, help="Port to listen on")
+    parser.add_argument('-i', '--input-file', default="/eos/user/t/tcuisset/hgcal/testbeam18-clue3d/v33/cmssw/data/CLUE_clusters.root",
+        dest="input_file", help="Path to CLUE_clusters.root file (included)")
+    parser.add_argument('-d', '--debug', action=argparse.BooleanOptionalAction, help="Enable debug mode", dest="debug", default=True)
+    parser.add_argument('-H', '--host', dest="host", default=None,
+        help="Host name to bin on (if not specified, use Dash default  which is env variable HOST or 127.0.0.1). On llruicms you should put 'llruicms01'")
+    args = parser.parse_args()
+    clueInputFile = args.input_file
+else:
+    clueInputFile = os.environ["CLUE_INPUT_FILE"]
 
 # Local : /data_cms_upgrade/cuisset/testbeam18/clue3d/v33/cmssw/data/CLUE_clusters.root
-eventLoader = EventLoader(args.input_file)
+eventLoader = EventLoader(clueInputFile)
 
 app = Dash(__name__)
 application = app.server

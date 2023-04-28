@@ -8,3 +8,5 @@ plotly == 5.*
 dash == 2.9.*
 Flask-Caching
 awkward-pandas
+# Web server : 
+gunicorn
