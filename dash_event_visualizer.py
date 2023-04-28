@@ -40,7 +40,7 @@ else:
 eventLoader = EventLoader(clueInputFile)
 
 app = Dash(__name__)
-application = app.server
+server = app.server
 
 cache = flask_caching.Cache(app.server, config={
     "CACHE_TYPE":"FileSystemCache",
