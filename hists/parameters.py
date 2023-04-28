@@ -59,6 +59,8 @@ class DetectorExtentData:
 
 # Value of threshold to compute log-weights of hits energies (weight = max(0; thresholdW0 + ln(E/(totalE)))) (in GeV)
 thresholdW0 = 2.9 
+#When computing layer cluster position, ignore cells that have the distance squared to the highest energy cell in layer cluster greater than this squared distance
+positionDeltaRho2 = 1.69
 
 @functools.lru_cache()
 def loadClueParameters(clueClustersFile:str):

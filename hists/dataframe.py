@@ -11,7 +11,8 @@ import numpy as np
 import pandas as pd
 import awkward as ak
 
-from .parameters import synchrotronBeamEnergiesMap, thresholdW0
+from . import parameters
+from .parameters import synchrotronBeamEnergiesMap
 from .shower_axis import computeAngleSeries
 
 import functools
@@ -47,6 +48,11 @@ class DataframeComputations:
     def __init__(self, tree_array:ak.Array) -> None:
         self.array = tree_array
     
+    @cached_property
+    def ntupleEvent(self) -> pd.DataFrame:
+        return ak.to_dataframe(self.array[["ntupleNumber", "event", "beamEnergy"]], 
+            levelname=lambda i : {0 : "eventInternal"}[i])
+
     @cached_property
     def trueBeamEnergy(self) -> pd.DataFrame:
         """ Get simulated particle gun energy branch. If trueBeamEnergy branch exists, returns : 
@@ -107,16 +113,19 @@ class DataframeComputations:
         df["layer"] = df["layer_minus_one"] + 1
         return df.drop("layer_minus_one", axis="columns")
 
+    def rechits_custom(self, columns:list[str]) -> pd.DataFrame:
+        """ Load rechits """
+        return ak.to_dataframe(self.array[columns], 
+            levelname=lambda i : {0 : "eventInternal", 1:"rechits_id"}[i])
+
     @cached_property
     def rechits(self) -> pd.DataFrame:
         """
         Columns : eventInternal  rechits_id  beamEnergy	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta rechits_nearestHigher rechits_pointType  
         MultiIndex : (eventInternal, rechits_id)
         """
-        return ak.to_dataframe(self.array[
-            ["beamEnergy", "rechits_x", "rechits_y", "rechits_z", "rechits_energy", "rechits_layer",
-            "rechits_rho", "rechits_delta", "rechits_nearestHigher", "rechits_pointType"]], 
-            levelname=lambda i : {0 : "eventInternal", 1:"rechits_id"}[i])
+        return self.rechits_custom(["beamEnergy", "rechits_x", "rechits_y", "rechits_z", "rechits_energy", "rechits_layer",
+            "rechits_rho", "rechits_delta", "rechits_nearestHigher", "rechits_pointType"])
 
     @cached_property
     def rechits_totalReconstructedEnergyPerEvent(self) -> pd.DataFrame:
@@ -228,20 +237,18 @@ class DataframeComputations:
         return self.clusters2D_custom(["beamEnergy", "clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer", "clus2D_size",
                 "clus2D_rho", "clus2D_delta", "clus2D_nearestHigher", "clus2D_pointType"])
 
-    #Don't cache this as unlikely to be recomputed (only used by )
-    @property
-    def clusters2D_with_rechit_id(self) -> pd.DataFrame:
+    
+    def clusters2D_with_rechit_id(self, clusters2D_columns:list[str]=["beamEnergy", "clus2D_layer", "clus2D_rho", "clus2D_delta", "clus2D_pointType"]) -> pd.DataFrame:
         """
+        Parameters : - clusters2D_columns : list of columns to include 
         MultiIndex : eventInternal	clus2D_id	rechits_id
-        Columns : beamEnergy	[clus2D_x	clus2D_y	clus2D_z	clus2D_energy]	clus2D_layer	clus2D_size	clus2D_idxs	clus2D_rho	clus2D_delta	clus2D_pointType
+        Columns : clus2D_idxs and all clusters2D_columns [beamEnergy	clus2D_layer	clus2D_size		clus2D_rho	clus2D_delta	clus2D_pointType]
         """
+        columns = set(clusters2D_columns)
+        columns.add("clus2D_idxs")
         return (
             ak.to_dataframe(
-                self.array[[
-                    "beamEnergy",  "clus2D_layer",
-                    #"clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy",
-                    "clus2D_rho", "clus2D_delta", "clus2D_idxs", "clus2D_pointType"
-                ]], 
+                self.array[list(columns)], 
                 levelname=lambda i : {0 : "eventInternal", 1:"clus2D_id", 2:"rechit_internal_id"}[i]
             )
             # rechit_internal_id is an identifier counting rechits in each 2D cluster (it is NOT the same as rechits_id, which is unique per event, whilst rechit_internal_id is only unique per 2D cluster)
@@ -250,25 +257,33 @@ class DataframeComputations:
         )
 
     #@memoized_method(maxsize=None) # For now not cached since only called once, in clusters3D_merged_rechits_custom
-    def clusters2D_merged_rechits(self, rechitsColumns:frozenset[str]) -> pd.DataFrame:
+    def clusters2D_merged_rechits(self, rechitsColumns:frozenset[str], useCachedRechits=True, clusters2D_columns:frozenset[str]=frozenset(["beamEnergy", "clus2D_layer", "clus2D_rho", "clus2D_delta", "clus2D_pointType"])) -> pd.DataFrame:
         """
         Merge clusters2D with rechits
-        Parameters : rechitsColumns: columns to select from rechits Dataframe (as a frozenset so it can work with functools.cache)
+        Parameters : 
+            - rechitsColumns: columns to select from rechits Dataframe (as a frozenset so it can work with functools.cache)
+            - useCachedRechits : if True, will use self.rechits. If False, will load when called the rechits from file with only the requested rechitsColumns
+            - clusters2D_columns : columns to select from clusters2D_with_rechits dataframe
         MultiIndex : eventInternal	clus2D_id	
         Columns : beamEnergy	clus2D_layer	clus2D_rho	clus2D_delta clus2D_idxs	clus2D_pointType 
             and from rechits : rechits_id rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta	rechits_pointType
         beamEnergy_from_rechits is just a duplicate of beamEnergy
         """
+        if useCachedRechits:
+            rechits_df = self.rechits[list(rechitsColumns)]
+        else:
+            rechits_df = self.rechits_custom(list(rechitsColumns))
         return pd.merge(
-            self.clusters2D_with_rechit_id,     # Left : clusters2D with rechits_id column (one row per rechit of each 2D cluster)
-            self.rechits[list(rechitsColumns)], # Right : rechits
+            self.clusters2D_with_rechit_id(list(clusters2D_columns)),     # Left : clusters2D with rechits_id column (one row per rechit of each 2D cluster)
+            rechits_df, # Right : rechits
             how='inner',                        # Do an inner join (keeps only rechits that are in a 2D cluster, ie drop outliers). Left should be identical. 
             # Outer and right would include also rechits that are outliers (not associated to any cluster)
             left_on=["eventInternal", "rechits_id"],   # Left ; join on columns : eventInternal, rechits_id
             right_index=True,                   # Right : join on index, ie eventInternal, rechits_id
             suffixes=(None, "_from_rechits"), # Deal with columns present on both sides (none normally) :
             #        take the column from left with same name, the one from right renamed beamEnergy_from_rechits (they should be identical anyway)
-            validate="one_to_one"               # Cross-check :  Make sure there are no weird things (such as duplicate ids), should not be needed
+            # Disable cross-cjeck for performance
+            #validate="one_to_one"               # Cross-check :  Make sure there are no weird things (such as duplicate ids), should not be needed
         )
 
     @cached_property
@@ -658,15 +673,17 @@ class DataframeComputations:
             .set_index(["clus3D_id", "rechits_layer", "rechits_id"], append=True)
         )
 
-    @cached_property
-    def clusters3D_computeBarycenter(self):
+    def computeBarycenter(self, df:pd.DataFrame, groupbyColumns:list[str], thresholdW0=parameters.thresholdW0):
         """ Compute barycenter of 3D clusters.
-        The barycenter is computed, for each event, cluster 3D and layer, using rechits log weighted positions.
-        Uses thresholdW0 from parameters.py. The total energy sum used for the log is the sum of energies of all rechits in
-        the considered 3D cluster *on the same layer* (as is done by CLUE2D for computing layer cluster positions,
-        except possibly considering more than one layer cluster per layer in case the 3D cluster has more than one).
+        The barycenter is computed, in each group given by groupByColumns, using rechits log weighted positions.
+        Uses thresholdW0 (default value from parameters.py). The total energy sum used for the log is the sum of energies of all rechits in
+        the considered group
+        Parameters : 
+            - df : DataFrame with rechits_{x, y, energy} plus necessary groupBy columns in index
+            - groupByColumns : list of columns to group by when computing barycenter (should include event and rechits_layer, and eventually clus2D_id or clus3D_id)
+            - thresholdW0 : parameter of log-weighting of energies
         Returns dataframe with :
-        Index : eventInternal clus3D_id rechits_layer
+        Index : whatever what is input df
         Columns : 
            - rechits_x_barycenter, rechits_y_barycenter : barycenters per layer and 3D cluster
            - rechits_energy_sumPerLayer : sum of all rechits energies on a layer (simple sum, no log weights)
@@ -675,9 +692,8 @@ class DataframeComputations:
         # Compute Wi = max(0: thresholdW0 + ln(E / sumE)) where sumE is the sum of rechits energies in same layer and belonging to same 3D cluster
         # Use assign to make a copy
         # The next two lines are a significant performance bottleneck (lots of rechits)
-        df = self.clusters3D_merged_rechits
         df = df.assign(rechit_energy_logWeighted=(
-            (thresholdW0 + np.log(df.rechits_energy / df.rechits_energy.groupby(by=["eventInternal", "clus3D_id", "rechits_layer"]).sum()))
+            (thresholdW0 + np.log(df.rechits_energy / df.rechits_energy.groupby(by=groupbyColumns).sum()))
             .clip(lower=0.) # Does max(0; ...)
         ))
 
@@ -687,7 +703,7 @@ class DataframeComputations:
         df["rechits_y_times_logWeight"] = df["rechits_y"]*df["rechit_energy_logWeighted"]
 
         # Make sums : 
-        df_groupedPerLayer = df.groupby(["eventInternal", "clus3D_id", "rechits_layer"]).agg(
+        df_groupedPerLayer = df.groupby(by=groupbyColumns).agg(
             # sum Wi
             rechits_logWeight_sumPerLayer=pd.NamedAgg(column="rechit_energy_logWeighted", aggfunc="sum"),
             # Sum Xi*Wi
@@ -704,6 +720,22 @@ class DataframeComputations:
         df_groupedPerLayer["rechits_y_barycenter"] = df_groupedPerLayer["rechits_y_times_logWeight_sumPerLayer"]/df_groupedPerLayer["rechits_logWeight_sumPerLayer"]
 
         return df_groupedPerLayer[["rechits_x_barycenter", "rechits_y_barycenter", "rechits_energy_sumPerLayer", "rechits_countPerLayer"]]
+
+    @memoized_method(maxsize=None)
+    def clusters3D_computeBarycenter(self, thresholdW0=parameters.thresholdW0):
+        """ Compute barycenter of 3D clusters.
+        The barycenter is computed, for each event, cluster 3D and layer, using rechits log weighted positions.
+        Uses thresholdW0 from parameters.py. The total energy sum used for the log is the sum of energies of all rechits in
+        the considered 3D cluster *on the same layer* (as is done by CLUE2D for computing layer cluster positions,
+        except possibly considering more than one layer cluster per layer in case the 3D cluster has more than one).
+        Returns dataframe with :
+        Index : eventInternal clus3D_id rechits_layer
+        Columns : 
+           - rechits_x_barycenter, rechits_y_barycenter : barycenters per layer and 3D cluster
+           - rechits_energy_sumPerLayer : sum of all rechits energies on a layer (simple sum, no log weights)
+           - rechits_countPerLayer of rechits in the layer (and in 3D cluster, event)
+        """
+        return self.computeBarycenter(self.clusters3D_merged_rechits, groupbyColumns=["eventInternal", "clus3D_id", "rechits_layer"], thresholdW0=thresholdW0)
 
     @cached_property
     def clusters3D_rechits_distanceToBarycenter_energyWeightedPerLayer(self):
@@ -722,7 +754,7 @@ class DataframeComputations:
         return (
             self.clusters3D_merged_rechits # Start from all rechits
             [["beamEnergy", "clus3D_size", "rechits_x", "rechits_y", "rechits_energy"]]
-            .join(self.clusters3D_computeBarycenter) # Broadcast per-layer informations back into rechit-level dataframe
+            .join(self.clusters3D_computeBarycenter()) # Broadcast per-layer informations back into rechit-level dataframe
             # Compute new columns. Using eval is slightly faster than doing it in Python (when df is very large, factor 2 gain in time)
             .eval("""
         rechits_distanceToBarycenter = sqrt((rechits_x - rechits_x_barycenter)**2 + (rechits_y - rechits_y_barycenter)**2)
