@@ -65,21 +65,21 @@ app.layout = html.Div([
             dcc.Dropdown(options=list(range(1, 29)), id="layer", value=1),
         ], style={"display":"flex", "flex-flow":"row"}),
     ], style={'flex': '0 1 auto'}),
-    dcc.Tabs([
-        dcc.Tab(label="3D view", children=[
+    dcc.Tabs(id="plot_tabs", children=[
+        dcc.Tab(label="3D view", value="3D_view", children=[
             dcc.Graph(id="plot_3D", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
                 scale=3.
             ))),
         ]),
-        dcc.Tab(label="Layer view", children=[
+        dcc.Tab(label="Layer view", value="layer_view", children=[
             dcc.Graph(id="plot_layer", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
                 scale=4.
             ))),
         ]),
-        dcc.Tab(label="Longitudinal profile", children=[
+        dcc.Tab(label="Longitudinal profile", value="longitudinal_profile", children=[
             dcc.Graph(id="plot_longitudinal-profile", style={"height":"100%"})
         ]),
-    ], parent_style={'flex': '1 1 auto'}, content_style={'flex': '1 1 auto'})
+    ], parent_style={'flex': '1 1 auto'}, content_style={'flex': '1 1 auto'}, value="3D_view")
     
 ], style={'display': 'flex', 'flex-flow': 'column', "height":"100vh"})
 
@@ -132,7 +132,7 @@ def makePlotLongitudinalProfile(event:LoadedEvent):
 
 
 @app.callback(
-    [Output("beamEnergy", "value"), Output("ntupleNumber", "value"), Output("event", "value")],
+    [Output("beamEnergy", "value"), Output("ntupleNumber", "value"), Output("event", "value"), Output("layer", "value"), Output("plot_tabs", "value")],
     [Input("url", "search")]
 )
 def simpleUrlUpdate(urlSearchValue):
@@ -140,7 +140,13 @@ def simpleUrlUpdate(urlSearchValue):
     print("simpleUrlUpdate", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
     try:
         parsed_url_query = urllib.parse.parse_qs(urlSearchValue[1:]) # Drop the leading "?"
-        return int(parsed_url_query["beamEnergy"][0]), int(parsed_url_query["ntuple"][0]), int(parsed_url_query["event"][0])
+        try:
+            layer_value = int(parsed_url_query["layer"][0])
+            plot_tabs_value = "layer_view"
+        except Exception:
+            layer_value = dash.no_update
+            plot_tabs_value = dash.no_update
+        return int(parsed_url_query["beamEnergy"][0]), int(parsed_url_query["ntuple"][0]), int(parsed_url_query["event"][0]), layer_value, plot_tabs_value
     except KeyError:
         raise PreventUpdate()
 
