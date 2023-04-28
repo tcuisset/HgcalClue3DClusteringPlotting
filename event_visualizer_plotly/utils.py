@@ -40,7 +40,7 @@ class EventLoader:
         return indexed_array
 
 
-    def _locateEvent(self, eventId:EventID) -> int|None:
+    def _locateEvent(self, eventId:EventID):
         """ Compute the index in the tree of the given event, using the event index """
         indexInSortedArray = np.searchsorted(self.eventIndex, np.array([(eventId.ntupleNumber, eventId.event, 0)], dtype=self._index_structured_dtype), side='right')[0]
         try:
