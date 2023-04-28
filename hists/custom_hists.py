@@ -62,6 +62,14 @@ class ImpactXY(MyHistogram):
         self.fillFromDf(comp.impactWithBeamEnergy)
 
 ############ MISC
+class EventsPerBeamEnergy(MyHistogram):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(beamEnergiesAxis(),
+            label="Event count per beam energy",
+            binCountLabel="Event count"
+        )
+    def loadFromComp(self, comp:DataframeComputations):
+        self.fillFromDf(comp.beamEnergy)
 class TrueBeamEnergy(MyHistogram):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(beamEnergiesAxis(),
@@ -1103,7 +1111,7 @@ class Clus3DImpactVsBarycenter(MyHistogram):
         )
     
     def loadFromComp(self, comp:DataframeComputations):
-        barycenter_df = comp.clusters3D_computeBarycenter
+        barycenter_df = comp.clusters3D_computeBarycenter()
         df = pd.merge(
             comp.clusters3D_energyClusteredPerLayer, comp.impact,
             left_on=["eventInternal", "clus2D_layer"],
