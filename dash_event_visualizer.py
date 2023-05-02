@@ -63,15 +63,16 @@ app.layout = html.Div([
             dcc.Dropdown(id="event", style={'flex': '1 1 auto'}),
             html.Div("Layer (for layer view) :"),
             dcc.Dropdown(options=list(range(1, 29)), id="layer", value=1),
+            dcc.Clipboard(id="link-copy-clipboard", title="Copy link", content="abc"),
         ], style={"display":"flex", "flex-flow":"row"}),
     ], style={'flex': '0 1 auto'}),
     dcc.Tabs(id="plot_tabs", children=[
-        dcc.Tab(label="3D view", value="3D_view", children=[
+        dcc.Tab(label="3D view", value="3D", children=[
             dcc.Graph(id="plot_3D", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
                 scale=3.
             ))),
         ]),
-        dcc.Tab(label="Layer view", value="layer_view", children=[
+        dcc.Tab(label="Layer view", value="layer", children=[
             dcc.Graph(id="plot_layer", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
                 scale=4.
             ))),
@@ -79,7 +80,7 @@ app.layout = html.Div([
         dcc.Tab(label="Longitudinal profile", value="longitudinal_profile", children=[
             dcc.Graph(id="plot_longitudinal-profile", style={"height":"100%"})
         ]),
-    ], parent_style={'flex': '1 1 auto'}, content_style={'flex': '1 1 auto'}, value="3D_view")
+    ], parent_style={'flex': '1 1 auto'}, content_style={'flex': '1 1 auto'}, value="3D")
     
 ], style={'display': 'flex', 'flex-flow': 'column', "height":"100vh"})
 
@@ -141,14 +142,29 @@ def simpleUrlUpdate(urlSearchValue):
     try:
         parsed_url_query = urllib.parse.parse_qs(urlSearchValue[1:]) # Drop the leading "?"
         try:
-            layer_value = int(parsed_url_query["layer"][0])
-            plot_tabs_value = "layer_view"
-        except Exception:
-            layer_value = dash.no_update
+            plot_tabs_value = parsed_url_query["tab"][0]
+        except:
             plot_tabs_value = dash.no_update
+        try:
+            layer_value = int(parsed_url_query["layer"][0])
+        except:
+            layer_value = dash.no_update
+
         return int(parsed_url_query["beamEnergy"][0]), int(parsed_url_query["ntuple"][0]), int(parsed_url_query["event"][0]), layer_value, plot_tabs_value
     except KeyError:
         raise PreventUpdate()
+
+@app.callback(
+    Output("link-copy-clipboard", "content"),
+    [   Input("link-copy-clipboard", "n_clicks"), State("url", "href"),
+        State("beamEnergy", "value"), State("ntupleNumber", "value"), State("event", "value"), State("layer", "value"), State("plot_tabs", "value")
+    ]
+)
+def updateLinkClipboard(_, href, beamEnergy, ntuple, event, layer, plot_tab):
+    url_tuple = urllib.parse.urlparse(href)
+    url_query = dict(beamEnergy=beamEnergy, ntuple=ntuple, event=event, layer=layer, tab=plot_tab)
+    new_url_tuple = url_tuple._replace(query=urllib.parse.urlencode(url_query)) # namedtuple are immutable
+    return urllib.parse.urlunparse(new_url_tuple)
 
 @cache.memoize(timeout=60*5) # cache for 5 minutes 
 def loadEvent(ntuple, eventNb) -> LoadedEvent:
