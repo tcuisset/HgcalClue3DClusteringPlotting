@@ -47,11 +47,10 @@ class LayerVisualization(BaseVisualization):
         return self.rechits_df_onLayer.rechits_energy.max()
     
     def add2DClusters(self):
-        def scaleClus2DMarkerSize(size):
-            return np.clip(size*3, 8, 70, )
+        clus2DMarkerSizeScale = MarkerSizeLogScaler(self.clus2D_df.clus2D_energy, maxMarkerSize=50, minMarkerSize=15)
         for clus3D_id, grouped_df in self.clus2D_df_onLayer.groupby("clus3D_id", dropna=False):
             if math.isnan(clus3D_id):
-                clus3D_id_symbol = next(self.clus3D_symbols_outlier_2Dview)
+                clus3D_id_symbol = list(itertools.islice(self.clus3D_symbols_outlier_2Dview, grouped_df.shape[0]))
             else:
                 clus3D_id_symbol = self.mapClus3Did_symbol_2Dview[clus3D_id]
             
@@ -66,7 +65,7 @@ class LayerVisualization(BaseVisualization):
                     color=grouped_df.index.map(self.mapClus2Did_color),
                     line_color="black",
                     line_width=2, # Does not work on some graphics cards
-                    size=scaleClus2DMarkerSize(grouped_df["clus2D_size"]),
+                    size=clus2DMarkerSizeScale.scale(grouped_df["clus2D_energy"]),
                 ),
                 customdata=np.dstack((grouped_df.clus2D_energy, grouped_df.clus2D_rho, grouped_df.clus2D_delta,
                     grouped_df.clus2D_pointType.map({0:"Follower", 1:"Seed", 2:"Outlier"})))[0],

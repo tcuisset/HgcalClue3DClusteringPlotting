@@ -38,18 +38,6 @@ class Clue3DVisualization(BaseVisualization):
                 x=xLeft,
                 **updatemenu_kwargs
             ),
-            go.layout.Updatemenu(
-                buttons=[
-                    go.layout.updatemenu.Button(
-                        label=f"Outer rim width: {outerRimWidth}",
-                        method="restyle", # We should use the traceIndices parameter as well for performance : https://plotly.com/javascript/plotlyjs-function-reference/#plotlyrestyle
-                        args=[{"marker.line.width" : outerRimWidth}], # the dot notation is needed
-                    )
-                for outerRimWidth in [1, 3, 5, 7, 10, 15, 20, 40, 100, 300]],
-                active=1,
-                x=xLeft+0.15,
-                **updatemenu_kwargs
-            ),
         ])
         return self
 
@@ -75,7 +63,7 @@ class Clue3DVisualization(BaseVisualization):
         markerSizeScale = MarkerSizeLogScaler(self.clus2D_df.clus2D_energy, maxMarkerSize=14, minMarkerSize=3)
         for clus3D_id, grouped_df in self.clus2D_df.groupby("clus3D_id", dropna=False):
             if math.isnan(clus3D_id):
-                clus3D_id_symbol = next(self.clus3D_symbols_outlier_3Dview)
+                clus3D_id_symbol = list(itertools.islice(self.clus3D_symbols_outlier_3Dview, grouped_df.shape[0]))
             else:
                 clus3D_id_symbol = self.mapClus3Did_symbol_3Dview[clus3D_id]
             
