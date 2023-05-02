@@ -62,7 +62,7 @@ app.layout = html.Div([
             html.Div("Event :", style=legendDivStyle),
             dcc.Dropdown(id="event", style={'flex': '1 1 auto'}),
             html.Div("Layer (for layer view) :"),
-            dcc.Dropdown(options=list(range(1, 29)), id="layer", value=1),
+            html.Div(dcc.Slider(min=1, max=28, step=1, value=10, id="layer"), style={"flex":"10 10 auto"}),
             dcc.Clipboard(id="link-copy-clipboard", title="Copy link", content="abc"),
         ], style={"display":"flex", "flex-flow":"row"}),
     ], style={'flex': '0 1 auto'}),
