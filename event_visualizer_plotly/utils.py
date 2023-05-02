@@ -234,7 +234,7 @@ class BaseVisualization:
             .set_index("rechits_id")
             .pipe(makeCumulativeEnergy, prefix="rechits")
         )
-        return final_df.join(final_df[["rechits_x", "rechits_y", "rechits_z"]], on=["rechits_nearestHigher"], rsuffix="_ofNearestHigher")
+        return final_df.join(final_df[["rechits_x", "rechits_y", "rechits_z", "rechits_energy"]], on=["rechits_nearestHigher"], rsuffix="_ofNearestHigher")
 
     @property
     def impact_df(self) -> pd.DataFrame:
@@ -313,6 +313,8 @@ class MarkerSizeLogScaler:
 
     def scale(self, series:pd.Series):
         return (self._b * (np.log(series) - self._ln_a)).clip(lower=1)
+    def scaleSingleValue(self, val:float):
+        return max(1, self._b * (np.log(val) - self._ln_a))
     
 
 def makeCylinderCoordinates(r, h, axisX=0, axisY=0, z0=0, nt=100, nv =50):

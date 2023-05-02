@@ -108,6 +108,8 @@ class LayerVisualization(BaseVisualization):
                     #"Size : %{marker.size}"
                 )
             ))
+
+            # Plot arrows from follower to nearest higher
             for row in grouped_df.dropna(subset=["rechits_x_ofNearestHigher"]).itertuples(index=False):
                 if row.rechits_pointType != 0:
                     # Drop non-followers 
@@ -126,7 +128,7 @@ class LayerVisualization(BaseVisualization):
                         color=self.mapClus2Did_color(index[1]),
                         size=10,
                         angleref="previous",
-                        #standoff=8,
+                        standoff=0.3*markerSizeScale.scaleSingleValue(row.rechits_energy_ofNearestHigher),
                     ),
                     line_width=max(1, math.log(row.rechits_cumulativeEnergy/0.01)), #line width in pixels
                 ))
