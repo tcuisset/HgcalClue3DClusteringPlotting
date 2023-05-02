@@ -72,8 +72,13 @@ class Clue3DVisualization(BaseVisualization):
 
     def add2DClusters(self):
         showLegend = True
-        markerSizeScale = MarkerSizeLogScaler(self.clus2D_df.clus2D_energy, maxMarkerSize=30)
+        markerSizeScale = MarkerSizeLogScaler(self.clus2D_df.clus2D_energy, maxMarkerSize=14, minMarkerSize=3)
         for clus3D_id, grouped_df in self.clus2D_df.groupby("clus3D_id", dropna=False):
+            if math.isnan(clus3D_id):
+                clus3D_id_symbol = next(self.clus3D_symbols_outlier_3Dview)
+            else:
+                clus3D_id_symbol = self.mapClus3Did_symbol_3Dview[clus3D_id]
+            
             self.fig.add_trace(go.Scatter3d(
                 mode="markers",
                 legendgroup="cluster2D",
@@ -81,14 +86,11 @@ class Clue3DVisualization(BaseVisualization):
                 name=f"Trackster nb {clus3D_id}",
                 x=grouped_df["clus2D_x"], y=grouped_df["clus2D_y"], z=grouped_df["clus2D_z"], 
                 marker=dict(
-                    symbol="circle",
+                    symbol=clus3D_id_symbol,
                     color=self.clus2D_df.index.to_series().map(self.mapClus2Did_color),
-                    #size=grouped_df["clus2D_size"],
+                    line_color="black",
+                    line_width=2, # Does not work on some graphics cards
                     size=markerSizeScale.scale(grouped_df["clus2D_energy"]),
-                    line=dict(
-                        color=self.mapClus3Did_color(clus3D_id),
-                        width=3
-                    ),
                 ),
                 customdata=np.dstack((grouped_df.clus2D_energy, grouped_df.clus2D_rho, grouped_df.clus2D_delta,
                     grouped_df.clus2D_pointType.map({0:"Follower", 1:"Seed", 2:"Outlier"}),
@@ -130,7 +132,7 @@ class Clue3DVisualization(BaseVisualization):
         
     def addRechits(self):
         showLegend = True
-        markerSizeScale = MarkerSizeLogScaler(self.rechits_df.rechits_energy, maxMarkerSize=25, minMarkerSize=1)
+        markerSizeScale = MarkerSizeLogScaler(self.rechits_df.rechits_energy, maxMarkerSize=15, minMarkerSize=1)
         for index, grouped_df in self.rechits_df.groupby(by=["clus3D_id", "clus2D_id"], dropna=False):
             self.fig.add_trace(go.Scatter3d(
                 mode="markers",

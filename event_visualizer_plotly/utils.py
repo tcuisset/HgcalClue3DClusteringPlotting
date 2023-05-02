@@ -1,5 +1,6 @@
 import math
 import collections
+import itertools
 from functools import cached_property
 
 import uproot
@@ -134,6 +135,14 @@ class BaseVisualization:
         #self.fig.update_layout(legend=dict(groupclick="togglegroup"))
         self.event:LoadedEvent = event
 
+        self.clus3D_symbols_3Dview = itertools.cycle(['diamond', 'cross', 'square', 'x', 'circle'])
+        self.clus3D_symbols_2Dview = itertools.cycle(["diamond", "cross", "square", "pentagon", "star", "star-triangle-up", "star-square", "hourglass", "hexagram", "star-diamond", "circle-cross", "diamond-tall", "square-cross"])
+        self.clus3D_symbols_outlier_3Dview = itertools.cycle([ 'circle-open', 'square-open', 'diamond-open'])
+        self.clus3D_symbols_outlier_2Dview = itertools.cycle(["diamond-open-dot", "cross-open-dot", "pentagon-open-dot", "star-open-dot", "start-square-open-dot", "heaxagram-open-dot", "diamond-tall-open-dot", "diamond-wide-open-dot", "hash-open-dot"])
+        
+        self.mapClus3Did_symbol_3Dview = {clus3D_id : next(self.clus3D_symbols_3Dview) for clus3D_id in self.clus3D_ids}
+        self.mapClus3Did_symbol_2Dview = {clus3D_id : next(self.clus3D_symbols_2Dview) for clus3D_id in self.clus3D_ids}
+
     @cached_property
     def clus3D_df(self):
         return (ak.to_dataframe(self.event.record[
@@ -142,6 +151,11 @@ class BaseVisualization:
             levelname=lambda i : {0:"clus3D_id"}[i])
         ).reset_index().set_index("clus3D_id") # Transform a MultiIndex with one level to a regular index
     
+    @property
+    def clus3D_ids(self) -> list[int]:
+        """ Get list of 3D clusters ids in current event (not including NaN)"""
+        return self.clus3D_df.index.get_level_values("clus3D_id").drop_duplicates().to_list()
+
     #Note that in the dataframes event is not the same as the "event number" in the ntuples
     @cached_property
     def clus2D_df(self):
@@ -170,6 +184,10 @@ class BaseVisualization:
         )
         return clus3D_merged.join(clus3D_merged[["clus2D_x", "clus2D_y", "clus2D_z"]], on="clus2D_nearestHigher", rsuffix="_ofNearestHigher")
 
+    @property
+    def clus2D_ids(self) -> list[int]:
+        """ Get list of 2D clusters ids in current event (not including NaN)"""
+        return self.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()
 
     @cached_property
     def rechits_df(self) -> pd.DataFrame:

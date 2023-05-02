@@ -26,12 +26,10 @@ class LayerVisualization(BaseVisualization):
         )
 
         color_cycle = itertools.cycle(px.colors.qualitative.Plotly)
-        self.mapClus3Did_color = NaNColorMap(
-            {clus3D_id : next(color_cycle) for clus3D_id in self.clus3D_df.index.get_level_values("clus3D_id").drop_duplicates().to_list()},
-            next(color_cycle))
         self.mapClus2Did_color = NaNColorMap(
-            {clus2D_id : next(color_cycle) for clus2D_id in self.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()},
-            next(color_cycle))
+            {clus2D_id : next(color_cycle) for clus2D_id in self.clus2D_ids},
+            next(color_cycle)
+        )
 
     @property
     def rechits_df_onLayer(self) -> pd.DataFrame:
@@ -49,7 +47,14 @@ class LayerVisualization(BaseVisualization):
         return self.rechits_df_onLayer.rechits_energy.max()
     
     def add2DClusters(self):
+        def scaleClus2DMarkerSize(size):
+            return np.clip(size*3, 8, 70, )
         for clus3D_id, grouped_df in self.clus2D_df_onLayer.groupby("clus3D_id", dropna=False):
+            if math.isnan(clus3D_id):
+                clus3D_id_symbol = next(self.clus3D_symbols_outlier_2Dview)
+            else:
+                clus3D_id_symbol = self.mapClus3Did_symbol_2Dview[clus3D_id]
+            
             self.fig.add_trace(go.Scatter(
                 mode="markers",
                 legendgroup="cluster2D",
@@ -57,13 +62,11 @@ class LayerVisualization(BaseVisualization):
                 name=f"Trackster nb {clus3D_id}",
                 x=grouped_df["clus2D_x"], y=grouped_df["clus2D_y"],
                 marker=dict(
-                    symbol="circle",
+                    symbol=clus3D_id_symbol,
                     color=grouped_df.index.map(self.mapClus2Did_color),
-                    size=grouped_df["clus2D_size"],
-                    line=dict(
-                        color=self.mapClus3Did_color(clus3D_id),
-                        width=3.
-                    )
+                    line_color="black",
+                    line_width=2, # Does not work on some graphics cards
+                    size=scaleClus2DMarkerSize(grouped_df["clus2D_size"]),
                 ),
                 customdata=np.dstack((grouped_df.clus2D_energy, grouped_df.clus2D_rho, grouped_df.clus2D_delta,
                     grouped_df.clus2D_pointType.map({0:"Follower", 1:"Seed", 2:"Outlier"})))[0],
