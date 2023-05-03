@@ -118,7 +118,10 @@ class Clue3DVisualization(BaseVisualization):
                 showLegend = False
         return self
         
-    def addRechits(self):
+    def addRechits(self, hiddenByDefault=False):
+        additional_trace_kwargs = dict()
+        if hiddenByDefault:
+            additional_trace_kwargs["visible"] = 'legendonly'
         showLegend = True
         markerSizeScale = MarkerSizeLogScaler(self.rechits_df.rechits_energy, maxMarkerSize=15, minMarkerSize=1)
         for index, grouped_df in self.rechits_df.groupby(by=["clus3D_id", "clus2D_id"], dropna=False):
@@ -142,7 +145,8 @@ class Clue3DVisualization(BaseVisualization):
                     "Layer : %{customdata[4]}<br>"
                     "Energy: %{customdata[0]:.2g} GeV<br>Rho: %{customdata[1]:.2g} GeV<br>"
                     "Delta: %{customdata[2]:.2g} cm"
-                )
+                ),
+                **additional_trace_kwargs
             ))
             for row in grouped_df.dropna(subset="rechits_x_ofNearestHigher").itertuples(index=False):
                 if row.rechits_pointType != 0:
@@ -155,8 +159,10 @@ class Clue3DVisualization(BaseVisualization):
                         legendgroup="rechits_chain",
                         showlegend=showLegend,
                         line_width=max(1, math.log(row.rechits_cumulativeEnergy/0.01)), #line width in pixels
+                        **additional_trace_kwargs,
                     ), dictCone=dict(
-                        legendgroup="rechits_chain"
+                        legendgroup="rechits_chain",
+                        **additional_trace_kwargs,
                     ),
                     color=self.mapClus2Did_color(index[1]),
                     )
