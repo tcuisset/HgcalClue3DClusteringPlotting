@@ -58,7 +58,10 @@ if (clueInputFile is None and clueInputFolder is None) or (clueInputFile is not 
 # Discover clue-params and datatypes
 availableSamples = collections.defaultdict(dict) # dict clueParam -> dict : datatype -> EventLoader
 if clueInputFolder is not None:
-    paths = glob.glob(os.path.join('*',      '*',  'CLUE_clusters.root'), root_dir=clueInputFolder)
+    curdir = os.getcwd()
+    os.chdir(clueInputFolder) # using glob root_dir option is only available from Python 3.10
+    paths = glob.glob(os.path.join('*',      '*',  'CLUE_clusters.root')) # , root_dir=clueInputFolder
+    os.chdir(curdir)
     for path in paths:
         folderPath, _ = os.path.split(path) # folderPath = clueParams/datatype, _=CLUE_clusters.root
         clueParam, datatype = os.path.split(folderPath)
