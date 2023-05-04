@@ -45,8 +45,14 @@ def divideByBeamEnergy(df:pd.DataFrame, colName:str) -> pd.DataFrame:
 
 
 class DataframeComputations:
-    def __init__(self, tree_array:ak.Array) -> None:
+    def __init__(self, tree_array:ak.Array, rechits_columns=["beamEnergy", "rechits_x", "rechits_y", "rechits_z", "rechits_energy", "rechits_layer",
+            "rechits_rho", "rechits_delta", "rechits_nearestHigher", "rechits_pointType"]) -> None:
+        """ Parameters : 
+         - tree_array : an awkward Array of events data
+         - rechits_columns : columns loaded when calling rechits 
+        """
         self.array = tree_array
+        self.rechits_columns = rechits_columns
     
     @cached_property
     def ntupleEvent(self) -> pd.DataFrame:
@@ -124,8 +130,7 @@ class DataframeComputations:
         Columns : eventInternal  rechits_id  beamEnergy	rechits_x	rechits_y	rechits_z	rechits_energy	rechits_layer	rechits_rho	rechits_delta rechits_nearestHigher rechits_pointType  
         MultiIndex : (eventInternal, rechits_id)
         """
-        return self.rechits_custom(["beamEnergy", "rechits_x", "rechits_y", "rechits_z", "rechits_energy", "rechits_layer",
-            "rechits_rho", "rechits_delta", "rechits_nearestHigher", "rechits_pointType"])
+        return self.rechits_custom(self.rechits_columns)
 
     @cached_property
     def rechits_totalReconstructedEnergyPerEvent(self) -> pd.DataFrame:

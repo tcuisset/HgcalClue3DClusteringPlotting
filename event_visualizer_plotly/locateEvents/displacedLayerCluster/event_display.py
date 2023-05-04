@@ -10,11 +10,11 @@ from event_visualizer_plotly.locateEvents.sample_chooser import EventDisplayList
 
 def loadEventFromDf_iloc(df, index, eventLoader) -> tuple[LoadedEvent, int]:
     """ Returns LoadedEvent, layerNb tuple. index is integer index starting from 0 into df (uses iloc) """
-    return eventLoader.loadEvent(EventID(df.ntupleNumber.iloc[index], df.event.iloc[index])), df.clus2D_layer.iloc[index]
+    return eventLoader.loadEvent(EventID(df.beamEnergy.iloc[index], df.ntupleNumber.iloc[index], df.event.iloc[index])), df.clus2D_layer.iloc[index]
 
 def loadEventFromDf_loc(df, index, eventLoader) -> tuple[LoadedEvent, int]:
     """ Returns LoadedEvent, layerNb tuple. index is eventInternal """
-    return eventLoader.loadEvent(EventID(df.ntupleNumber.loc[index], df.event.loc[index])), df.clus2D_layer.loc[index]
+    return eventLoader.loadEvent(EventID(df.beamEnergy.loc[index], df.ntupleNumber.loc[index], df.event.loc[index])), df.clus2D_layer.loc[index]
 
 
 def plotEventLayer(event, layer):
