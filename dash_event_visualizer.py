@@ -86,7 +86,7 @@ cache = flask_caching.Cache(app.server, config={
 
 legendDivStyle = {'flex': '0 1 auto', 'margin':"10px"}
 dropdownStyle = {'flex': '1 1 auto'}
-app.layout = html.Div([
+app.layout = html.Div([ # Outer Div
     html.Div([
         dcc.Location(id="url", refresh=False), # For some reason  "callback-nav" works but False does not
         dcc.Store(id="signal-event-ready"),
@@ -105,25 +105,30 @@ app.layout = html.Div([
             html.Div("Layer (for layer view) :"),
             html.Div(dcc.Slider(min=1, max=28, step=1, value=10, id="layer"), style={"flex":"10 10 auto"}),
             dcc.Clipboard(id="link-copy-clipboard", title="Copy link", content="abc"),
-        ], style={"display":"flex", "flex-flow":"row"}),
+        ], style={"display":"flex", "flexFlow":"row"}),
     ], style={'flex': '0 1 auto'}),
-    dcc.Tabs(id="plot_tabs", children=[
-        dcc.Tab(label="3D view", value="3D", children=[
-            dcc.Graph(id="plot_3D", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
-                scale=3.
-            ))),
-        ]),
-        dcc.Tab(label="Layer view", value="layer", children=[
-            dcc.Graph(id="plot_layer", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
-                scale=4.
-            ))),
-        ]),
-        dcc.Tab(label="Longitudinal profile", value="longitudinal_profile", children=[
-            dcc.Graph(id="plot_longitudinal-profile", style={"height":"100%"})
-        ]),
-    ], parent_style={'flex': '1 1 auto'}, content_style={'flex': '1 1 auto'}, value="3D")
+    dcc.Loading(
+        dcc.Tabs(id="plot_tabs", children=[
+            dcc.Tab(label="3D view", value="3D", children=[
+                dcc.Graph(id="plot_3D", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
+                    scale=3.
+                ))),
+            ]),
+            dcc.Tab(label="Layer view", value="layer", children=[
+                dcc.Graph(id="plot_layer", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
+                    scale=4.
+                ))),
+            ]),
+            dcc.Tab(label="Longitudinal profile", value="longitudinal_profile", children=[
+                dcc.Graph(id="plot_longitudinal-profile", style={"height":"100%"})
+            ]),
+        ], parent_style={"height":"100%"}, # Use whole height of Loading div (not sure why this is needed, but without it it does not work)
+        content_style={'flex': '1 1 auto'}, # Have tab content flex vertically inside [tab header, tab content] div
+        value="3D"),
+    parent_style={'flex': '1 1 auto'}
+    ),
     
-], style={'display': 'flex', 'flex-flow': 'column', "height":"100vh"})
+], style={'display': 'flex', 'flexFlow': 'column', "height":"100vh"})
 
 class FullEventID(collections.namedtuple("FullEventID", ["clueParam", "datatype", "beamEnergy", "ntupleNumber", "event"], defaults=[None]*5)):
     @classmethod
