@@ -84,6 +84,38 @@ cache = flask_caching.Cache(app.server, config={
     "CACHE_DIR":"./.cache"
 })
 
+eventVisInstructions = dcc.Markdown('''
+# CLUE3D event visualizer
+## Selecting an event
+Fill in all dropdowns from left to right to select an event
+
+clueParams : settings of CLUE and CLUE3D algorithms (cmssw is nearly the same parameters as in CMSSW)
+
+## Using the 3D view
+### Moving around
+Hold right-click and drag to rotate
+
+Hold left-click and drag to move
+
+### Legend
+You can click on legend elements (in right menu) to show or hide them.
+For example, you can click on "Rechits" and on "Rechits chain" to hide all rechits-related information ("Rechits chain" selects the arrows of nearest higher chain from CLUE)
+
+### Aspect ratio
+The dropdown called "aspect ratio Z" increases the z axis factor for better visibility in the 3D view.
+Setting it to 1 would correspond to a "true" 3D view.
+
+## Layer view
+Select the layer using the slider at top right
+
+## Longitudinal profile
+Histogram of energy distribution per layer in the current event
+Overlaid are diistribution for rechits (blue) and CLUE (red, taking only rechits that are members of a layer cluster)
+
+## Save a link to a specific event
+Click the clipboard button at the very top right, it will save a direct link to the current event in the clipboard
+''')
+
 legendDivStyle = {'flex': '0 1 auto', 'margin':"10px"}
 dropdownStyle = {'flex': '1 1 auto'}
 app.layout = html.Div([ # Outer Div
@@ -91,7 +123,6 @@ app.layout = html.Div([ # Outer Div
         dcc.Location(id="url", refresh=False), # For some reason  "callback-nav" works but False does not
         dcc.Store(id="signal-event-ready"),
 
-        html.H1(children='CLUE3D event visualizer (right-click to rotate, left-click to move)'),
         html.Div(children=[
             html.Div("ClueParams :", style=legendDivStyle),
             dcc.Dropdown(options=clueParamsList, id="clueParam", style=dropdownStyle),
@@ -122,9 +153,10 @@ app.layout = html.Div([ # Outer Div
             dcc.Tab(label="Longitudinal profile", value="longitudinal_profile", children=[
                 dcc.Graph(id="plot_longitudinal-profile", style={"height":"100%"})
             ]),
+            dcc.Tab(label="Instructions", children=eventVisInstructions, value="instructions"),
         ], parent_style={"height":"100%"}, # Use whole height of Loading div (not sure why this is needed, but without it it does not work)
         content_style={'flex': '1 1 auto'}, # Have tab content flex vertically inside [tab header, tab content] div
-        value="3D"),
+        value="instructions"),
     parent_style={'flex': '1 1 auto'}
     ),
     
@@ -238,7 +270,7 @@ def simpleUrlUpdate(urlSearchValue):
         try:
             plot_tabs_value = parsed_url_query["tab"][0]
         except:
-            plot_tabs_value = dash.no_update
+            plot_tabs_value = "3D" # open 3D view by default
         try:
             layer_value = int(parsed_url_query["layer"][0])
         except:
