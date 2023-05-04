@@ -64,7 +64,7 @@ if clueInputFolder is not None:
         clueParam, datatype = os.path.split(folderPath)
         availableSamples[clueParam][datatype] = EventLoader(os.path.join(clueInputFolder, path))
 else:
-    availableSamples["N/A"].append(("N/A", EventLoader(clueInputFile)))
+    availableSamples["N/A"]["N/A"] = EventLoader(clueInputFile)
 availableSamples:dict[str, dict[str, EventLoader]] = dict(availableSamples) # transform from defaultdict to dict to avoid accidentally adding keys
 
 clueParamsList = list(availableSamples.keys())
