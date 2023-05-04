@@ -1,5 +1,5 @@
 APP_MODULE=dash_event_visualizer:server
 PORT=8080
 HOST=0.0.0.0
-CLUE_INPUT_FILE=/eos/user/t/tcuisset/hgcal/testbeam18-clue3d/v33/cmssw/data/CLUE_clusters.root
+CLUE_INPUT_FOLDER=/eos/user/t/tcuisset/hgcal/testbeam18-clue3d/v33/
 WEB_CONCURRENCY=1
