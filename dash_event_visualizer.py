@@ -125,10 +125,10 @@ app.layout = html.Div([ # Outer Div
 
         html.Div(children=[
             html.Div("ClueParams :", style=legendDivStyle),
-            dcc.Dropdown(options=clueParamsList, id="clueParam", style=dropdownStyle),
-            dcc.Dropdown(id="datatype", style={"width":"200px"}),
+            dcc.Dropdown(options=clueParamsList, id="clueParam", style=dropdownStyle, value="cmssw"),
+            dcc.Dropdown(id="datatype", style={"width":"200px"}, value="data"),
             html.Div("Beam energy (GeV) :", style=legendDivStyle),
-            dcc.Dropdown(options=beamEnergies, value=20, id="beamEnergy", style=dropdownStyle),
+            dcc.Dropdown(options=beamEnergies, value=None, id="beamEnergy", style=dropdownStyle),
             html.Div("Ntuple number :", style=legendDivStyle),
             dcc.Dropdown(id="ntupleNumber", style=dropdownStyle),
             html.Div("Event :", style=legendDivStyle),
@@ -208,6 +208,7 @@ def update_ntupleNumber(clueParam, datatype, beamEnergy):
         ntuple_energy_pairs = availableSamples[clueParam][datatype].ntuplesEnergies
         return list(ntuple_energy_pairs.ntupleNumber[ntuple_energy_pairs.beamEnergy == beamEnergy])
     except:
+        print("fail")
         return []
 
 @app.callback(
