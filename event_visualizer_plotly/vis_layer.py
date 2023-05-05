@@ -121,7 +121,7 @@ class LayerVisualization(BaseVisualization):
                 x1, x2, y1, y2 = row.rechits_x, row.rechits_x_ofNearestHigher, row.rechits_y, row.rechits_y_ofNearestHigher,
                 self.fig.add_traces(go.Scatter(
                     mode="markers+lines",
-                    name="Rechits chain",
+                    name="Rechits chain<br>of nearest higher",
                     legendgroup="rechits_chain",
                     showlegend=showLegend,
                     hoverinfo='skip',
@@ -140,18 +140,47 @@ class LayerVisualization(BaseVisualization):
 
         return self
 
-    def addCircleSearchForComputingClusterPosition(self):
-        """ Draw a circle around each 2D cluster representing the search area for rechits to compute the 2D cluster position.
-        ie a circle centered on the maximum energy cell of the cluster and of radius sqrt(positionDeltaRho2) """
+    def _makeShapesCircleSearchForComputingClusterPosition(self) -> list[go.layout.Shape]:
         radius:float = math.sqrt(self.event.clueParameters["positionDeltaRho2"])
+        shapes = []
         # Find for each 2D cluster the rechit with the highest energy
         for row in self.rechits_df_onLayer.sort_values(["clus2D_id", "rechits_energy"], ascending=False).groupby("clus2D_id").first().itertuples():
             center = np.array([row.rechits_x, row.rechits_y])
 
-            self.fig.add_shape(type="circle", xref="x", yref="y", 
-                x0=center[0]-radius, x1=center[0]+radius, y0=center[1]-radius, y1=center[1]+radius)
+            shapes.append(go.layout.Shape(type="circle", xref="x", yref="y", 
+                x0=center[0]-radius, x1=center[0]+radius, y0=center[1]-radius, y1=center[1]+radius))
+        return shapes
+
+    def addCircleSearchForComputingClusterPosition(self):
+        """ Draw a circle around each 2D cluster representing the search area for rechits to compute the 2D cluster position.
+        ie a circle centered on the maximum energy cell of the cluster and of radius sqrt(positionDeltaRho2) """
+        for shape in self._makeShapesCircleSearchForComputingClusterPosition():
+            self.fig.add_shape(shape)
         return self
     
+    def addButtons(self):
+        self.fig.update_layout(updatemenus=[
+            go.layout.Updatemenu(
+                buttons=[
+                    go.layout.updatemenu.Button(
+                        label="Enable Circle for computing LC position",
+                        method="relayout",
+                        args=["shapes", [shape.to_plotly_json() for shape in self._makeShapesCircleSearchForComputingClusterPosition()]]
+                    ),
+                    go.layout.updatemenu.Button(
+                        label="Disable Circle for computing LC position",
+                        method="relayout",
+                        args=["shapes", []]
+                    )
+                ],
+                active=1,
+                x=0.8,
+                xanchor="left",
+                y=1.2,
+                yanchor="top",
+        )])
+        return self
+
     def addImpactPoint(self):
         impacts = self.event.impact_df[self.event.impact_df.layer == self.layerNb]
 

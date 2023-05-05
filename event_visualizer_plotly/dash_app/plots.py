@@ -23,7 +23,7 @@ def makePlotLayer(event:LoadedEvent, layer:int):
         .add2DClusters()
         .addRechits()
         .addImpactPoint()
-        .addCircleSearchForComputingClusterPosition()
+        .addButtons()
     ).fig
     fig.update_layout(dict(uirevision=1))
     return fig
