@@ -38,10 +38,10 @@ class LongitudinalProfileVisualization(BaseVisualization):
     
     def addClueProfile(self):
         self.fig.add_trace(go.Histogram(
-            x=self.clus2D_df.clus2D_layer,
-            y=self.clus2D_df.clus2D_energy,
+            x=self.event.clus2D_df.clus2D_layer,
+            y=self.event.clus2D_df.clus2D_energy,
             # needed otherwise plotly starts to rebin things
-            nbinsx=int(self.clus2D_df.clus2D_layer.max()-self.clus2D_df.clus2D_layer.min()+1), 
+            nbinsx=int(self.event.clus2D_df.clus2D_layer.max()-self.event.clus2D_df.clus2D_layer.min()+1), 
             name="CLUE energy sum",
             histfunc="sum", # needed !
             hovertemplate="Layer %{x}<br>Energy sum %{y} GeV"

@@ -29,14 +29,14 @@ class Clue3DVisualization(BaseVisualization):
 
         color_cycle = itertools.cycle(px.colors.qualitative.Plotly)
         self.mapClus3Did_color = NaNColorMap(
-            {clus3D_id : next(color_cycle) for clus3D_id in self.clus3D_df.index.get_level_values("clus3D_id").drop_duplicates().to_list()},
+            {clus3D_id : next(color_cycle) for clus3D_id in self.event.clus3D_df.index.get_level_values("clus3D_id").drop_duplicates().to_list()},
             next(color_cycle))
         
         color_list = px.colors.qualitative.Dark24.copy()
         discarded_color = color_list.pop(5) # black
         color_cycle = itertools.cycle(color_list)
         self.mapClus2Did_color = NaNColorMap(
-            {clus2D_id : next(color_cycle) for clus2D_id in self.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()},
+            {clus2D_id : next(color_cycle) for clus2D_id in self.event.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()},
             discarded_color)
 
         self.legendRanks = LegendRanks()
@@ -65,7 +65,7 @@ class Clue3DVisualization(BaseVisualization):
         Parameters : 
          - groupAllTracksters : if True, then a single legend entry will be shown for all tracksters. If False, each trackster has its individual legend entry
         """
-        markerSizeScale = MarkerSizeLogScaler(self.clus3D_df.clus3D_energy, maxMarkerSize=60, minMarkerSize=30)
+        markerSizeScale = MarkerSizeLogScaler(self.event.clus3D_df.clus3D_energy, maxMarkerSize=60, minMarkerSize=30)
         def makeTrace(df:pd.DataFrame):
             if groupAllTracksters:
                 legendArgs = dict(
@@ -98,11 +98,11 @@ class Clue3DVisualization(BaseVisualization):
                 )
             )
         if groupAllTracksters:
-            makeTrace(self.clus3D_df)
+            makeTrace(self.event.clus3D_df)
         else:
-            for i in range(self.clus3D_df.shape[0]):
+            for i in range(self.event.clus3D_df.shape[0]):
                 # Make a Dataframe with a single row (as go.Scatter3D wants arrays as inputs, even when there is only a single scatter point)
-                makeTrace(self.clus3D_df.iloc[i:i+1]) 
+                makeTrace(self.event.clus3D_df.iloc[i:i+1]) 
         return self
 
     def add2DClusters(self, chainAsIndividualGroup=False):
@@ -111,8 +111,8 @@ class Clue3DVisualization(BaseVisualization):
          - chainAsIndividualGroup : if True, the chain of 2D clusters will be toggleable separately. If False, it is grouped with all 3D clusters
         """
         showLegend = True
-        markerSizeScale = MarkerSizeLogScaler(self.clus2D_df.clus2D_energy, maxMarkerSize=14, minMarkerSize=3)
-        for clus3D_id, grouped_df in self.clus2D_df.groupby("clus3D_id", dropna=False):
+        markerSizeScale = MarkerSizeLogScaler(self.event.clus2D_df.clus2D_energy, maxMarkerSize=14, minMarkerSize=3)
+        for clus3D_id, grouped_df in self.event.clus2D_df.groupby("clus3D_id", dropna=False):
             if math.isnan(clus3D_id):
                 trace_dict = dict(
                     marker_symbol=list(itertools.islice(self.clus3D_symbols_outlier_3Dview, grouped_df.shape[0])),
@@ -134,7 +134,7 @@ class Clue3DVisualization(BaseVisualization):
                 legendgrouptitle_text="Layer clusters (LC)",
                 x=grouped_df["clus2D_x"], y=grouped_df["clus2D_y"], z=grouped_df["clus2D_z"], 
                 marker=dict(
-                    color=self.clus2D_df.index.to_series().map(self.mapClus2Did_color),
+                    color=self.event.clus2D_df.index.to_series().map(self.mapClus2Did_color),
                     line_color="black",
                     line_width=2, # Does not work on some graphics cards
                     size=markerSizeScale.scale(grouped_df["clus2D_energy"]),
@@ -196,7 +196,7 @@ class Clue3DVisualization(BaseVisualization):
         if hiddenByDefault:
             additional_trace_kwargs["visible"] = 'legendonly'
         showLegend = True
-        markerSizeScale = MarkerSizeLogScaler(self.rechits_df.rechits_energy, maxMarkerSize=15, minMarkerSize=1)
+        markerSizeScale = MarkerSizeLogScaler(self.event.rechits_df.rechits_energy, maxMarkerSize=15, minMarkerSize=1)
 
         def mapClus2DidToProps(clus2D_id:int) -> dict:
             prop_dict = dict(
@@ -211,7 +211,7 @@ class Clue3DVisualization(BaseVisualization):
                 prop_dict["marker_opacity"] = 0.6
             return prop_dict
 
-        for index, grouped_df in self.rechits_df.groupby(by=["clus3D_id", "clus2D_id"], dropna=False):
+        for index, grouped_df in self.event.rechits_df.groupby(by=["clus3D_id", "clus2D_id"], dropna=False):
             if math.isnan(index[1]): # LC nb is NaN
                 trace_dict = dict(
                     name="Discarded by CLUE",
@@ -276,7 +276,7 @@ class Clue3DVisualization(BaseVisualization):
 
 
     def addImpactTrajectory(self):
-        impacts = self.impact_df
+        impacts = self.event.impact_df
         self.fig.add_trace(go.Scatter3d(
             mode="lines",
             name="Impact from DWC",

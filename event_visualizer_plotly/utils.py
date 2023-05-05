@@ -154,6 +154,113 @@ class LoadedEvent:
         self.record:ak.Record = ak.to_packed(record) # Pack the event so reduces greatly the pickled size
         self.clueParameters = el.clueParameters
         self.clue3DParameters = el.clueParameters
+    
+    @cached_property
+    def clus3D_df(self):
+        return (ak.to_dataframe(self.record[
+            ["clus3D_x", "clus3D_y", "clus3D_z", "clus3D_energy", "clus3D_size"]
+            ], 
+            levelname=lambda i : {0:"clus3D_id"}[i])
+        ).reset_index().set_index("clus3D_id") # Transform a MultiIndex with one level to a regular index
+    
+    def clus3D_ids(self, sortDecreasingEnergy=False) -> list[int]:
+        """ Get list of 3D clusters ids in current event (not including NaN)"""
+        df = self.clus3D_df
+        if sortDecreasingEnergy:
+            df = df.sort_values("clus3D_energy", ascending=False)
+        return df.index.get_level_values("clus3D_id").drop_duplicates().to_list()
+
+    #Note that in the dataframes event is not the same as the "event number" in the ntuples
+    @cached_property
+    def clus2D_df(self):
+        clusters3D_withClus2Did = (ak.to_dataframe(
+                self.record[["clus3D_idxs"]],
+                levelname=lambda i : {0:"clus3D_id", 1:"clus2D_internal_id"}[i]
+            )
+            # clus2D_internal_id is an identifier counting 2D clusters in each 3D cluster (it is NOT the same as clus2D_id, which is unique per event, whilst clus2D_internal_id is only unique per 3D cluster)
+            .reset_index(level="clus2D_internal_id", drop=True)
+            .rename(columns={"clus3D_idxs" : "clus2D_id"})
+            .reset_index()
+        )
+        clus3D_merged = (
+            pd.merge(
+                (ak.to_dataframe(self.record[["clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer", "clus2D_size",
+                    "clus2D_rho", "clus2D_delta", "clus2D_pointType", "clus2D_nearestHigher"]], 
+                        levelname=lambda i : {0:"clus2D_id"}[i])
+                    .reset_index()
+                ),
+                clusters3D_withClus2Did,
+                on="clus2D_id",
+                how="left"
+            )
+            .set_index("clus2D_id")
+            .pipe(makeCumulativeEnergy, prefix="clus2D")
+        )
+        return clus3D_merged.join(clus3D_merged[["clus2D_x", "clus2D_y", "clus2D_z"]], on="clus2D_nearestHigher", rsuffix="_ofNearestHigher")
+
+    @property
+    def clus2D_ids(self) -> list[int]:
+        """ Get list of 2D clusters ids in current event (not including NaN)"""
+        return self.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()
+
+    @cached_property
+    def rechits_df(self) -> pd.DataFrame:
+        """ Indexed by rechit_id. Left-joined to clusters2D and clusters3D (NaN if outlier) """
+        clusters2D_with_rechit_id = (
+            ak.to_dataframe(
+                self.record[[
+                    "clus2D_idxs", "clus2D_pointType"
+                ]], 
+                levelname=lambda i : {0:"clus2D_id", 1:"rechit_internal_id"}[i]
+            )
+            .reset_index(level="rechit_internal_id", drop=True)
+            .rename(columns={"clus2D_idxs" : "rechits_id"})
+            .reset_index()
+        )
+        clus2D_merged = pd.merge(
+            ak.to_dataframe(self.record[
+                ["rechits_x", "rechits_y", "rechits_z", "rechits_energy", "rechits_layer",
+                "rechits_rho", "rechits_delta", "rechits_nearestHigher", "rechits_pointType"]], 
+                levelname=lambda i : {0:"rechits_id"}[i]
+            ).reset_index(),
+            clusters2D_with_rechit_id,
+            on="rechits_id",
+            how="left",
+        )#.set_index("rechits_id")
+
+        clusters3D_withClus2DId = (
+            ak.to_dataframe(
+                self.record[["clus3D_idxs"]],
+                levelname=lambda i : {0:"clus3D_id", 1:"clus2D_internal_id"}[i]
+            )
+            # clus2D_internal_id is an identifier counting 2D clusters in each 3D cluster (it is NOT the same as clus2D_id, which is unique per event, whilst clus2D_internal_id is only unique per 3D cluster)
+            .reset_index(level="clus2D_internal_id", drop=True)
+            .rename(columns={"clus3D_idxs" : "clus2D_id"})
+            .reset_index()
+        )
+        final_df = (
+            pd.merge(
+                clus2D_merged,
+                clusters3D_withClus2DId,
+                on="clus2D_id",
+                how="left"
+            )
+            .set_index("rechits_id")
+            .pipe(makeCumulativeEnergy, prefix="rechits")
+        )
+        return final_df.join(final_df[["rechits_x", "rechits_y", "rechits_z", "rechits_energy"]], on=["rechits_nearestHigher"], rsuffix="_ofNearestHigher")
+
+    @property
+    def impact_df(self) -> pd.DataFrame:
+        """ Index : event (always 0)
+        Columns : layer impactX impactY impactZ (impactZ is mapped from layer)
+        Only rows which have a rechit in the event are kept"""
+        df = ak.to_dataframe(self.record[["impactX", "impactY"]],
+            levelname=lambda i : {0:"layer_minus_one"}[i]).reset_index()
+        df["layer"] = df["layer_minus_one"] + 1
+        df = df.drop("layer_minus_one", axis="columns")
+
+        return df.assign(impactZ=df.layer.map(hists.parameters.layerToZMapping)).dropna()
 
 def create3DFigure(title:str) -> go.Figure:
     fig = go.Figure(
@@ -217,115 +324,8 @@ class BaseVisualization:
         self.clus3D_symbols_outlier_3Dview = itertools.cycle([ 'circle-open', 'square-open', 'diamond-open'])
         self.clus3D_symbols_outlier_2Dview = itertools.cycle([ "cross-open-dot", "pentagon-open-dot", "star-open-dot", "start-square-open-dot", "diamond-open-dot", "heaxagram-open-dot", "diamond-tall-open-dot", "diamond-wide-open-dot", "hash-open-dot"])
         
-        self.mapClus3Did_symbol_3Dview = {clus3D_id : next(self.clus3D_symbols_3Dview) for clus3D_id in self.clus3D_ids(sortDecreasingEnergy=True)}
-        self.mapClus3Did_symbol_2Dview = {clus3D_id : next(self.clus3D_symbols_2Dview) for clus3D_id in self.clus3D_ids(sortDecreasingEnergy=True)}
-
-    @cached_property
-    def clus3D_df(self):
-        return (ak.to_dataframe(self.event.record[
-            ["clus3D_x", "clus3D_y", "clus3D_z", "clus3D_energy", "clus3D_size"]
-            ], 
-            levelname=lambda i : {0:"clus3D_id"}[i])
-        ).reset_index().set_index("clus3D_id") # Transform a MultiIndex with one level to a regular index
-    
-    def clus3D_ids(self, sortDecreasingEnergy=False) -> list[int]:
-        """ Get list of 3D clusters ids in current event (not including NaN)"""
-        df = self.clus3D_df
-        if sortDecreasingEnergy:
-            df = df.sort_values("clus3D_energy", ascending=False)
-        return df.index.get_level_values("clus3D_id").drop_duplicates().to_list()
-
-    #Note that in the dataframes event is not the same as the "event number" in the ntuples
-    @cached_property
-    def clus2D_df(self):
-        clusters3D_withClus2Did = (ak.to_dataframe(
-                self.event.record[["clus3D_idxs"]],
-                levelname=lambda i : {0:"clus3D_id", 1:"clus2D_internal_id"}[i]
-            )
-            # clus2D_internal_id is an identifier counting 2D clusters in each 3D cluster (it is NOT the same as clus2D_id, which is unique per event, whilst clus2D_internal_id is only unique per 3D cluster)
-            .reset_index(level="clus2D_internal_id", drop=True)
-            .rename(columns={"clus3D_idxs" : "clus2D_id"})
-            .reset_index()
-        )
-        clus3D_merged = (
-            pd.merge(
-                (ak.to_dataframe(self.event.record[["clus2D_x", "clus2D_y", "clus2D_z", "clus2D_energy", "clus2D_layer", "clus2D_size",
-                    "clus2D_rho", "clus2D_delta", "clus2D_pointType", "clus2D_nearestHigher"]], 
-                        levelname=lambda i : {0:"clus2D_id"}[i])
-                    .reset_index()
-                ),
-                clusters3D_withClus2Did,
-                on="clus2D_id",
-                how="left"
-            )
-            .set_index("clus2D_id")
-            .pipe(makeCumulativeEnergy, prefix="clus2D")
-        )
-        return clus3D_merged.join(clus3D_merged[["clus2D_x", "clus2D_y", "clus2D_z"]], on="clus2D_nearestHigher", rsuffix="_ofNearestHigher")
-
-    @property
-    def clus2D_ids(self) -> list[int]:
-        """ Get list of 2D clusters ids in current event (not including NaN)"""
-        return self.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()
-
-    @cached_property
-    def rechits_df(self) -> pd.DataFrame:
-        """ Indexed by rechit_id. Left-joined to clusters2D and clusters3D (NaN if outlier) """
-        clusters2D_with_rechit_id = (
-            ak.to_dataframe(
-                self.event.record[[
-                    "clus2D_idxs", "clus2D_pointType"
-                ]], 
-                levelname=lambda i : {0:"clus2D_id", 1:"rechit_internal_id"}[i]
-            )
-            .reset_index(level="rechit_internal_id", drop=True)
-            .rename(columns={"clus2D_idxs" : "rechits_id"})
-            .reset_index()
-        )
-        clus2D_merged = pd.merge(
-            ak.to_dataframe(self.event.record[
-                ["rechits_x", "rechits_y", "rechits_z", "rechits_energy", "rechits_layer",
-                "rechits_rho", "rechits_delta", "rechits_nearestHigher", "rechits_pointType"]], 
-                levelname=lambda i : {0:"rechits_id"}[i]
-            ).reset_index(),
-            clusters2D_with_rechit_id,
-            on="rechits_id",
-            how="left",
-        )#.set_index("rechits_id")
-
-        clusters3D_withClus2DId = (
-            ak.to_dataframe(
-                self.event.record[["clus3D_idxs"]],
-                levelname=lambda i : {0:"clus3D_id", 1:"clus2D_internal_id"}[i]
-            )
-            # clus2D_internal_id is an identifier counting 2D clusters in each 3D cluster (it is NOT the same as clus2D_id, which is unique per event, whilst clus2D_internal_id is only unique per 3D cluster)
-            .reset_index(level="clus2D_internal_id", drop=True)
-            .rename(columns={"clus3D_idxs" : "clus2D_id"})
-            .reset_index()
-        )
-        final_df = (
-            pd.merge(
-                clus2D_merged,
-                clusters3D_withClus2DId,
-                on="clus2D_id",
-                how="left"
-            )
-            .set_index("rechits_id")
-            .pipe(makeCumulativeEnergy, prefix="rechits")
-        )
-        return final_df.join(final_df[["rechits_x", "rechits_y", "rechits_z", "rechits_energy"]], on=["rechits_nearestHigher"], rsuffix="_ofNearestHigher")
-
-    @property
-    def impact_df(self) -> pd.DataFrame:
-        """ Index : event (always 0)
-        Columns : layer impactX impactY impactZ (impactZ is mapped from layer)
-        Only rows which have a rechit in the event are kept"""
-        df = ak.to_dataframe(self.event.record[["impactX", "impactY"]],
-            levelname=lambda i : {0:"layer_minus_one"}[i]).reset_index()
-        df["layer"] = df["layer_minus_one"] + 1
-        df = df.drop("layer_minus_one", axis="columns")
-
-        return df.assign(impactZ=df.layer.map(hists.parameters.layerToZMapping)).dropna()
+        self.mapClus3Did_symbol_3Dview = {clus3D_id : next(self.clus3D_symbols_3Dview) for clus3D_id in self.event.clus3D_ids(sortDecreasingEnergy=True)}
+        self.mapClus3Did_symbol_2Dview = {clus3D_id : next(self.clus3D_symbols_2Dview) for clus3D_id in self.event.clus3D_ids(sortDecreasingEnergy=True)}
 
 def makeArrow3D(x1, x2, y1, y2, z1, z2, dictLine=dict(), dictCone=dict(), dictCombined=dict(), color="blue"):
     """ Draw an arrow from x1, y1, z1 to x1, y2, z2

@@ -27,17 +27,17 @@ class LayerVisualization(BaseVisualization):
 
         color_cycle = itertools.cycle(px.colors.qualitative.Plotly)
         self.mapClus2Did_color = NaNColorMap(
-            {clus2D_id : next(color_cycle) for clus2D_id in self.clus2D_ids},
+            {clus2D_id : next(color_cycle) for clus2D_id in self.event.clus2D_ids},
             next(color_cycle)
         )
 
     @property
     def rechits_df_onLayer(self) -> pd.DataFrame:
-        return self.rechits_df[self.rechits_df.rechits_layer == self.layerNb]
+        return self.event.rechits_df[self.event.rechits_df.rechits_layer == self.layerNb]
     
     @property
     def clus2D_df_onLayer(self) -> pd.DataFrame:
-        return self.clus2D_df[self.clus2D_df.clus2D_layer == self.layerNb]
+        return self.event.clus2D_df[self.event.clus2D_df.clus2D_layer == self.layerNb]
     
     @cached_property
     def totalEnergyOnLayer(self) -> float:
@@ -47,7 +47,7 @@ class LayerVisualization(BaseVisualization):
         return self.rechits_df_onLayer.rechits_energy.max()
     
     def add2DClusters(self):
-        clus2DMarkerSizeScale = MarkerSizeLogScaler(self.clus2D_df.clus2D_energy, maxMarkerSize=50, minMarkerSize=15)
+        clus2DMarkerSizeScale = MarkerSizeLogScaler(self.event.clus2D_df.clus2D_energy, maxMarkerSize=50, minMarkerSize=15)
         outlier_counter = 1
         for clus2D in self.clus2D_df_onLayer.sort_values("clus2D_energy", ascending=False).itertuples():
             clus2D_id = clus2D.Index
@@ -153,7 +153,7 @@ class LayerVisualization(BaseVisualization):
         return self
     
     def addImpactPoint(self):
-        impacts = self.impact_df[self.impact_df.layer == self.layerNb]
+        impacts = self.event.impact_df[self.event.impact_df.layer == self.layerNb]
 
         self.fig.add_trace(go.Scatter(
             mode="markers",
