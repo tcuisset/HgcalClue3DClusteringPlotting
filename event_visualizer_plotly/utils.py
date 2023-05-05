@@ -155,7 +155,7 @@ class LoadedEvent:
         self.clueParameters = el.clueParameters
         self.clue3DParameters = el.clueParameters
     
-    @cached_property
+    @property
     def clus3D_df(self):
         return (ak.to_dataframe(self.record[
             ["clus3D_x", "clus3D_y", "clus3D_z", "clus3D_energy", "clus3D_size"]

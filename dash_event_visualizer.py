@@ -18,6 +18,7 @@ import awkward as ak
 from hists.parameters import beamEnergies, ntupleNumbersPerBeamEnergy
 from event_visualizer_plotly.utils import EventLoader, EventID, LoadedEvent
 from event_visualizer_plotly.dash_app.plots import makePlotClue3D, makePlotLayer, makePlotLongitudinalProfile
+from event_visualizer_plotly.dash_app.tables import makeClus2DTable, makeClus3DTable, updateClus2DTableData, updateClus3DTableData
 
 if __name__ == "__main__":
     import argparse
@@ -160,6 +161,12 @@ app.layout = html.Div([ # Outer Div
                 parent_style={"height":"100%"}, # not sure why this is needed but without it graph does not flex
             )
         ),
+        dcc.Tab(label="Tables", value="clus3D_table", children=[
+            html.H3("Tracksters"),
+            makeClus3DTable(),
+            html.H3("Layer clusters"),
+            makeClus2DTable(),
+        ]),
         dcc.Tab(label="Instructions", children=eventVisInstructions, value="instructions"),
     ],
     parent_style={'flex': '1 1 auto'}, # Have the the whole tabs Div flex vertically inside outer div
@@ -291,28 +298,31 @@ def isStorageValid(storage_eventId:dict) -> bool:
 
 
 emptyFigure = { "data": [], "layout": {}, "frames": [],}
+emptyTable = []
 
 @app.callback(
-    [Output("plot_3D", "figure"), Output("plot_longitudinal-profile", "figure")],
+    [Output("plot_3D", "figure"), Output("plot_longitudinal-profile", "figure"), 
+     Output("clus3D_table", "data"), Output("clus2D_table", "data"), ],
     [Input("signal-event-ready", "data")]
 )
 def mainEventUpdate(storage_eventId):
     """ Main callback to update all the plots at the same time.
     layer is State as there is another callback updateOnlyLayerPlot to update just the layer view """
     print("mainEventUpdate", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
-    doubleEmptyFigure = emptyFigure, emptyFigure
+    emptyReturn = emptyFigure, emptyFigure, emptyTable, emptyTable
 
     if not isStorageValid(storage_eventId):
-        return doubleEmptyFigure
+        return emptyReturn
     fullEventID = FullEventID(**storage_eventId)
     if not fullEventID.isFilled():
-        return doubleEmptyFigure
+        return emptyReturn
     
     try:
         event = loadEvent(fullEventID)
-        return makePlotClue3D(event), makePlotLongitudinalProfile(event)
-    except:
-        return doubleEmptyFigure
+        return makePlotClue3D(event), makePlotLongitudinalProfile(event), updateClus3DTableData(event), updateClus2DTableData(event)
+    except Exception as e:
+        raise e
+        return emptyReturn
 
 
 @app.callback(
