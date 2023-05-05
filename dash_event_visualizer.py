@@ -138,27 +138,35 @@ app.layout = html.Div([ # Outer Div
             dcc.Clipboard(id="link-copy-clipboard", title="Copy link", content="abc"),
         ], style={"display":"flex", "flexFlow":"row"}),
     ], style={'flex': '0 1 auto'}),
-    dcc.Loading(
-        dcc.Tabs(id="plot_tabs", children=[
-            dcc.Tab(label="3D view", value="3D", children=[
-                dcc.Graph(id="plot_3D", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
+    
+    dcc.Tabs(id="plot_tabs", children=[
+        dcc.Tab(label="3D view", value="3D", children=
+            dcc.Loading(
+                children=dcc.Graph(id="plot_3D", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
                     scale=3.
                 ))),
-            ]),
-            dcc.Tab(label="Layer view", value="layer", children=[
-                dcc.Graph(id="plot_layer", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
+                parent_style={"height":"100%"}, # not sure why this is needed but without it graph does not flex
+            )
+        ),
+        dcc.Tab(label="Layer view", value="layer", children=
+            dcc.Loading(
+                children=dcc.Graph(id="plot_layer", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
                     scale=4.
                 ))),
-            ]),
-            dcc.Tab(label="Longitudinal profile", value="longitudinal_profile", children=[
-                dcc.Graph(id="plot_longitudinal-profile", style={"height":"100%"})
-            ]),
-            dcc.Tab(label="Instructions", children=eventVisInstructions, value="instructions"),
-        ], parent_style={"height":"100%"}, # Use whole height of Loading div (not sure why this is needed, but without it it does not work)
-        content_style={'flex': '1 1 auto'}, # Have tab content flex vertically inside [tab header, tab content] div
-        value="instructions"),
-    parent_style={'flex': '1 1 auto'}
-    ),
+                parent_style={"height":"100%"}, # not sure why this is needed but without it graph does not flex
+            )
+        ),
+        dcc.Tab(label="Longitudinal profile", value="longitudinal_profile", children=
+            dcc.Loading(
+                children=dcc.Graph(id="plot_longitudinal-profile", style={"height":"100%"}),
+                parent_style={"height":"100%"}, # not sure why this is needed but without it graph does not flex
+            )
+        ),
+        dcc.Tab(label="Instructions", children=eventVisInstructions, value="instructions"),
+    ],
+    parent_style={'flex': '1 1 auto'}, # Have the the whole tabs Div flex vertically inside outer div
+    content_style={'flex': '1 1 auto'}, # Have tab content flex vertically inside [tab header, tab content] div
+    value="instructions"),
     
 ], style={'display': 'flex', 'flexFlow': 'column', "height":"100vh"})
 
@@ -316,6 +324,9 @@ def loadEventCallback(clueParam, datatype, beamEnergy, ntuple, event):
 def isStorageValid(storage_eventId:dict) -> bool:
     return (storage_eventId is not None) and len(storage_eventId) > 0
 
+
+emptyFigure = { "data": [], "layout": {}, "frames": [],}
+
 @app.callback(
     [Output("plot_3D", "figure"), Output("plot_longitudinal-profile", "figure")],
     [Input("signal-event-ready", "data")]
@@ -324,21 +335,19 @@ def mainEventUpdate(storage_eventId):
     """ Main callback to update all the plots at the same time.
     layer is State as there is another callback updateOnlyLayerPlot to update just the layer view """
     print("mainEventUpdate", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
+    doubleEmptyFigure = emptyFigure, emptyFigure
+
     if not isStorageValid(storage_eventId):
-        return {}, {}
+        return doubleEmptyFigure
     fullEventID = FullEventID(**storage_eventId)
     if not fullEventID.isFilled():
-        return {}, {}
+        return doubleEmptyFigure
     
     try:
         event = loadEvent(fullEventID)
-        plot_3D = makePlotClue3D(event)
-        plot_longitudinal = makePlotLongitudinalProfile(event)
+        return makePlotClue3D(event), makePlotLongitudinalProfile(event)
     except:
-        plot_3D = {}
-        plot_longitudinal = {}
-    
-    return plot_3D, plot_longitudinal
+        return doubleEmptyFigure
 
 
 @app.callback(
@@ -349,15 +358,15 @@ def mainEventUpdate(storage_eventId):
 def updateOnlyLayerPlot(storage_eventId, layer):
     """ Small callback to only update the layer view """
     if not isStorageValid(storage_eventId):
-        return {}
+        return emptyFigure
     fullEventID = FullEventID(**storage_eventId)
     if not fullEventID.isFilled():
-        return {}
+        return emptyFigure
     try:
         event = loadEvent(fullEventID)
+        return makePlotLayer(event, layer)
     except:
-        return {}
-    return makePlotLayer(event, layer)
+        return emptyFigure
 
 if __name__ == '__main__':
     run_kwargs = {"debug": args.debug, "port":args.port}
