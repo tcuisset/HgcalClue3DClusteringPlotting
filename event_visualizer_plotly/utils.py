@@ -210,8 +210,10 @@ class BaseVisualization:
         #self.fig.update_layout(legend=dict(groupclick="togglegroup"))
         self.event:LoadedEvent = event
 
+        # Symbols for 2D clusters, all 2D clusters member of a given 3D cluster get the same symbol
         self.clus3D_symbols_3Dview = itertools.cycle(['diamond', 'cross', 'square', 'x', 'circle'])
         self.clus3D_symbols_2Dview = itertools.cycle(["diamond", "cross", "square", "pentagon", "star", "star-triangle-up", "star-square", "hourglass", "hexagram", "star-diamond", "circle-cross", "diamond-tall", "square-cross"])
+        # Symbols for 2D clusters that are (followers of) an outlier in CLUE3D
         self.clus3D_symbols_outlier_3Dview = itertools.cycle([ 'circle-open', 'square-open', 'diamond-open'])
         self.clus3D_symbols_outlier_2Dview = itertools.cycle([ "cross-open-dot", "pentagon-open-dot", "star-open-dot", "start-square-open-dot", "diamond-open-dot", "heaxagram-open-dot", "diamond-tall-open-dot", "diamond-wide-open-dot", "hash-open-dot"])
         
@@ -325,12 +327,21 @@ class BaseVisualization:
 
         return df.assign(impactZ=df.layer.map(hists.parameters.layerToZMapping)).dropna()
 
-def makeArrow3D(x1, x2, y1, y2, z1, z2, dictLine=dict(), dictCone=dict(), color="blue"):
+def makeArrow3D(x1, x2, y1, y2, z1, z2, dictLine=dict(), dictCone=dict(), dictCombined=dict(), color="blue"):
+    """ Draw an arrow from x1, y1, z1 to x1, y2, z2
+    Parameters : 
+     - dictLine : dict of kwargs passed to Scatter3D
+     - dictCone : dict of kwargs passed to Cone
+     - dictCombined : dict of kwargs passed to both
+     - color : color of arrow
+    """
     traces = []
     try:
         lengthFactor = 1./math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
+        # Use collections.ChainMap to merge dictionnaries in sequence
+        # Give preference to keywords from arguments over those specified here
         traces.append(go.Scatter3d(
-            **collections.ChainMap(dictLine, dict( # Give preference to keywords from arguments over those specified here
+            **collections.ChainMap(dictLine, dictCombined, dict( 
                 mode="lines",
                 hoverinfo='skip',
                 x=[x1, x2],
@@ -340,7 +351,7 @@ def makeArrow3D(x1, x2, y1, y2, z1, z2, dictLine=dict(), dictCone=dict(), color=
             ))
         ))
         traces.append(go.Cone(
-            **collections.ChainMap(dictCone, dict(
+            **collections.ChainMap(dictCone, dictCombined, dict(
                 x=[x2], y=[y2], z=[z2],
                 u=[lengthFactor*(x2-x1)],
                 v=[lengthFactor*(y2-y1)],
@@ -388,10 +399,11 @@ class MarkerSizeLogScaler:
             self._ln_a = math.log(minEnergy) - 1
             self._b = maxMarkerSize # Put desired marker size here. For now just take the max
 
-    def scale(self, series:pd.Series):
-        return (self._b * (np.log(series) - self._ln_a)).clip(lower=1)
-    def scaleSingleValue(self, val:float):
-        return max(1, self._b * (np.log(val) - self._ln_a))
+    def scale(self, val:pd.Series|float):
+        if isinstance(val, pd.Series):
+            return (self._b * (np.log(val) - self._ln_a)).clip(lower=1)
+        else:
+            return max(1, self._b * (np.log(val) - self._ln_a))
     
 
 def makeCylinderCoordinates(r, h, axisX=0, axisY=0, z0=0, nt=100, nv =50):

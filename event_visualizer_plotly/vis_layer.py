@@ -48,27 +48,32 @@ class LayerVisualization(BaseVisualization):
     
     def add2DClusters(self):
         clus2DMarkerSizeScale = MarkerSizeLogScaler(self.clus2D_df.clus2D_energy, maxMarkerSize=50, minMarkerSize=15)
-        for clus3D_id, grouped_df in self.clus2D_df_onLayer.groupby("clus3D_id", dropna=False):
-            if math.isnan(clus3D_id):
-                clus3D_id_symbol = list(itertools.islice(self.clus3D_symbols_outlier_2Dview, grouped_df.shape[0]))
+        outlier_counter = 1
+        for clus2D in self.clus2D_df_onLayer.sort_values("clus2D_energy", ascending=False).itertuples():
+            clus2D_id = clus2D.Index
+            if math.isnan(clus2D.clus3D_id):
+                clus3D_id_symbol = next(self.clus3D_symbols_outlier_2Dview)
+                legend_name = f"Nb {clus2D_id} - (not in a trackster)"
+                outlier_counter += 1
             else:
-                clus3D_id_symbol = self.mapClus3Did_symbol_2Dview[clus3D_id]
+                clus3D_id_symbol = self.mapClus3Did_symbol_2Dview[clus2D.clus3D_id]
+                legend_name = f"Nb {clus2D_id} - Trackster {int(clus2D.clus3D_id)}"
             
             self.fig.add_trace(go.Scatter(
                 mode="markers",
                 legendgroup="cluster2D",
                 legendgrouptitle_text="2D clusters",
-                name=f"Trackster nb {clus3D_id}",
-                x=grouped_df["clus2D_x"], y=grouped_df["clus2D_y"],
+                name=legend_name,
+                x=[clus2D.clus2D_x], y=[clus2D.clus2D_y],
                 marker=dict(
                     symbol=clus3D_id_symbol,
-                    color=grouped_df.index.map(self.mapClus2Did_color),
+                    color=self.mapClus2Did_color(clus2D.clus3D_id),
                     line_color="black",
                     line_width=2, # Does not work on some graphics cards
-                    size=clus2DMarkerSizeScale.scale(grouped_df["clus2D_energy"]),
+                    size=clus2DMarkerSizeScale.scale(clus2D.clus2D_energy),
                 ),
-                customdata=np.dstack((grouped_df.clus2D_energy, grouped_df.clus2D_rho, grouped_df.clus2D_delta,
-                    grouped_df.clus2D_pointType.map({0:"Follower", 1:"Seed", 2:"Outlier"})))[0],
+                customdata=[[clus2D.clus2D_energy, clus2D.clus2D_rho, clus2D.clus2D_delta,
+                    {0:"Follower", 1:"Seed", 2:"Outlier"}[clus2D.clus2D_pointType]]],
                 #hovertemplate="clus2D_x=%{x}<br>clus2D_y=%{y}<br>clus2D_z=%{z}<br>clus2D_size=%{marker.size}<extra></extra>",
                 hovertemplate=(
                     "2D cluster : %{customdata[3]}<br>"
@@ -127,7 +132,7 @@ class LayerVisualization(BaseVisualization):
                         color=self.mapClus2Did_color(index[1]),
                         size=10,
                         angleref="previous",
-                        standoff=0.3*markerSizeScale.scaleSingleValue(row.rechits_energy_ofNearestHigher),
+                        standoff=0.3*markerSizeScale.scale(row.rechits_energy_ofNearestHigher),
                     ),
                     line_width=max(1, math.log(row.rechits_cumulativeEnergy/0.01)), #line width in pixels
                 ))
