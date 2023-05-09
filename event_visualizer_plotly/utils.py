@@ -70,7 +70,7 @@ class EventIndex:
         """ Find a record, by the values of columns. The values in columnValues should match the order of columns given in __init__ 
         Returns a numpy record with columns values and a record called "index" holding index in original array
         """
-        value = np.record(tuple(columnValues + [0]), dtype=self._index_structured_dtype)
+        value = np.array(tuple(columnValues + [0]), dtype=self._index_structured_dtype)
         foundRecord = self.record_array[np.searchsorted(self.record_array, value)]
         return foundRecord
     
@@ -84,7 +84,7 @@ class EventIndex:
                     value_list.append(np.iinfo(dtype).max)
             else:
                 value_list.append(value)
-        return np.record(tuple(value_list), dtype=self._index_structured_dtype)
+        return np.array(tuple(value_list), dtype=self._index_structured_dtype)
     
     def findRange(self, firstColumnValues:list) -> np.ndarray:
         """ Returns a view over the range of records selected by column values given in firstColumnValues.
