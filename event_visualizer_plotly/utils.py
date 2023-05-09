@@ -399,7 +399,7 @@ class MarkerSizeLogScaler:
             self._ln_a = math.log(minEnergy) - 1
             self._b = maxMarkerSize # Put desired marker size here. For now just take the max
 
-    def scale(self, val:pd.Series|float):
+    def scale(self, val:pd.Series): # can be pd.Series or float
         if isinstance(val, pd.Series):
             return (self._b * (np.log(val) - self._ln_a)).clip(lower=1)
         else:
