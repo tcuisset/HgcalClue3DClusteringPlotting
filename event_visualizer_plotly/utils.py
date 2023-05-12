@@ -196,7 +196,7 @@ class LoadedEvent:
             .set_index("clus2D_id")
             .pipe(makeCumulativeEnergy, prefix="clus2D")
         )
-        return clus3D_merged.join(clus3D_merged[["clus2D_x", "clus2D_y", "clus2D_z"]], on="clus2D_nearestHigher", rsuffix="_ofNearestHigher")
+        return clus3D_merged.join(clus3D_merged[["clus2D_x", "clus2D_y", "clus2D_z", "clus2D_layer"]], on="clus2D_nearestHigher", rsuffix="_ofNearestHigher")
 
     @property
     def clus2D_ids(self) -> list[int]:
@@ -248,19 +248,19 @@ class LoadedEvent:
             .set_index("rechits_id")
             .pipe(makeCumulativeEnergy, prefix="rechits")
         )
-        return final_df.join(final_df[["rechits_x", "rechits_y", "rechits_z", "rechits_energy"]], on=["rechits_nearestHigher"], rsuffix="_ofNearestHigher")
+        return final_df.join(final_df[["rechits_x", "rechits_y", "rechits_z", "rechits_layer", "rechits_energy",]], on=["rechits_nearestHigher"], rsuffix="_ofNearestHigher")
 
     @property
     def impact_df(self) -> pd.DataFrame:
         """ Index : event (always 0)
-        Columns : layer impactX impactY impactZ (impactZ is mapped from layer)
+        Columns : layer impact_x impact_y impact_z (impact_z is mapped from layer)
         Only rows which have a rechit in the event are kept"""
         df = ak.to_dataframe(self.record[["impactX", "impactY"]],
-            levelname=lambda i : {0:"layer_minus_one"}[i]).reset_index()
+            levelname=lambda i : {0:"layer_minus_one"}[i]).reset_index().rename({"impactX" : "impact_x", "impactY": "impact_y"}, axis="columns")
         df["layer"] = df["layer_minus_one"] + 1
         df = df.drop("layer_minus_one", axis="columns")
 
-        return df.assign(impactZ=df.layer.map(hists.parameters.layerToZMapping)).dropna()
+        return df.assign(impact_z=df.layer.map(hists.parameters.layerToZMapping)).dropna()
 
 def create3DFigure(title:str) -> go.Figure:
     fig = go.Figure(
@@ -327,17 +327,18 @@ class BaseVisualization:
         self.mapClus3Did_symbol_3Dview = {clus3D_id : next(self.clus3D_symbols_3Dview) for clus3D_id in self.event.clus3D_ids(sortDecreasingEnergy=True)}
         self.mapClus3Did_symbol_2Dview = {clus3D_id : next(self.clus3D_symbols_2Dview) for clus3D_id in self.event.clus3D_ids(sortDecreasingEnergy=True)}
 
-def makeArrow3D(x1, x2, y1, y2, z1, z2, dictLine=dict(), dictCone=dict(), dictCombined=dict(), color="blue"):
+def makeArrow3D(x1, x2, y1, y2, z1, z2, dictLine=dict(), dictCone=dict(), dictCombined=dict(), color="blue", sizeFactor=1):
     """ Draw an arrow from x1, y1, z1 to x1, y2, z2
     Parameters : 
      - dictLine : dict of kwargs passed to Scatter3D
      - dictCone : dict of kwargs passed to Cone
      - dictCombined : dict of kwargs passed to both
      - color : color of arrow
+     - sizeFactor : multiplicative factor on cone size
     """
     traces = []
     try:
-        lengthFactor = 1./math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
+        lengthFactor = sizeFactor/math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
         # Use collections.ChainMap to merge dictionnaries in sequence
         # Give preference to keywords from arguments over those specified here
         traces.append(go.Scatter3d(

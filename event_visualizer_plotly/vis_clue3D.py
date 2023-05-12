@@ -3,6 +3,7 @@ from functools import cached_property
 
 import plotly.express as px
 import plotly.graph_objects as go
+import scipy.interpolate
 
 #from hists.dataframe import *
 import hists.parameters
@@ -21,11 +22,65 @@ class LegendRanks:
     rechits_discarded = rechits - 10
     rechits_chain = rechits + 20
 
+interpolateZToLayer = scipy.interpolate.interp1d(x=list(hists.parameters.layerToZMapping.values()), y=list(hists.parameters.layerToZMapping.keys()), kind="linear")
 
 class Clue3DVisualization(BaseVisualization):
-    def __init__(self, event:LoadedEvent) -> None:
+    def __init__(self, event:LoadedEvent, title=None, projection="orthographic", zAspectRatio=1, useLayerAsZ=False) -> None:
+        """ CLUE3D visualization in 3D
+        Parameters :
+         - title : put True to generate a Title from the event number, or put a go.Layout.Title object
+         - projection : "orthographic" (layers stay parallel) or "perspective" (what your eye would see)
+         - zAspectRatio : aspect ratio in z, spread the z dimension for better visibility
+         - useLayerAsZ : if True, use layer as the z axis, instead of actual z position in TB setup (so adjacent layers are further apart for visibility)
+        """
         super().__init__(event)
-        self.fig = create3DFigure(f"CLUE3D visualization - ntuple {event.record.ntupleNumber}, event {event.record.event} - e+ {event.record.beamEnergy} GeV")
+        if title is True:
+            title = go.layout.Title(text=f"CLUE3D visualization - ntuple {event.record.ntupleNumber}, event {event.record.event} - e+ {event.record.beamEnergy} GeV")
+        
+        scene_dict = dict()
+
+        def accessAttr(df, fullAttrName):
+            try:
+                return df[fullAttrName]
+            except TypeError:
+                # in case of namedtuple, can only be accessed by . , not by []
+                return getattr(df, fullAttrName)
+            
+        if useLayerAsZ:
+            def _getZColumnsLayer(df, name, tail=""):
+                if name == "clus3D_":
+                    return df["clus3D_z"+tail].map(interpolateZToLayer)
+                else:
+                    return accessAttr(df, name + "layer"+tail)
+            self._getZColumn = _getZColumnsLayer
+            scene_dict["zaxis_title"] = "Layer number"
+        else:
+            self._getZColumn = lambda df, name, tail="" : accessAttr(df, name + "z"+tail)
+            scene_dict["zaxis_title"] = "z (cm)"
+
+        scene_dict |= dict(
+            aspectratio=dict(x=1., y=1., z=zAspectRatio),
+            camera_projection_type=projection,
+        )
+
+        self.fig = go.Figure(
+            layout=go.Layout(
+                title=title,
+                #width=1200,
+                #height=600,
+                autosize=True,
+                dragmode="orbit",
+                scene=go.layout.Scene(
+                    **scene_dict,
+                    camera = dict(
+                        eye=dict(x=1, y=1., z=-2.5),
+                        up=dict(x=0, y=0, z=1),
+                    ),
+                    xaxis_title="x (cm)",
+                    yaxis_title="y (cm)"
+                ),
+            )
+        )
 
         color_cycle = itertools.cycle(px.colors.qualitative.Plotly)
         self.mapClus3Did_color = NaNColorMap(
@@ -81,19 +136,19 @@ class Clue3DVisualization(BaseVisualization):
             self.fig.add_trace(go.Scatter3d(
                 **legendArgs,
                 legendrank=self.legendRanks.tracksters,
-                x=df["clus3D_x"], y=df["clus3D_y"], z=df["clus3D_z"], 
+                x=df["clus3D_x"], y=df["clus3D_y"], z=self._getZColumn(df, "clus3D_"), 
                 mode="markers",
                 marker=dict(
                     symbol="cross",
                     color=df.index.to_series().map(self.mapClus3Did_color),
                     size=markerSizeScale.scale(df["clus3D_energy"]),
                 ),
-                customdata=np.stack((df.index.to_list(), df["clus3D_energy"], df["clus3D_size"]), axis=1),
+                customdata=np.stack((df.index.to_list(), df["clus3D_energy"], df["clus3D_size"], df["clus3D_z"]), axis=1),
                 hovertemplate=
                 "Trackster : %{customdata[0]}<br>"
                 "Energy: %{customdata[1]:.3g} GeV<br>"
                 "Size: %{customdata[2]}<br>"
-                "x=%{x}, y=%{y}, z=%{z}<br>"
+                "x=%{x}, y=%{y}, z=%{customdata[3]}<br>"
                 "<extra></extra>",
                 )
             )
@@ -132,9 +187,9 @@ class Clue3DVisualization(BaseVisualization):
                 mode="markers",
                 legendgroup="cluster2D",
                 legendgrouptitle_text="Layer clusters (LC)",
-                x=grouped_df["clus2D_x"], y=grouped_df["clus2D_y"], z=grouped_df["clus2D_z"], 
+                x=grouped_df["clus2D_x"], y=grouped_df["clus2D_y"], z=self._getZColumn(grouped_df, "clus2D_"), 
                 marker=dict(
-                    color=self.event.clus2D_df.index.to_series().map(self.mapClus2Did_color),
+                    color=grouped_df.index.to_series().map(self.mapClus2Did_color),
                     line_color="black",
                     line_width=2, # Does not work on some graphics cards
                     size=markerSizeScale.scale(grouped_df["clus2D_energy"]),
@@ -142,7 +197,6 @@ class Clue3DVisualization(BaseVisualization):
                 customdata=np.dstack((grouped_df.clus2D_energy, grouped_df.clus2D_rho, grouped_df.clus2D_delta,
                     grouped_df.clus2D_pointType.map({0:"Follower", 1:"Seed", 2:"Outlier"}),
                     grouped_df.clus2D_layer, grouped_df.clus2D_size))[0],
-                #hovertemplate="clus2D_x=%{x}<br>clus2D_y=%{y}<br>clus2D_z=%{z}<br>clus2D_size=%{marker.size}<extra></extra>",
                 hovertemplate=(
                     "2D cluster : %{customdata[3]}<br>"
                     "Layer : %{customdata[4]}<br>"
@@ -170,7 +224,8 @@ class Clue3DVisualization(BaseVisualization):
                     # Note that it is also possible for pointType == 1 (ie follower) but having no nearest higher
                     continue
                 self.fig.add_traces(makeArrow3D(
-                    row.clus2D_x, row.clus2D_x_ofNearestHigher, row.clus2D_y, row.clus2D_y_ofNearestHigher, row.clus2D_z, row.clus2D_z_ofNearestHigher,
+                    row.clus2D_x, row.clus2D_x_ofNearestHigher, row.clus2D_y, row.clus2D_y_ofNearestHigher,
+                    self._getZColumn(row, "clus2D_"), self._getZColumn(row, "clus2D_", tail="_ofNearestHigher"),
                     dictLine=dict(
                         name="LC chain of nearest higher",
                         showlegend=showLegend,
@@ -180,6 +235,7 @@ class Clue3DVisualization(BaseVisualization):
                     dictCone=dict(),
                     dictCombined=legend_kwargs,
                     color=self.mapClus3Did_color(clus3D_id),
+                    sizeFactor=4
                     )
                 )
 
@@ -227,7 +283,7 @@ class Clue3DVisualization(BaseVisualization):
                 legendgroup="rechits",
                 legendgrouptitle_text="Rechits",
                 **trace_dict,
-                x=grouped_df["rechits_x"], y=grouped_df["rechits_y"], z=grouped_df["rechits_z"], 
+                x=grouped_df["rechits_x"], y=grouped_df["rechits_y"], z=self._getZColumn(grouped_df, "rechits_"), 
                 **mapClus2DidToProps(index[1]),
                 marker=dict(
                     size=markerSizeScale.scale(grouped_df["rechits_energy"]),
@@ -235,7 +291,6 @@ class Clue3DVisualization(BaseVisualization):
                 customdata=np.dstack((grouped_df.rechits_energy, grouped_df.rechits_rho, grouped_df.rechits_delta,
                     getPointTypeStringForRechits(clus2D_id=index[1], grouped_df=grouped_df), 
                     grouped_df.rechits_layer))[0],
-                #hovertemplate="clus2D_x=%{x}<br>clus2D_y=%{y}<br>clus2D_z=%{z}<br>clus2D_size=%{marker.size}<extra></extra>",
                 hovertemplate=(
                     "Rechit : %{customdata[3]}<br>"
                     "Layer : %{customdata[4]}<br>"
@@ -259,7 +314,8 @@ class Clue3DVisualization(BaseVisualization):
                     # Drop non-followers 
                     continue
                 self.fig.add_traces(makeArrow3D(
-                    row.rechits_x, row.rechits_x_ofNearestHigher, row.rechits_y, row.rechits_y_ofNearestHigher, row.rechits_z, row.rechits_z_ofNearestHigher,
+                    row.rechits_x, row.rechits_x_ofNearestHigher, row.rechits_y, row.rechits_y_ofNearestHigher,
+                    self._getZColumn(row, "rechits_"), self._getZColumn(row, "rechits_", tail="_ofNearestHigher"),
                     dictLine=dict(
                         name="Rechits chain of nearest higher",
                         showlegend=showLegend,
@@ -280,7 +336,7 @@ class Clue3DVisualization(BaseVisualization):
         self.fig.add_trace(go.Scatter3d(
             mode="lines",
             name="Impact from DWC",
-            x=impacts.impactX, y=impacts.impactY, z=impacts.impactZ,
+            x=impacts.impact_x, y=impacts.impact_y, z=self._getZColumn(impacts, "impact_"),
             line=dict(
                 color="black",
                 width=3,
