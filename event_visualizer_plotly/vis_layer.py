@@ -3,15 +3,26 @@ from functools import cached_property
 
 import plotly.express as px
 import plotly.graph_objects as go
+from hsluv import hex_to_hsluv, hsluv_to_hex
 
 import hists.parameters
 from event_visualizer_plotly.utils import *
 
 
+def desaturateArrowColor(color:str):
+    """ Update color for arrow drawing. Decreases saturation (using HSLuv color space for better behaviour for different colors) """
+    hue, sat, lightness = hex_to_hsluv(color)
+    return hsluv_to_hex([hue, np.clip(sat-40, 0, 100), lightness])
+
 class LayerVisualization(BaseVisualization):
-    def __init__(self, event:LoadedEvent, layerNb:int) -> None:
+    def __init__(self, event:LoadedEvent, layerNb:int, standalone=False) -> None:
+        """ 
+        Parameters : 
+         - standalone : if False, meant to be plotted with a 3D view of the event, with coeherent colors. If True, meant as standalone plot (choose best colors) 
+        """
         super().__init__(event)
         self.layerNb = layerNb
+        self.standalone = standalone
         self.fig = go.Figure(
             layout=go.Layout(
                 title=go.layout.Title(text=f"Layer visualization - ntuple {event.record.ntupleNumber}, event {event.record.event} - e+ {event.record.beamEnergy} GeV - Layer {layerNb}"),
@@ -25,12 +36,22 @@ class LayerVisualization(BaseVisualization):
             scaleratio=1,
         )
 
-        color_cycle = itertools.cycle(px.colors.qualitative.Plotly)
-        self.mapClus2Did_color = NaNColorMap(
-            {clus2D_id : next(color_cycle) for clus2D_id in self.event.clus2D_ids},
-            next(color_cycle)
-        )
+        
 
+        # Map from LC ID to color, for coloring rechits and LC
+        if standalone:
+            color_cycle = itertools.cycle(px.colors.qualitative.D3)
+            self.mapClus2Did_color = NaNColorMap(
+                {clus2D_id : next(color_cycle) for clus2D_id in self.clus2D_df_onLayer.index.get_level_values("clus2D_id").drop_duplicates().to_list()},
+                "black")
+        else:
+            color_list = px.colors.qualitative.Dark24.copy()
+            discarded_color = color_list.pop(5) # black
+            color_cycle = itertools.cycle(color_list)
+            self.mapClus2Did_color = NaNColorMap(
+                {clus2D_id : next(color_cycle) for clus2D_id in self.event.clus2D_df.index.get_level_values("clus2D_id").drop_duplicates().to_list()},
+                discarded_color)
+        
     @property
     def rechits_df_onLayer(self) -> pd.DataFrame:
         return self.event.rechits_df[self.event.rechits_df.rechits_layer == self.layerNb]
@@ -47,15 +68,19 @@ class LayerVisualization(BaseVisualization):
         return self.rechits_df_onLayer.rechits_energy.max()
     
     def add2DClusters(self):
+        """ Add symbols of each layer cluster """
         clus2DMarkerSizeScale = MarkerSizeLogScaler(self.event.clus2D_df.clus2D_energy, maxMarkerSize=50, minMarkerSize=15)
         outlier_counter = 1
         for clus2D in self.clus2D_df_onLayer.sort_values("clus2D_energy", ascending=False).itertuples():
             clus2D_id = clus2D.Index
+            # The symbol depends on the associated trackster
             if math.isnan(clus2D.clus3D_id):
+                # LC not in a trackster : a symbol per LC
                 clus3D_id_symbol = next(self.clus3D_symbols_outlier_2Dview)
                 legend_name = f"Nb {clus2D_id} - (not in a trackster)"
                 outlier_counter += 1
             else:
+                # LC in a trackster : use the trackster symbol
                 clus3D_id_symbol = self.mapClus3Did_symbol_2Dview[clus2D.clus3D_id]
                 legend_name = f"Nb {clus2D_id} - Trackster {int(clus2D.clus3D_id)}"
             
@@ -65,9 +90,10 @@ class LayerVisualization(BaseVisualization):
                 legendgrouptitle_text="2D clusters",
                 name=legend_name,
                 x=[clus2D.clus2D_x], y=[clus2D.clus2D_y],
+                opacity=0.8,
                 marker=dict(
                     symbol=clus3D_id_symbol,
-                    color=self.mapClus2Did_color(clus2D.clus3D_id),
+                    color=self.mapClus2Did_color(clus2D_id),
                     line_color="black",
                     line_width=2, # Does not work on some graphics cards
                     size=clus2DMarkerSizeScale.scale(clus2D.clus2D_energy),
@@ -84,13 +110,49 @@ class LayerVisualization(BaseVisualization):
             ))
 
         return self
-        
+    
     def addRechits(self):
         markerSizeScale = MarkerSizeLogScaler(self.rechits_df_onLayer.rechits_energy, maxMarkerSize=25, minMarkerSize=2)
         #markerSizeScale = MarkerSizeLinearScaler(self.rechits_df_onLayer.rechits_energy, maxMarkerSize=10)
         showLegend = True
         for index, grouped_df in self.rechits_df_onLayer.groupby(by=["clus3D_id", "clus2D_id"], dropna=False):
             # dropna=False to keep outlier rechits and rechits members of outlier layer cluster
+
+            # Plot arrows from follower to nearest higher
+            # Do it before plotting rechits themselves so the arrows appear behinh the circles
+            for row in grouped_df.dropna(subset=["rechits_x_ofNearestHigher"]).itertuples(index=False):
+                if row.rechits_pointType != 0:
+                    # Drop non-followers 
+                    continue
+                x1, x2, y1, y2 = row.rechits_x, row.rechits_x_ofNearestHigher, row.rechits_y, row.rechits_y_ofNearestHigher,
+                trace_dict = dict()
+                if self.standalone:
+                    trace_dict["marker_size"] = 1.*markerSizeScale.scale(row.rechits_energy_ofNearestHigher)
+                else:
+                    trace_dict["marker_size"] = 10
+
+                self.fig.add_traces(go.Scatter(
+                    mode="markers+lines",
+                    name="Rechits chain<br>of nearest higher",
+                    legendgroup="rechits_chain",
+                    showlegend=showLegend,
+                    hoverinfo='skip',
+                    x=[x1, x2],
+                    y=[y1, y2],
+                    opacity=0.95,
+                    marker=dict(
+                        symbol="arrow",
+                        color=desaturateArrowColor(self.mapClus2Did_color(index[1])),
+                        angleref="previous",
+                        standoff=0.3*markerSizeScale.scale(row.rechits_energy_ofNearestHigher),
+                    ),
+                    line=dict(
+                        width=max(1, math.log(row.rechits_cumulativeEnergy/0.01)), #line width in pixels
+                    ),
+                    **trace_dict
+                ))
+                showLegend = False
+
             self.fig.add_trace(go.Scatter(
                 mode="markers",
                 legendgroup="rechits",
@@ -101,6 +163,7 @@ class LayerVisualization(BaseVisualization):
                     symbol="circle",
                     color=self.mapClus2Did_color(index[1]),
                     size=markerSizeScale.scale(grouped_df["rechits_energy"]),
+                    opacity=1.,
                 ),
                 customdata=np.dstack((grouped_df.rechits_energy, grouped_df.rechits_rho, grouped_df.rechits_delta,
                     getPointTypeStringForRechits(clus2D_id=index[1], grouped_df=grouped_df)))[0],
@@ -113,30 +176,7 @@ class LayerVisualization(BaseVisualization):
                 )
             ))
 
-            # Plot arrows from follower to nearest higher
-            for row in grouped_df.dropna(subset=["rechits_x_ofNearestHigher"]).itertuples(index=False):
-                if row.rechits_pointType != 0:
-                    # Drop non-followers 
-                    continue
-                x1, x2, y1, y2 = row.rechits_x, row.rechits_x_ofNearestHigher, row.rechits_y, row.rechits_y_ofNearestHigher,
-                self.fig.add_traces(go.Scatter(
-                    mode="markers+lines",
-                    name="Rechits chain<br>of nearest higher",
-                    legendgroup="rechits_chain",
-                    showlegend=showLegend,
-                    hoverinfo='skip',
-                    x=[x1, x2],
-                    y=[y1, y2],
-                    marker=dict(
-                        symbol="arrow",
-                        color=self.mapClus2Did_color(index[1]),
-                        size=10,
-                        angleref="previous",
-                        standoff=0.3*markerSizeScale.scale(row.rechits_energy_ofNearestHigher),
-                    ),
-                    line_width=max(1, math.log(row.rechits_cumulativeEnergy/0.01)), #line width in pixels
-                ))
-                showLegend = False
+
 
         return self
 
@@ -187,7 +227,7 @@ class LayerVisualization(BaseVisualization):
         self.fig.add_trace(go.Scatter(
             mode="markers",
             name="Impact from DWC",
-            x=impacts.impactX, y=impacts.impactY,
+            x=impacts.impact_x, y=impacts.impact_y,
             marker=dict(
                 color="black",
                 size=8,
