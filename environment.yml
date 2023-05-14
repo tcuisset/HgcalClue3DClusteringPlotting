@@ -17,14 +17,19 @@ dependencies:
  - mplhep>=0.3 # plotting CMS style
  - plotly
  - python-kaleido # for saving plotly plots to png
- - dash
- - jupyter-dash
+ - nbformat # for plotly in notebooks (not sure if really needed)
+ - hsluv # for color scales
+ - dash # For event visualizer
+ - jupyter-dash # To use dash in notebook
+ - flask-caching # For caching events in dash event vis
  - tqdm # progress bars
  - uncertainties=3.*
  - scikit-learn # for wpca (somehow missing from dependencies)
- - snakeviz # (facultative, for visualization of profileer results)
+ - snakeviz # (facultative, for visualization of profiler results)
+ - tensorflow # for zfit
+ - xrootd # facultative, for opening testbeam ntuples with xrootd and uproot (in notebooks) but necessary for zfit
  - pip
  - pip:
     - awkward-pandas
-    - xrootd # facultative, for opening testbeam ntuples with xrootd and uproot (in notebooks)
     - wpca # for weighted PCA of 3D clusters
+    - zfit # for fitting (version on conda-forge is very old)
