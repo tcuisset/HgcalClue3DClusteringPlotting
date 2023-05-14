@@ -17,7 +17,7 @@ import awkward as ak
 
 from hists.parameters import beamEnergies, ntupleNumbersPerBeamEnergy
 from event_visualizer_plotly.utils import EventLoader, EventID, LoadedEvent
-from event_visualizer_plotly.dash_app.plots import makePlotClue3D, makePlotLayer, makePlotLongitudinalProfile
+from event_visualizer_plotly.dash_app.plots import makePlotClue3D, zAxisDropdownSettings, makePlotLayer, makePlotLongitudinalProfile
 from event_visualizer_plotly.dash_app.tables import makeClus2DTable, makeClus3DTable, updateClus2DTableData, updateClus3DTableData
 
 if __name__ == "__main__":
@@ -133,32 +133,41 @@ app.layout = html.Div([ # Outer Div
             html.Div("Event :", style=legendDivStyle),
             dcc.Dropdown(id="event", style=dropdownStyle),
             html.Div("Layer (for layer view) :"),
-            html.Div(dcc.Slider(min=1, max=28, step=1, value=10, id="layer"), style={"flex":"10 10 auto"}),
+            html.Div(dcc.Slider(min=1, max=28, step=1, value=10, id="layer"), style={"flex":"10 10 auto"}), # Need a div for style=
             dcc.Clipboard(id="link-copy-clipboard", title="Copy link", content="abc"),
         ], style={"display":"flex", "flexFlow":"row"}),
     ], style={'flex': '0 1 auto'}),
     
     dcc.Tabs(id="plot_tabs", children=[
-        dcc.Tab(label="3D view", value="3D", children=
+        dcc.Tab(label="3D view", value="3D", children=[
+            # The tab div has a column flex display defined in dcc.Tabs.content_style (same for all tabs)
+            html.Div(children=[
+                    dcc.Dropdown(id="zAxisSetting", options=zAxisDropdownSettings, value=next(iter(zAxisDropdownSettings)), style=dropdownStyle),
+                    dcc.Dropdown(id="projectionType", options={"perspective" : "Perspective", "orthographic" : "Orthographic"}, value="perspective", style=dropdownStyle),
+                ], 
+                # The buttons div should not spread vertically, but individual buttons should spread horizontally
+                style={"flex": "0 1 auto", "display" : "flex", "flexFlow":"row"}
+            ),
             dcc.Loading(
                 children=dcc.Graph(id="plot_3D", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
                     scale=3.
                 ))),
-                parent_style={"height":"100%"}, # not sure why this is needed but without it graph does not flex
+                parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible
             )
+        ],
         ),
         dcc.Tab(label="Layer view", value="layer", children=
             dcc.Loading(
                 children=dcc.Graph(id="plot_layer", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
                     scale=4.
                 ))),
-                parent_style={"height":"100%"}, # not sure why this is needed but without it graph does not flex
+                parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible (note there is only one box in the flex box)
             )
         ),
         dcc.Tab(label="Longitudinal profile", value="longitudinal_profile", children=
             dcc.Loading(
                 children=dcc.Graph(id="plot_longitudinal-profile", style={"height":"100%"}),
-                parent_style={"height":"100%"}, # not sure why this is needed but without it graph does not flex
+                parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible (note there is only one box in the flex box)
             )
         ),
         dcc.Tab(label="Tables", value="clus3D_table", children=[
@@ -170,10 +179,14 @@ app.layout = html.Div([ # Outer Div
         dcc.Tab(label="Instructions", children=eventVisInstructions, value="instructions"),
     ],
     parent_style={'flex': '1 1 auto'}, # Have the the whole tabs Div flex vertically inside outer div
-    content_style={'flex': '1 1 auto'}, # Have tab content flex vertically inside [tab header, tab content] div
+    content_style={'flex': '1 1 auto',  # Have tab content flex vertically inside [tab header, tab content] div
+                   # Have stuff arranged vertically inside a tab (only actually needed for 3D view tab, but I have not found a way to have per-tab setting)
+                   "display":"flex", "flexFlow":"column"},
     value="instructions"),
     
-], style={'display': 'flex', 'flexFlow': 'column', "height":"100vh"})
+], 
+style={'display': 'flex', 'flexFlow': 'column', # Have main button row and tabs outer div arranged vertically
+       "height":"100vh"}) # Always take whole viewport height
 
 class FullEventID(collections.namedtuple("FullEventID", ["clueParam", "datatype", "beamEnergy", "ntupleNumber", "event"], defaults=[None]*5)):
     @classmethod
@@ -303,9 +316,9 @@ emptyTable = []
 @app.callback(
     [Output("plot_3D", "figure"), Output("plot_longitudinal-profile", "figure"), 
      Output("clus3D_table", "data"), Output("clus2D_table", "data"), ],
-    [Input("signal-event-ready", "data")]
+    [Input("signal-event-ready", "data"), Input("zAxisSetting", "value"), Input("projectionType", "value")]
 )
-def mainEventUpdate(storage_eventId):
+def mainEventUpdate(storage_eventId, zAxisSetting, projectionType):
     """ Main callback to update all the plots at the same time.
     layer is State as there is another callback updateOnlyLayerPlot to update just the layer view """
     print("mainEventUpdate", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
@@ -319,7 +332,7 @@ def mainEventUpdate(storage_eventId):
     
     try:
         event = loadEvent(fullEventID)
-        return makePlotClue3D(event), makePlotLongitudinalProfile(event), updateClus3DTableData(event), updateClus2DTableData(event)
+        return makePlotClue3D(event, zAxisSetting, projectionType), makePlotLongitudinalProfile(event), updateClus3DTableData(event), updateClus2DTableData(event)
     except Exception as e:
         raise e
         return emptyReturn
