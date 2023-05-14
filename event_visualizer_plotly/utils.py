@@ -257,10 +257,10 @@ class LoadedEvent:
         Only rows which have a rechit in the event are kept"""
         df = ak.to_dataframe(self.record[["impactX", "impactY"]],
             levelname=lambda i : {0:"layer_minus_one"}[i]).reset_index().rename({"impactX" : "impact_x", "impactY": "impact_y"}, axis="columns")
-        df["layer"] = df["layer_minus_one"] + 1
+        df["impact_layer"] = df["layer_minus_one"] + 1
         df = df.drop("layer_minus_one", axis="columns")
 
-        return df.assign(impact_z=df.layer.map(hists.parameters.layerToZMapping)).dropna()
+        return df.assign(impact_z=df.impact_layer.map(hists.parameters.layerToZMapping)).dropna()
 
 def create3DFigure(title:str) -> go.Figure:
     fig = go.Figure(
