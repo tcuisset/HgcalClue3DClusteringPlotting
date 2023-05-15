@@ -5,8 +5,10 @@ Environment variables to set :
 """
 import urllib.parse
 import os
+import sys
 import glob
 import collections
+import traceback
 
 import dash
 from dash import Dash, html, Input, Output, State, dcc
@@ -100,9 +102,10 @@ Hold left-click and drag to move
 You can click on legend elements (in right menu) to show or hide them.
 For example, you can click on "Rechits" and on "Rechits chain" to hide all rechits-related information ("Rechits chain" selects the arrows of nearest higher chain from CLUE)
 
-### Aspect ratio
-The dropdown called "aspect ratio Z" increases the z axis factor for better visibility in the 3D view.
-Setting it to 1 would correspond to a "true" 3D view.
+### Aspect ratio and perspective
+The first dropdown below the tabs controls the z axis : you can have either layer number or z position.
+The "aspect ratio" setting increases the z axis factor for better visibility in the 3D view.
+The second dropdown changes the projection type : projective (normal projection) or orthographic (parallels stay parallels).
 
 ## Layer view
 Select the layer using the slider at top right
@@ -222,6 +225,8 @@ def update_datatypes(clueParam):
             pass
         return datatypes
     except:
+        print("Failed updating datatypes", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         return []
 
 @app.callback(
@@ -234,7 +239,8 @@ def update_ntupleNumber(clueParam, datatype, beamEnergy):
         ntuple_energy_pairs = availableSamples[clueParam][datatype].ntuplesEnergies
         return list(ntuple_energy_pairs.ntupleNumber[ntuple_energy_pairs.beamEnergy == beamEnergy])
     except:
-        print("fail")
+        print("Failed updating ntupleNumber", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         return []
 
 @app.callback(
@@ -246,6 +252,8 @@ def update_availableEvents(clueParam, datatype, beamEnergy, ntupleNumber):
     try:
         return list(availableSamples[clueParam][datatype].eventNumbersPerNtuple(beamEnergy, ntupleNumber))
     except:
+        print("Failed updated event", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         return []
 
 
@@ -272,8 +280,8 @@ def simpleUrlUpdate(urlSearchValue):
 
         return parsed_url_query["clueParam"][0], parsed_url_query["datatype"][0], int(parsed_url_query["beamEnergy"][0]), int(parsed_url_query["ntuple"][0]), int(parsed_url_query["event"][0]), layer_value, plot_tabs_value
     except (KeyError, ValueError) as e: # catch non-existing key or catch None
-        print("simpleUrlUpdate : failed parse")
-        print(e)
+        print("simpleUrlUpdate : failed parse", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         raise PreventUpdate()
 
 @app.callback(
@@ -334,7 +342,7 @@ def mainEventUpdate(storage_eventId, zAxisSetting, projectionType):
         event = loadEvent(fullEventID)
         return makePlotClue3D(event, zAxisSetting, projectionType), makePlotLongitudinalProfile(event), updateClus3DTableData(event), updateClus2DTableData(event)
     except Exception as e:
-        raise e
+        traceback.print_exc(file=sys.stderr)
         return emptyReturn
 
 
@@ -353,7 +361,8 @@ def updateOnlyLayerPlot(storage_eventId, layer):
     try:
         event = loadEvent(fullEventID)
         return makePlotLayer(event, layer)
-    except:
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
         return emptyFigure
 
 if __name__ == '__main__':
