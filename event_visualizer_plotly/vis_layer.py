@@ -222,7 +222,7 @@ class LayerVisualization(BaseVisualization):
         return self
 
     def addImpactPoint(self):
-        impacts = self.event.impact_df[self.event.impact_df.layer == self.layerNb]
+        impacts = self.event.impact_df[self.event.impact_df.impact_layer == self.layerNb]
 
         self.fig.add_trace(go.Scatter(
             mode="markers",
