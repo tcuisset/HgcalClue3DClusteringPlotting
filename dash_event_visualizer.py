@@ -129,9 +129,9 @@ app.layout = html.Div([ # Outer Div
             html.Div("Beam energy (GeV) :", style=legendDivStyle),
             dcc.Dropdown(options=beamEnergies, value=None, id="beamEnergy", style=dropdownStyle),
             html.Div("Ntuple number :", style=legendDivStyle),
-            dcc.Dropdown(id="ntupleNumber", style=dropdownStyle),
+            dcc.Loading(dcc.Dropdown(id="ntupleNumber", style=dropdownStyle)),
             html.Div("Event :", style=legendDivStyle),
-            dcc.Dropdown(id="event", style=dropdownStyle),
+            dcc.Loading(dcc.Dropdown(id="event", style=dropdownStyle)),
             html.Div("Layer (for layer view) :"),
             html.Div(dcc.Slider(min=1, max=28, step=1, value=10, id="layer"), style={"flex":"10 10 auto"}), # Need a div for style=
             dcc.Clipboard(id="link-copy-clipboard", title="Copy link", content="abc"),
