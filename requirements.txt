@@ -4,6 +4,8 @@ awkward == 2.*
 pandas == 2.*
 numpy
 hist >=2.6, <3
+scipy # for interpolate
+hsluv # for colors
 plotly == 5.*
 dash == 2.9.*
 Flask-Caching
