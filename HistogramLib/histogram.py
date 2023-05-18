@@ -80,7 +80,19 @@ class HistogramMetadata:
     profileOn:HistogramVariable|None = None
     weightOn:HistogramVariable|None = None
     weightedMeanOn:WeightedMeanHistogramVariable|None = None
-    axes:hist.axestuple.NamedAxesTuple = hist.axestuple.NamedAxesTuple
+    axes:hist.axestuple.NamedAxesTuple = None
+
+    # a boost_histogram AxesTuple (and thus a hist NamedAxesTuple) is currently not picklable due to implementing a __getattr__
+    # function that interacts badly with pickle (you get a TypeError : tuple object not callable). See https://stackoverflow.com/a/50888571
+    # Thus we circumvent the problem by converting from NamedAxesTuple to regular tuple just before pickling (and the reverse for unpickling)
+    def __getstate__(self):
+        """ Convert self.axes from NamedAxesTuple to tuple before pickling """
+        vars(self).update(axes=tuple(self.axes))
+    
+    def __setstate__(self, state):
+        """ Convert self.axes from tuple to NamedAxesTuple after unpickling """
+        state.update(axes=hist.axestuple.NamedAxesTuple(state["axes"]))
+        vars(self).update(state)
 
     def getPlotLabel(self, kind:HistogramKind, density:bool=False):
         """ Get the label of the bin contents of histogram, depending on profile (-> profile variable label) or count (-> stored in MyHistogram, usually "Event count")"""
