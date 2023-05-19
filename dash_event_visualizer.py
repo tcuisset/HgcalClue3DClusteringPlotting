@@ -9,6 +9,7 @@ import sys
 import glob
 import collections
 import traceback
+from timeit import default_timer as timer
 
 import dash
 from dash import Dash, html, Input, Output, State, dcc
@@ -235,8 +236,10 @@ def update_datatypes(clueParam):
 )
 def update_ntupleNumber(clueParam, datatype, beamEnergy):
     print("update_ntupleNumber", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
+    start_time = timer()
     try:
         ntuple_energy_pairs = availableSamples[clueParam][datatype].ntuplesEnergies
+        dash.callback_context.record_timing('computingNtuplesMap', timer() - start_time, 'Computing list of energy-ntuple pairs')
         return list(ntuple_energy_pairs.ntupleNumber[ntuple_energy_pairs.beamEnergy == beamEnergy])
     except:
         print("Failed updating ntupleNumber", file=sys.stderr)
@@ -339,7 +342,9 @@ def mainEventUpdate(storage_eventId, zAxisSetting, projectionType):
         return emptyReturn
     
     try:
+        start_time = timer()
         event = loadEvent(fullEventID)
+        dash.callback_context.record_timing('loadedEvent', timer() - start_time, 'Loading the event')
         return makePlotClue3D(event, zAxisSetting, projectionType), makePlotLongitudinalProfile(event), updateClus3DTableData(event), updateClus2DTableData(event)
     except Exception as e:
         traceback.print_exc(file=sys.stderr)
@@ -359,7 +364,9 @@ def updateOnlyLayerPlot(storage_eventId, layer):
     if not fullEventID.isFilled():
         return emptyFigure
     try:
+        start_time = timer()
         event = loadEvent(fullEventID)
+        dash.callback_context.record_timing('loadedEvent', timer() - start_time, 'Loading the event')
         return makePlotLayer(event, layer)
     except Exception:
         traceback.print_exc(file=sys.stderr)

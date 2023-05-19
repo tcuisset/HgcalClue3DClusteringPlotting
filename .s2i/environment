@@ -4,3 +4,5 @@ HOST=0.0.0.0
 CLUE_INPUT_FOLDER=/eos/user/t/tcuisset/hgcal/testbeam18-clue3d/v33/
 WEB_CONCURRENCY=1
 GUNICORN_CMD_ARGS="--timeout 90"
+DASH_UI=true
+DASH_SERVE_DEV_BUNDLES=true
