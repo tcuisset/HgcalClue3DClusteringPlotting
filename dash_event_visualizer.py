@@ -57,6 +57,7 @@ else:
 if (clueInputFile is None and clueInputFolder is None) or (clueInputFile is not None and clueInputFolder is not None):
     raise ValueError("You should specify either -i or -I (or set either CLUE_INPUT_FILE or CLUE_INPUT_FOLDER environment variables)")
 
+print("Loading samples...")
 # Discover clue-params and datatypes
 availableSamples = collections.defaultdict(dict) # dict clueParam -> dict : datatype -> EventLoader
 if clueInputFolder is not None:
@@ -77,6 +78,8 @@ try: # Put "cmssw" as first list element
     clueParamsList.insert(0, clueParamsList.pop(clueParamsList.index("cmssw")))
 except ValueError:
     pass
+
+print("Done")
 
 app = Dash(__name__)
 server = app.server
@@ -248,10 +251,12 @@ def update_ntupleNumber(clueParam, datatype, beamEnergy):
 
 @app.callback(
     Output("event", "options"),
-    [Input("clueParam", "value"), Input("datatype", "value"), Input("beamEnergy", "value"), Input("ntupleNumber", "value")]
+    [Input("clueParam", "value"), Input("datatype", "value"), Input("beamEnergy", "value"), Input("ntupleNumber", "value")],
 )
 def update_availableEvents(clueParam, datatype, beamEnergy, ntupleNumber):
     print("update_availableEvents", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
+    if None in [clueParam, datatype, beamEnergy, ntupleNumber]:
+        return []
     try:
         return list(availableSamples[clueParam][datatype].eventNumbersPerNtuple(beamEnergy, ntupleNumber))
     except:
@@ -259,6 +264,26 @@ def update_availableEvents(clueParam, datatype, beamEnergy, ntupleNumber):
         traceback.print_exc(file=sys.stderr)
         return []
 
+
+#When the event dropdown options change, clear the event value. In turn, this will update the event display. 
+#It is needed as otherwise, just changing dropdown options does not cause Input(.., "value") callbacks to be fired
+#leading to display not being synced to event bar
+# We need to check if the current event value is valid, as otherwise on initial call from URL the event value gets overwritten
+app.clientside_callback(
+    """ 
+    function(eventOptions, eventValue) {
+        if (eventOptions.includes(eventValue)) {
+            throw window.dash_clientside.PreventUpdate;
+            //return window.dash_clientside.no_update; //does not work for some reason
+        } else {
+            return null;
+        }
+    }
+    """,
+    Output("event", "value", allow_duplicate=True),
+    [Input("event", "options"), State("event", "value")],
+    prevent_initial_call=True
+)
 
 @app.callback(
     [Output("clueParam", "value"), Output("datatype", "value"), Output("beamEnergy", "value"), Output("ntupleNumber", "value"), Output("event", "value"), Output("layer", "value"), Output("plot_tabs", "value")],
