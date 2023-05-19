@@ -974,6 +974,8 @@ class DataframeComputations:
         except Exception as e:
             if engine == "cython":
                 raise e
+            print("WARNING : (dataframe.py) falling back to python implementation of intervalHoldingFractionOfEnergy, which is very slow. ")
+            print("Consider using the cythonized version, by running 'cd Plotting/hists; cythonize -3 -i dataframe_cython.pyx")
             # Python fallback implementation (very slow)
             def computeShortestInterval(series:pd.Series, fraction:float) -> tuple[int, int]:
                 """ Compute the actual shortest interval. Params : 

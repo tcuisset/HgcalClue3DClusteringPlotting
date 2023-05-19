@@ -28,6 +28,7 @@ dependencies:
  - snakeviz # (facultative, for visualization of profiler results)
  - tensorflow # for zfit
  - xrootd # facultative, for opening testbeam ntuples with xrootd and uproot (in notebooks) but necessary for zfit
+ - cython>=0.28,<1 # (recommended) for accelerating some functions in dataframe.py (very slow otherwise)
  - pip
  - pip:
     - awkward-pandas
