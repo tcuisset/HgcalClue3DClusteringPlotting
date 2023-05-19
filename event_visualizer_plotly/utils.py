@@ -40,15 +40,23 @@ def memoized_method(*lru_args, **lru_kwargs):
     return decorator
 
 class DTypeFinder:
+    """ Find the smallest dtype for branches of tree """
     def __init__(self, event_array_dict:dict[str, np.ndarray]) -> None:
         self.event_array_dict = event_array_dict
     
     @memoized_method(maxsize=None)
-    def bestDtypeFor(self, column:str):
+    def bestDtypeFor(self, column:str) -> np.dtype:
         if column == "index":
             return column, np.min_scalar_type(len(self.event_array_dict["beamEnergy"]))
         else:
             return column, np.min_scalar_type(np.max(self.event_array_dict[column]))
+
+def findDtypeInfo(dtype:np.dtype):
+    """ Get the information for the dtype, that works for both int and float types. You can call min or max on the resulting object """
+    try:
+        return np.iinfo(dtype)
+    except ValueError:
+        return np.finfo(dtype)
 
 class EventIndex:
     """ Index of events """
@@ -79,9 +87,9 @@ class EventIndex:
         for (dtype, _), value in itertools.zip_longest(self._index_structured_dtype.fields.values(), firstColumnValues):
             if value is None:
                 if min:
-                    value_list.append(np.iinfo(dtype).min)
+                    value_list.append(findDtypeInfo(dtype).min)
                 else:
-                    value_list.append(np.iinfo(dtype).max)
+                    value_list.append(findDtypeInfo(dtype).max)
             else:
                 value_list.append(value)
         return np.array(tuple(value_list), dtype=self._index_structured_dtype)
