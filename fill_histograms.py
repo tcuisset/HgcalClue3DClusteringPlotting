@@ -64,13 +64,12 @@ try:
         # 200MB leads to 20k events at a time, memory usage of 15GB
         # 500MB leads to 50k events at a time, and memory usage of of around 30 GB 
         for (array, report) in CLUE_tree.iterate(step_size="200MB", library="ak", report=True):
-            pbar.update(report.stop-report.start)
-            #print("Processing events [" + str(report.start) + ", " + str(report.stop) + "[", flush=True)
-
             comp = DataframeComputations(array)
             for histogram in hist_dict.values():
                 histogram.loadFromComp(comp)
             del comp
+
+            pbar.update(report.stop-report.start)
 
 except IndexError as e:
     print("WARNING : an IndexError exception ocurred. This can happen for improperly closed ROOT files.")
