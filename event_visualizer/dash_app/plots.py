@@ -1,7 +1,9 @@
-from event_visualizer_plotly.utils import LoadedEvent
-from event_visualizer_plotly.vis_clue3D import Clue3DVisualization
-from event_visualizer_plotly.vis_layer import LayerVisualization
-from event_visualizer_plotly.vis_longitudinal_profile import LongitudinalProfileVisualization
+""" Functions making the plotly plots for the dash app, linking vis_* code to dash """
+
+from event_visualizer.event_index import LoadedEvent
+from event_visualizer.plotter.clue3D import Clue3DVisualization
+from event_visualizer.plotter.layer import LayerVisualization
+from event_visualizer.plotter.longitudinal_profile import LongitudinalProfileVisualization
 
 zAxisDropdownSettings = {"layer-3": "Layer as z", "layer-5":"Layer as z (extra space)", "z-1" : "z - aspect ratio=1", "z-3" : "z - aspect ratio 3", "z-5":"z - aspect ratio 5"}
 zAxisDropdownSettingsMap = {"layer-3": dict(zAspectRatio=3, useLayerAsZ=True), "layer-5": dict(zAspectRatio=5, useLayerAsZ=True),

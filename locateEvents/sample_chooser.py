@@ -1,11 +1,12 @@
+""" WIP, ipywidgets based random sample plotter with buttons """
 import pandas as pd
 from IPython.display import display, clear_output
 import ipywidgets as widgets
 from plotly.io.base_renderers import PlotlyRenderer, NotebookRenderer
 import plotly.io as pio
 
-from event_visualizer_plotly.utils import EventLoader, EventID
-from event_visualizer_plotly.vis_clue3D import Clue3DVisualization
+from event_visualizer.event_index import EventLoader, EventID
+from event_visualizer.plotter.clue3D import Clue3DVisualization
 
 class EventDisplayList:
     def __init__(self, eventList:list[EventID]) -> None:

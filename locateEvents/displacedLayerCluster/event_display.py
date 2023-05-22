@@ -1,11 +1,11 @@
 import random
 import pandas as pd
 
-from event_visualizer_plotly.vis_layer import LayerVisualization
-from event_visualizer_plotly.vis_clue3D import Clue3DVisualization
-from event_visualizer_plotly.utils import EventLoader, EventID, LoadedEvent
-from event_visualizer_plotly.locateEvents.utils import makeDashLink, makeCsvRow, printCsvRowsFromDf
-from event_visualizer_plotly.locateEvents.sample_chooser import EventDisplayList
+from event_visualizer.plotter.layer import LayerVisualization
+from event_visualizer.plotter.clue3D import Clue3DVisualization
+from event_visualizer.event_index import EventLoader, EventID, LoadedEvent
+from locateEvents.utils import makeDashLink, makeCsvRow, printCsvRowsFromDf
+from locateEvents.sample_chooser import EventDisplayList
 
 
 def loadEventFromDf_iloc(df, index, eventLoader) -> tuple[LoadedEvent, int]:

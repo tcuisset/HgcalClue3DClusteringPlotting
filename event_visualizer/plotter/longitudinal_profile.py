@@ -4,7 +4,8 @@ from functools import cached_property
 import plotly.express as px
 import plotly.graph_objects as go
 
-from event_visualizer_plotly.utils import *
+from event_visualizer.event_index import LoadedEvent
+from event_visualizer.plotter.utils import *
 
 
 class LongitudinalProfileVisualization(BaseVisualization):

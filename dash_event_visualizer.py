@@ -19,9 +19,11 @@ import uproot
 import awkward as ak
 
 from hists.parameters import beamEnergies, ntupleNumbersPerBeamEnergy
-from event_visualizer_plotly.utils import EventLoader, EventID, LoadedEvent
-from event_visualizer_plotly.dash_app.plots import makePlotClue3D, zAxisDropdownSettings, makePlotLayer, makePlotLongitudinalProfile
-from event_visualizer_plotly.dash_app.tables import makeClus2DTable, makeClus3DTable, updateClus2DTableData, updateClus3DTableData
+from event_visualizer.event_index import EventLoader, EventID, LoadedEvent
+from event_visualizer.dash_app.plots import makePlotClue3D, zAxisDropdownSettings, makePlotLayer, makePlotLongitudinalProfile
+from event_visualizer.dash_app.tables import makeClus2DTable, makeClus3DTable, updateClus2DTableData, updateClus3DTableData
+from event_visualizer.dash_app.views import view_3D_component, view_layer_component
+from event_visualizer.dash_app.event_selection_bar import makeEventSelectionBarComponent, registerEventSelectionBarCallbacks
 
 if __name__ == "__main__":
     import argparse
@@ -122,59 +124,15 @@ Overlaid are diistribution for rechits (blue) and CLUE (red, taking only rechits
 Click the clipboard button at the very top right, it will save a direct link to the current event in the clipboard
 ''')
 
-legendDivStyle = {'flex': '0 1 auto', 'margin':"10px"}
-dropdownStyle = {'flex': '1 1 auto'}
 app.layout = html.Div([ # Outer Div
-    html.Div([
-        dcc.Location(id="url", refresh=False), # For some reason  "callback-nav" works but False does not
-        dcc.Store(id="signal-event-ready"),
-
-        html.Div(children=[
-            html.Div("ClueParams :", style=legendDivStyle),
-            dcc.Dropdown(options=clueParamsList, id="clueParam", style=dropdownStyle, value="cmssw"),
-            dcc.Dropdown(id="datatype", style={"width":"200px"}, value="data"),
-            html.Div("Beam energy (GeV) :", style=legendDivStyle),
-            dcc.Dropdown(options=beamEnergies, value=None, id="beamEnergy", style=dropdownStyle),
-            html.Div("Ntuple number :", style=legendDivStyle),
-            dcc.Loading(dcc.Dropdown(id="ntupleNumber"), parent_style=dropdownStyle),
-            html.Div("Event :", style=legendDivStyle),
-            dcc.Loading(dcc.Dropdown(id="event"), parent_style=dropdownStyle),
-            dcc.Clipboard(id="link-copy-clipboard", title="Copy link", content="abc", style={"margin":"5px 10px 2px 10px"}),
-        ], style={"display":"flex", "flexFlow":"row"}),
+    dcc.Location(id="url", refresh=False), # For some reason  "callback-nav" works but False does not
+    dcc.Store(id="signal-event-ready"),
+    html.Div([makeEventSelectionBarComponent(clueParamsList, beamEnergies)
     ], style={'flex': '0 1 auto'}),
     
     dcc.Tabs(id="plot_tabs", children=[
-        dcc.Tab(label="3D view", value="3D", children=[
-            # The tab div has a column flex display defined in dcc.Tabs.content_style (same for all tabs)
-            html.Div(children=[
-                    dcc.Dropdown(id="zAxisSetting", options=zAxisDropdownSettings, value=next(iter(zAxisDropdownSettings)), style=dropdownStyle),
-                    dcc.Dropdown(id="projectionType", options={"perspective" : "Perspective", "orthographic" : "Orthographic"}, value="perspective", style=dropdownStyle),
-                ], 
-                # The buttons div should not spread vertically, but individual buttons should spread horizontally
-                style={"flex": "0 1 auto", "display" : "flex", "flexFlow":"row"}
-            ),
-            dcc.Loading(
-                children=dcc.Graph(id="plot_3D", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
-                    scale=3.
-                ))),
-                parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible
-            )
-        ],
-        ),
-        dcc.Tab(label="Layer view", value="layer", children=[
-            # The tab div has a column flex display defined in dcc.Tabs.content_style (same for all tabs)
-            html.Div(children=[
-                html.Div("Layer (for layer view) :", style=legendDivStyle),
-                html.Div(dcc.Slider(min=1, max=28, step=1, value=10, id="layer"), style={"flex":"10 10 auto"}), # Need a div for style=
-            ], style={"flex": "0 1 auto", "display" : "flex", "flexFlow":"row"}),
-            dcc.Loading(
-                children=dcc.Graph(id="plot_layer", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
-                    scale=4.
-                ))),
-                parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible (note there is only one box in the flex box)
-            )
-        ],
-        ),
+        dcc.Tab(label="3D view", value="3D", children=view_3D_component),
+        dcc.Tab(label="Layer view", value="layer", children=view_layer_component),
         dcc.Tab(label="Longitudinal profile", value="longitudinal_profile", children=
             dcc.Loading(
                 children=dcc.Graph(id="plot_longitudinal-profile", style={"height":"100%"}),
@@ -193,11 +151,15 @@ app.layout = html.Div([ # Outer Div
     content_style={'flex': '1 1 auto',  # Have tab content flex vertically inside [tab header, tab content] div
                    # Have stuff arranged vertically inside a tab (only actually needed for 3D view tab, but I have not found a way to have per-tab setting)
                    "display":"flex", "flexFlow":"column"},
-    value="instructions"),
+    value="instructions" # Open instructions tab by default (unless overriden by url)
+    ),
     
 ], 
 style={'display': 'flex', 'flexFlow': 'column', # Have main button row and tabs outer div arranged vertically
        "height":"100vh"}) # Always take whole viewport height
+
+
+registerEventSelectionBarCallbacks(availableSamples)
 
 class FullEventID(collections.namedtuple("FullEventID", ["clueParam", "datatype", "beamEnergy", "ntupleNumber", "event"], defaults=[None]*5)):
     @classmethod
@@ -219,75 +181,6 @@ class FullEventID(collections.namedtuple("FullEventID", ["clueParam", "datatype"
     def isFilled(self):
         return not any(map(lambda x: x is None, self))
 
-@app.callback(
-    Output("datatype", "options"),
-    [Input("clueParam", "value")]
-)
-def update_datatypes(clueParam):
-    print("update_datatypes", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
-    try:
-        datatypes = list(availableSamples[clueParam].keys())
-        try: # Put "data" as first list element
-            datatypes.insert(0, datatypes.pop(datatypes.index("data")))
-        except ValueError:
-            pass
-        return datatypes
-    except:
-        print("Failed updating datatypes", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
-        return []
-
-@app.callback(
-    Output("ntupleNumber", "options"),
-    [Input("clueParam", "value"), Input("datatype", "value"), Input("beamEnergy", "value")]
-)
-def update_ntupleNumber(clueParam, datatype, beamEnergy):
-    print("update_ntupleNumber", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
-    start_time = timer()
-    try:
-        ntuple_energy_pairs = availableSamples[clueParam][datatype].ntuplesEnergies
-        dash.callback_context.record_timing('computingNtuplesMap', timer() - start_time, 'Computing list of energy-ntuple pairs')
-        return list(ntuple_energy_pairs.ntupleNumber[ntuple_energy_pairs.beamEnergy == beamEnergy])
-    except:
-        print("Failed updating ntupleNumber", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
-        return []
-
-@app.callback(
-    Output("event", "options"),
-    [Input("clueParam", "value"), Input("datatype", "value"), Input("beamEnergy", "value"), Input("ntupleNumber", "value")],
-)
-def update_availableEvents(clueParam, datatype, beamEnergy, ntupleNumber):
-    print("update_availableEvents", dash.ctx.triggered_prop_ids, dash.ctx.inputs, flush=True)
-    if None in [clueParam, datatype, beamEnergy, ntupleNumber]:
-        return []
-    try:
-        return list(availableSamples[clueParam][datatype].eventNumbersPerNtuple(beamEnergy, ntupleNumber))
-    except:
-        print("Failed updated event", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
-        return []
-
-
-#When the event dropdown options change, clear the event value. In turn, this will update the event display. 
-#It is needed as otherwise, just changing dropdown options does not cause Input(.., "value") callbacks to be fired
-#leading to display not being synced to event bar
-# We need to check if the current event value is valid, as otherwise on initial call from URL the event value gets overwritten
-app.clientside_callback(
-    """ 
-    function(eventOptions, eventValue) {
-        if (eventOptions.includes(eventValue)) {
-            throw window.dash_clientside.PreventUpdate;
-            //return window.dash_clientside.no_update; //does not work for some reason
-        } else {
-            return null;
-        }
-    }
-    """,
-    Output("event", "value", allow_duplicate=True),
-    [Input("event", "options"), State("event", "value")],
-    prevent_initial_call=True
-)
 
 @app.callback(
     [Output("clueParam", "value"), Output("datatype", "value"), Output("beamEnergy", "value"), Output("ntupleNumber", "value"), Output("event", "value"), Output("layer", "value"), Output("plot_tabs", "value")],

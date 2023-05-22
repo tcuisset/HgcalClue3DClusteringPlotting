@@ -7,7 +7,8 @@ import scipy.interpolate
 
 #from hists.dataframe import *
 import hists.parameters
-from event_visualizer_plotly.utils import *
+from event_visualizer.event_index import LoadedEvent
+from event_visualizer.plotter.utils import *
 
 class LegendRanks:
     base = 1000

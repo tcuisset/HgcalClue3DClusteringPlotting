@@ -6,7 +6,8 @@ import plotly.graph_objects as go
 from hsluv import hex_to_hsluv, hsluv_to_hex
 
 import hists.parameters
-from event_visualizer_plotly.utils import *
+from event_visualizer.event_index import LoadedEvent
+from event_visualizer.plotter.utils import *
 
 
 def desaturateArrowColor(color:str):

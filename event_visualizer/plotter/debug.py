@@ -1,8 +1,8 @@
 import sys
 sys.path.append("Plotting/")
-from vis_clue3D import Clue3DVisualization
-from vis_layer import LayerVisualization
-from utils import *
+from event_visualizer.plotter.clue3D import Clue3DVisualization
+from event_visualizer.plotter.layer import LayerVisualization
+from event_visualizer.event_index import *
 
 el = EventLoader('/data_cms_upgrade/cuisset/testbeam18/clue3d/v31/cmssw/data/CLUE_clusters.root')
 event = el.loadEvent(EventID(150, 496, 18369))

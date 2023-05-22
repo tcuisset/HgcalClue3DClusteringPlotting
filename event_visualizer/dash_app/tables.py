@@ -1,3 +1,4 @@
+""" Making tables showing cluster informations per event, in a Dash DataTable """
 import math
 
 import awkward as ak
@@ -5,7 +6,7 @@ import pandas as pd
 from dash import dash_table
 from dash.dash_table.Format import Format, Scheme, Trim
 
-from event_visualizer_plotly.utils import  LoadedEvent
+from event_visualizer.event_index import  LoadedEvent
 
 
 
