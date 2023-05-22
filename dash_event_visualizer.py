@@ -136,12 +136,10 @@ app.layout = html.Div([ # Outer Div
             html.Div("Beam energy (GeV) :", style=legendDivStyle),
             dcc.Dropdown(options=beamEnergies, value=None, id="beamEnergy", style=dropdownStyle),
             html.Div("Ntuple number :", style=legendDivStyle),
-            dcc.Loading(dcc.Dropdown(id="ntupleNumber", style=dropdownStyle)),
+            dcc.Loading(dcc.Dropdown(id="ntupleNumber"), parent_style=dropdownStyle),
             html.Div("Event :", style=legendDivStyle),
-            dcc.Loading(dcc.Dropdown(id="event", style=dropdownStyle)),
-            html.Div("Layer (for layer view) :"),
-            html.Div(dcc.Slider(min=1, max=28, step=1, value=10, id="layer"), style={"flex":"10 10 auto"}), # Need a div for style=
-            dcc.Clipboard(id="link-copy-clipboard", title="Copy link", content="abc"),
+            dcc.Loading(dcc.Dropdown(id="event"), parent_style=dropdownStyle),
+            dcc.Clipboard(id="link-copy-clipboard", title="Copy link", content="abc", style={"margin":"5px 10px 2px 10px"}),
         ], style={"display":"flex", "flexFlow":"row"}),
     ], style={'flex': '0 1 auto'}),
     
@@ -163,13 +161,19 @@ app.layout = html.Div([ # Outer Div
             )
         ],
         ),
-        dcc.Tab(label="Layer view", value="layer", children=
+        dcc.Tab(label="Layer view", value="layer", children=[
+            # The tab div has a column flex display defined in dcc.Tabs.content_style (same for all tabs)
+            html.Div(children=[
+                html.Div("Layer (for layer view) :", style=legendDivStyle),
+                html.Div(dcc.Slider(min=1, max=28, step=1, value=10, id="layer"), style={"flex":"10 10 auto"}), # Need a div for style=
+            ], style={"flex": "0 1 auto", "display" : "flex", "flexFlow":"row"}),
             dcc.Loading(
                 children=dcc.Graph(id="plot_layer", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
                     scale=4.
                 ))),
                 parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible (note there is only one box in the flex box)
             )
+        ],
         ),
         dcc.Tab(label="Longitudinal profile", value="longitudinal_profile", children=
             dcc.Loading(
