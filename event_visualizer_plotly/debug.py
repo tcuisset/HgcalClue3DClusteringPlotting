@@ -5,7 +5,7 @@ from vis_layer import LayerVisualization
 from utils import *
 
 el = EventLoader('/data_cms_upgrade/cuisset/testbeam18/clue3d/v31/cmssw/data/CLUE_clusters.root')
-event = el.loadEvent(EventID(667, 1000))
+event = el.loadEvent(EventID(150, 496, 18369))
 
 
 fig = (Clue3DVisualization(event)
