@@ -20,6 +20,8 @@ ntupleNumbersPerBeamEnergy = {
  300: [435]
 }
 
+layers = list(range(28+1))
+
 layerToZMapping = {1: 13.8774995803833,
  2: 14.767499923706055,
  3: 16.782499313354492,

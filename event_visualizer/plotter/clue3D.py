@@ -26,6 +26,7 @@ class LegendRanks:
 interpolateZToLayer = scipy.interpolate.interp1d(x=list(hists.parameters.layerToZMapping.values()), y=list(hists.parameters.layerToZMapping.keys()), kind="linear")
 
 class Clue3DVisualization(BaseVisualization):
+    """ Class building a Plotly figure for 3D event visualization """
     def __init__(self, event:LoadedEvent, title=None, projection="orthographic", zAspectRatio=1, useLayerAsZ=False) -> None:
         """ CLUE3D visualization in 3D
         Parameters :
@@ -40,7 +41,10 @@ class Clue3DVisualization(BaseVisualization):
         
         scene_dict = dict()
 
+        self.useLayerAsZ = useLayerAsZ
+
         def accessAttr(df, fullAttrName):
+            """ Access an attribute either by [] or by . (so it works with both pandas Dataframe and python namedtuples) """
             try:
                 return df[fullAttrName]
             except TypeError:
@@ -54,6 +58,12 @@ class Clue3DVisualization(BaseVisualization):
                 else:
                     return accessAttr(df, name + "layer"+tail)
             self._getZColumn = _getZColumnsLayer
+            """ Function to use to get from a dataframe (or namedtuple) the relavant column to plot as z. Function parameters :
+             - df : the dataframe to access 
+             - name : the prefix of the column name, including _ (ex : clus2D_)
+             - tail : the suffix of the column name, including _ (ex : _shifted)
+            use for example : self._getZColumn(clus2D_df, "clus2D_") will access either clus2D_df.clus2D_z or clus2D_df.clus2D_layer as appropriate
+            """
             scene_dict["zaxis_title"] = "Layer number"
         else:
             self._getZColumn = lambda df, name, tail="" : accessAttr(df, name + "z"+tail)
@@ -350,7 +360,12 @@ class Clue3DVisualization(BaseVisualization):
     def addDetectorCylinder(self):
         """ Plot detector cylinder (very approximate detector area) """
         detExt = hists.parameters.DetectorExtentData # For data
-        x, y, z = makeCylinderCoordinates(r=detExt.radius, h=detExt.depth, z0=detExt.firstLayerZ, axisX=detExt.centerX, axisY=detExt.centerY)
+
+        if self.useLayerAsZ:
+            x, y, z = makeCylinderCoordinates(r=detExt.radius, h=hists.parameters.layers[-1]-hists.parameters.layers[0], z0=hists.parameters.layers[0], axisX=detExt.centerX, axisY=detExt.centerY)
+        else:
+            x, y, z = makeCylinderCoordinates(r=detExt.radius, h=detExt.depth, z0=detExt.firstLayerZ, axisX=detExt.centerX, axisY=detExt.centerY)
+        
         self.fig.add_trace(go.Surface(x=x, y=y, z=z, colorscale=[[0, 'blue'],[1, 'blue']], 
             opacity=0.5, hoverinfo="skip", showscale=False, showlegend=True, visible="legendonly",
             name="Approx detector size"))
