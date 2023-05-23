@@ -2,7 +2,7 @@
 
 from dash import Dash, html, Input, Output, State, dcc
 
-from event_visualizer.dash_app.plots import makePlotClue3D, zAxisDropdownSettings, makePlotLayer, makePlotLongitudinalProfile
+from event_visualizer.dash_app.plots import zAxisDropdownSettings
 
 legendDivStyle = {'flex': '0 1 auto', 'margin':"10px"}
 dropdownStyle = {'flex': '1 1 auto'}
@@ -23,6 +23,7 @@ view_3D_component = [
         parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible
     )
 ]
+""" A 3D event view component. Graph has id 'plot_3D' """
 
 view_layer_component = [
     # The tab div has a column flex display defined in dcc.Tabs.content_style (same for all tabs)
@@ -37,3 +38,4 @@ view_layer_component = [
         parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible (note there is only one box in the flex box)
     )
 ]
+""" A 2D event view component. Graph has id 'plot_layer' """
