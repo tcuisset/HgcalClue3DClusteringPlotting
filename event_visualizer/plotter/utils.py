@@ -53,7 +53,7 @@ class BaseVisualization:
         self.clus3D_symbols_2Dview = itertools.cycle(["diamond", "cross", "square", "pentagon", "star", "star-triangle-up", "star-square", "hourglass", "hexagram", "star-diamond", "circle-cross", "diamond-tall", "square-cross"])
         # Symbols for 2D clusters that are (followers of) an outlier in CLUE3D
         self.clus3D_symbols_outlier_3Dview = itertools.cycle([ 'circle-open', 'square-open', 'diamond-open'])
-        self.clus3D_symbols_outlier_2Dview = itertools.cycle([ "cross-open-dot", "pentagon-open-dot", "star-open-dot", "start-square-open-dot", "diamond-open-dot", "heaxagram-open-dot", "diamond-tall-open-dot", "diamond-wide-open-dot", "hash-open-dot"])
+        self.clus3D_symbols_outlier_2Dview = itertools.cycle([ "cross-open-dot", "pentagon-open-dot", "star-open-dot", "star-square-open-dot", "diamond-open-dot", "heaxagram-open-dot", "diamond-tall-open-dot", "diamond-wide-open-dot", "hash-open-dot"])
         
         self.mapClus3Did_symbol_3Dview = {clus3D_id : next(self.clus3D_symbols_3Dview) for clus3D_id in self.event.clus3D_ids(sortDecreasingEnergy=True)}
         self.mapClus3Did_symbol_2Dview = {clus3D_id : next(self.clus3D_symbols_2Dview) for clus3D_id in self.event.clus3D_ids(sortDecreasingEnergy=True)}
