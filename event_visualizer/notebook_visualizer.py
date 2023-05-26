@@ -15,6 +15,12 @@ from locateEvents.utils import makeDashLink, makeCsvRow, printCsvRowsFromDf
 
 class EventDisplay:
     def __init__(self, eventList:pd.DataFrame|ak.Array|dict, eventLoader:EventLoader, run_server_mode="inline") -> None:
+        """ Build notebook-embedded event display
+        Parameters : 
+         - eventList : should contain beamEnergy, event, ntupleNumber columns, either as a pandas Dataframe, an awkard array or a dict of lists
+         - eventLoader : the EventLoader to load the events from
+         - run_server_mode : passed to JupyterDash.run_server, can be "external", "inline", or "jupyter_lab"
+        """
         if isinstance(eventList, ak.Array):
             eventList = ak.to_dataframe(eventList[["beamEnergy", "event", "ntupleNumber"]])
         if isinstance(eventList, dict):
@@ -39,7 +45,7 @@ class EventDisplay:
                         parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible (note there is only one box in the flex box)
                     )
                 ),
-            ], style={"flex":"1 1 auto"}),
+            ], style={"flex":"1 1 auto"}, value="3D"),
         ], style={"display":"flex", "flexFlow":"column"})
         
 
@@ -82,7 +88,7 @@ class EventDisplay:
             layer = self.eventList.iloc[index]
         else:
             layer = None
-        return self.el.loadEvent(EventID(self.eventList.beamEnergy.iloc[index], self.eventList.ntupleNumber.iloc[index], self.eventList.event.iloc[index])), layer
+        return self.el.loadEvent(EventID(self.eventList.beamEnergy.loc[index], self.eventList.ntupleNumber.loc[index], self.eventList.event.loc[index])), layer
     
     def sampleRandom(self):
         if self.shuffledIndex is None:
