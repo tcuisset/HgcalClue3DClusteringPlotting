@@ -14,12 +14,13 @@ from locateEvents.utils import makeDashLink, makeCsvRow, printCsvRowsFromDf
 
 
 class EventDisplay:
-    def __init__(self, eventList:pd.DataFrame|ak.Array|dict, eventLoader:EventLoader, run_server_mode="inline") -> None:
+    def __init__(self, eventList:pd.DataFrame|ak.Array|dict, eventLoader:EventLoader, run_server_mode="inline", **run_server_kwargs) -> None:
         """ Build notebook-embedded event display
         Parameters : 
          - eventList : should contain beamEnergy, event, ntupleNumber columns, either as a pandas Dataframe, an awkard array or a dict of lists
          - eventLoader : the EventLoader to load the events from
          - run_server_mode : passed to JupyterDash.run_server, can be "external", "inline", or "jupyter_lab"
+         - extra kwargs : passed to JupyterDash.run_server (and then on to Dash.run_server)
         """
         if isinstance(eventList, ak.Array):
             eventList = ak.to_dataframe(eventList[["beamEnergy", "event", "ntupleNumber"]])
@@ -78,7 +79,7 @@ class EventDisplay:
 
         self.currentEvent = None
 
-        self.app.run_server(run_server_mode, debug=True)
+        self.app.run_server(run_server_mode, debug=True, **run_server_kwargs)
 
 
     

@@ -49,8 +49,8 @@ class BaseVisualization:
         self.event:LoadedEvent = event
 
         # Symbols for 2D clusters, all 2D clusters member of a given 3D cluster get the same symbol
-        self.clus3D_symbols_3Dview = itertools.cycle(['diamond', 'cross', 'square', 'x', 'circle'])
-        self.clus3D_symbols_2Dview = itertools.cycle(["diamond", "cross", "square", "pentagon", "star", "star-triangle-up", "star-square", "hourglass", "hexagram", "star-diamond", "circle-cross", "diamond-tall", "square-cross"])
+        self.clus3D_symbols_3Dview = itertools.cycle(['diamond', 'square', 'circle', 'cross', 'x'])
+        self.clus3D_symbols_2Dview = itertools.cycle(["diamond", "square", "cross",  "pentagon", "star", "star-triangle-up", "star-square", "hourglass", "hexagram", "star-diamond", "circle-cross", "diamond-tall", "square-cross"])
         # Symbols for 2D clusters that are (followers of) an outlier in CLUE3D
         self.clus3D_symbols_outlier_3Dview = itertools.cycle([ 'circle-open', 'square-open', 'diamond-open'])
         self.clus3D_symbols_outlier_2Dview = itertools.cycle([ "cross-open-dot", "pentagon-open-dot", "star-open-dot", "star-square-open-dot", "diamond-open-dot", "heaxagram-open-dot", "diamond-tall-open-dot", "diamond-wide-open-dot", "hash-open-dot"])
