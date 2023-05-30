@@ -12,7 +12,7 @@ import pandas as pd
 import awkward as ak
 
 from . import parameters
-from .parameters import synchrotronBeamEnergiesMap
+from .parameters import synchrotronBeamEnergiesMap, layerToZMapping
 from .shower_axis import computeAngleSeries
 
 import functools
@@ -158,9 +158,8 @@ class DataframeComputations:
                 rechits_energy_sum_perLayer=pd.NamedAgg(column="rechits_energy", aggfunc="sum"),
             )
         )
-
-    @property
-    def rechits_totalReconstructedEnergyPerEventLayer_allLayers(self) -> pd.DataFrame:
+    
+    def rechits_totalReconstructedEnergyPerEventLayer_allLayers(self, joinWithBeamEnergy=True) -> pd.DataFrame:
         """ Sum of all rechits energy per event and per layer, but with all layers present (filled with zeroes if necessary)
         To compute profile on energy sums correctly, it is necessary to include rows with zeroes in case a layer does not have any rechits
         about 2% increase in nb of rows at 100 GeV (probably much more at 20 GeV)
@@ -171,15 +170,16 @@ class DataframeComputations:
         # We build the cartesian product event * layer
         newIndex = pd.MultiIndex.from_product([df.index.levels[0], df.index.levels[1]])
 
-        return (
+        return_df = (
             # Reindex the dataframe, this will create new rows as needed, filled with zeros
             # Make sure only columns where 0 makes sense are included (not beamEnergy !)
             df.reindex(newIndex, fill_value=0)
             .reset_index("rechits_layer")
-            
-            # Put beamEnergy back
-            .pipe(self.join_divideByBeamEnergy, colName="rechits_energy_sum_perLayer")
         )
+        if joinWithBeamEnergy:
+            return return_df.pipe(self.join_divideByBeamEnergy, colName="rechits_energy_sum_perLayer")
+        else:
+            return return_df
 
     @property
     def rechits_layerWithMaxEnergy(self):
@@ -200,17 +200,41 @@ class DataframeComputations:
         """ Returns a dict layer_nb -> layer z position (there is a key for a layer only if there is a rechit at this layer in at least one loaded event)"""
         return self.rechits[["rechits_z", "rechits_layer"]].groupby("rechits_layer").first()["rechits_z"].to_dict()
 
-    @property
-    def impactWithZPosition(self) -> pd.DataFrame:
+    def impactWithZPosition(self, useStaticLayerToZMap=False) -> pd.DataFrame:
         """ Transform impact df to use z layer position instead of layer number 
+        Parameter : useStaticLayerToZMap : if True, use layer to z map from hists.parameters. If False, compute it from current dataframe
         MultiIndex : (eventInternal, impactZ)
         Columns : impactX, impactY
         """
+        if useStaticLayerToZMap:
+            layerToZMapping_used = layerToZMapping # from hists.parameters, static dict
+        else:
+            layerToZMapping_used = self.layerToZMapping # computed from current dataframe
+        
         # Select only values of layer that are in the dictionnary layerToZMapping (otherwise you have a column with layer numbers and z positions at the same time)
-        df = self.impact.iloc[self.impact.index.get_level_values("layer") <= max(self.layerToZMapping)].rename(
-            index=self.layerToZMapping, level="layer")
+        df = self.impact.iloc[self.impact.index.get_level_values("layer") <= max(layerToZMapping_used)].rename(
+            index=layerToZMapping_used, level="layer")
         df.index.names = ["eventInternal", "impactZ"] # Rename layer -> impactZ
         return df
+
+    def clusters3D_interpolateImpactAtZ(self, clus3D_df=None, useStaticLayerToZMap=False) -> pd.DataFrame:
+        """ Interpolate the DWC impact x and y at the clus3D_z position 
+        Note : this is quite slow due to the apply call
+        Parameters : 
+         - clus3D_df : a dataframe of 3D clusters, must have (eventInternal, clus3D_id) index, and at least clus3D_z as column
+        Returns : 
+        a dataframe indexed by (eventInternal, clus3D_id) with columns impactX_interpolated, impactY_interpolated
+        """
+        if clus3D_df is None:
+            clus3D_df = self.clusters3D
+
+        def interp(group:pd.DataFrame):
+            """ To apply on a group of a single 3D cluster """
+            return pd.Series([np.interp(x=[group.clus3D_z.iloc[0]], xp=group.impactZ, fp=group.impactX)[0], 
+                            np.interp(x=[group.clus3D_z.iloc[0]], xp=group.impactZ, fp=group.impactY)[0]],
+                            index=["impactX_interpolated", "impactY_interpolated"])
+
+        return clus3D_df[["clus3D_z"]].join(self.impactWithZPosition(useStaticLayerToZMap=useStaticLayerToZMap)).reset_index("impactZ").groupby(["eventInternal", "clus3D_id"]).apply(interp)
 
     def clusters2D_custom(self, columnsList:list[str]) -> pd.DataFrame:
         """ Builds a pandas DataFrame holding 2D cluster info (without rechits ids)

@@ -183,7 +183,7 @@ class RechitsEnergyReconstructedPerLayer(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits_totalReconstructedEnergyPerEventLayer_allLayers, {'pointType':'rechits_pointType'})
+        self.fillFromDf(comp.rechits_totalReconstructedEnergyPerEventLayer_allLayers(), {'pointType':'rechits_pointType'})
 
 class RechitsEnergyFractionReconstructedPerLayer(MyHistogram):
     def __init__(self) -> None:
@@ -196,7 +196,7 @@ class RechitsEnergyFractionReconstructedPerLayer(MyHistogram):
         )
 
     def loadFromComp(self, comp:DataframeComputations):
-        self.fillFromDf(comp.rechits_totalReconstructedEnergyPerEventLayer_allLayers, {'pointType':'rechits_pointType'})
+        self.fillFromDf(comp.rechits_totalReconstructedEnergyPerEventLayer_allLayers(), {'pointType':'rechits_pointType'})
 
 class RechitsLayerWithMaximumEnergy(MyHistogram):
     """ Note : here layer is meant as a plot axis (not to be used with a slider) """
