@@ -13,6 +13,7 @@ dependencies:
  - hist>=2.6,<3 # Histograms
  - bokeh=3.*
  - ipykernel # notebooks
+ - ipywidgets # to use tqdm in notebooks
  - matplotlib>=3
  - mplhep>=0.3 # plotting CMS style
  - plotly

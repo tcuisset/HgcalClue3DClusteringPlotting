@@ -1,6 +1,6 @@
 import uproot
 import awkward as ak
-import tqdm
+from tqdm.auto import tqdm
 
 
 class BaseComputation:
@@ -18,7 +18,7 @@ def computeAllFromTree(tree:uproot.TTree|list[uproot.TTree], computations:list[B
     
 
     if isinstance(tree, uproot.TTree):
-        with tqdm.tqdm(total=tree.num_entries) as pbar:
+        with tqdm(total=tree.num_entries) as pbar:
             for (array, report) in tree.iterate(step_size="200MB", library="ak", report=True, filter_name=list(neededBranches)):
                 for comp in computations:
                     comp.process(array)
