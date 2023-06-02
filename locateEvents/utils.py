@@ -4,8 +4,8 @@ from scipy.stats import binomtest
 import hist
 
 
-def makeDashLink(beamEnergy, ntuple, event):
-    return f"https://hgcal-tb18-clue3d-visualization.web.cern.ch/?beamEnergy={int(beamEnergy)}&ntuple={int(ntuple)}&event={int(event)}"
+def makeDashLink(datatype, beamEnergy, ntuple, event, clueParam="cmssw"):
+    return f"https://hgcal-tb18-clue3d-visualization.web.cern.ch/?clueParam={clueParam}&datatype={datatype}&beamEnergy={int(beamEnergy)}&ntuple={int(ntuple)}&event={int(event)}"
 
 def makeCsvRow(beamEnergy, ntuple, event, *, source:str, layer:int=None):
     if layer is None:
@@ -25,6 +25,9 @@ def printCsvRowsFromDf(df:pd.DataFrame, source:str, layerColumn=None):
             layer = getattr(row, layerColumn)
         print(makeCsvRow(row.beamEnergy, row.ntupleNumber, row.event, source=source, layer=layer))
 
+def printDashLinksFromDf(df:pd.DataFrame, datatype, clueParam="cmssw"):
+    for row in df[["beamEnergy", "event", "ntupleNumber"]].itertuples():
+        print(makeDashLink(datatype, row.beamEnergy, row.ntupleNumber, row.event, clueParam))
 
 def makeRatiosPerBeamEnergy(splitTracksters_hist:hist.Hist|np.ndarray, eventsPerBeamEnergy:hist.Hist|np.ndarray, alternative_hypothesis="two-sided"):
     """ Ratio of two histograms, returns tuple ratio_val, ratio_errors where : 

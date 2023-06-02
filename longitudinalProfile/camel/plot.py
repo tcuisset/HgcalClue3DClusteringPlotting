@@ -40,4 +40,6 @@ def plotIndividualProfile_scipy(energyPerLayer_series:pd.Series, peaks, properti
     ax.scatter(x=properties["left_bases"]+1, y=energyPerLayer_series.iloc[properties["left_bases"]], marker="<", color="purple", label="Left bases")
     ax.scatter(x=properties["right_bases"]+1, y=energyPerLayer_series.iloc[properties["right_bases"]], marker=">", color="purple", label="Right bases")
     ax.legend()
+    ax.set_xlabel("Layer number")
+    ax.set_ylabel("Energy on layer (GeV)")
     #ax.plot([], [], " ", label=f"")
