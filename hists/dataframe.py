@@ -132,6 +132,36 @@ class DataframeComputations:
         """
         return self.rechits_custom(self.rechits_columns)
 
+    @property
+    def rechits_twoMostEnergeticPerLayer(self) -> pd.DataFrame:
+        """ Find for each layer the two most energetic hits 
+        Returns a dataframe with : 
+        Index : eventInternal, rechits_layer
+        Columns : rechits_id[0] and [1], rechits_energy[0] and [1]
+        NB : rechits_id[1] is -1 in case there is only one rechit on the layer
+        """
+        df = (self.rechits[["rechits_layer", "rechits_energy"]]
+            .set_index("rechits_layer", append=True).reset_index("rechits_id")
+
+            # Select the first two rechits in energy per layer
+            .sort_values(["eventInternal", "rechits_layer", "rechits_energy"], ascending=[True, True, False])
+            .groupby(["eventInternal", "rechits_layer"]).head(2)
+        )
+        # unstack the dataframe
+        return (df
+            # Make a cumulative count, which is 0 for the most energetic hit, 1 for the second (for each event and layer)
+            .assign(cumcount=df.groupby(["eventInternal", "rechits_layer"]).cumcount())
+            .set_index("cumcount", append=True)
+            # Unstack the dataframe (filling rechits_id with -1 in case of only one hit)
+            .unstack(fill_value=-1)
+        )
+    
+    @property
+    def rechits_ratioFirstToSecondMostEnergeticHitsPerLayer(self) -> pd.Series:
+        df = self.rechits_twoMostEnergeticPerLayer
+        ratio = df.rechits_energy[0]/df.rechits_energy[1]
+        return ratio[ratio > 0].rename("rechits_ratioFirstToSecondMostEnergeticHitsPerLayer") # drop cases where there is only one rechit on layer (then rechits_energy[1] is -1)
+
     @cached_property
     def rechits_totalReconstructedEnergyPerEvent(self) -> pd.DataFrame:
         """ Sum of all rechits energy per event
@@ -149,7 +179,7 @@ class DataframeComputations:
     @property
     def rechits_totalReconstructedEnergyPerEventLayer(self) ->pd.DataFrame:
         """ Sum of all rechits energy per event and per layer
-        Index : eventInternal
+        Index : eventInternal, rechits_layer
         Columns : rechits_energy_sum_perLayer
         """
         return (self.rechits[["rechits_layer", "rechits_energy"]]
