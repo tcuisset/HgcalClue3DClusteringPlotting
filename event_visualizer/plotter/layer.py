@@ -5,7 +5,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from hsluv import hex_to_hsluv, hsluv_to_hex
 
-import hists.parameters
 from event_visualizer.event_index import LoadedEvent
 from event_visualizer.plotter.utils import *
 
@@ -240,7 +239,7 @@ class LayerVisualization(BaseVisualization):
     
     def addDetectorExtent(self):
         """ Plot detector extent (very approximate detector area) """
-        detExt = hists.parameters.DetectorExtentData # For data
+        detExt = self.getAppropriateDetectorExtent()
         
         self.fig.add_shape(type="circle",
             xref="x", yref="y",

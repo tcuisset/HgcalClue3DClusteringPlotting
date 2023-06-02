@@ -5,7 +5,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import scipy.interpolate
 
-#from hists.dataframe import *
 import hists.parameters
 from event_visualizer.event_index import LoadedEvent
 from event_visualizer.plotter.utils import *
@@ -359,7 +358,7 @@ class Clue3DVisualization(BaseVisualization):
 
     def addDetectorCylinder(self):
         """ Plot detector cylinder (very approximate detector area) """
-        detExt = hists.parameters.DetectorExtentData # For data
+        detExt = self.getAppropriateDetectorExtent()
 
         if self.useLayerAsZ:
             x, y, z = makeCylinderCoordinates(r=detExt.radius, h=hists.parameters.layers[-1]-hists.parameters.layers[0], z0=hists.parameters.layers[0], axisX=detExt.centerX, axisY=detExt.centerY)

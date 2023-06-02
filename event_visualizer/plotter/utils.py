@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
+from hists.parameters import DetectorExtentData, DetectorExtentSimulation
 from event_visualizer.event_index import LoadedEvent        
 
 def create3DFigure(title:str) -> go.Figure:
@@ -57,6 +58,17 @@ class BaseVisualization:
         
         self.mapClus3Did_symbol_3Dview = {clus3D_id : next(self.clus3D_symbols_3Dview) for clus3D_id in self.event.clus3D_ids(sortDecreasingEnergy=True)}
         self.mapClus3Did_symbol_2Dview = {clus3D_id : next(self.clus3D_symbols_2Dview) for clus3D_id in self.event.clus3D_ids(sortDecreasingEnergy=True)}
+
+    def isSimulation(self) -> bool:
+        """ Hackish way to figure out if the event is from data or simulation. Sim ntuples are numbered from 0 to 4 """
+        return self.event.record.ntupleNumber <= 10
+
+    def getAppropriateDetectorExtent(self):
+        """ Gets the dteector extent simulation for the current event (chooses between data and simulation) """
+        if self.isSimulation():
+            return DetectorExtentSimulation
+        else:
+            return DetectorExtentData
 
 def makeArrow3D(x1, x2, y1, y2, z1, z2, dictLine=dict(), dictCone=dict(), dictCombined=dict(), color="blue", sizeFactor=1):
     """ Draw an arrow from x1, y1, z1 to x1, y2, z2

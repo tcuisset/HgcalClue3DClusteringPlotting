@@ -51,13 +51,24 @@ layerToZMapping = {1: 13.8774995803833,
  27: 52.881500244140625,
  28: 53.903499603271484}
 
-class DetectorExtentData:
-    """  Very approximate detector extent for data """
+class DetectorExtentBase:
+    """ Very approximate detector extent, with parameters common for data and simulation """
     radius = 7 # 7 cm radius
     depth = layerToZMapping[28] - layerToZMapping[1]  # layer 1 to 28  = 53.9-13.8
     firstLayerZ = layerToZMapping[1]
-    centerX = 3.85 # x position of center of detector
-    centerY = -2.53 # y position of center of detector
+
+class DetectorExtentData(DetectorExtentBase):
+    """  Very approximate detector extent for data """
+    centerX = 3.85
+    """ x position of center of detector """
+    centerY = -2.53
+    """ y position of center of detector """
+
+class DetectorExtentSimulation(DetectorExtentBase):
+    """ Very approximate detector extent for simulation """
+    centerX = 0
+    centerY = 0
+
 
 # Value of threshold to compute log-weights of hits energies (weight = max(0; thresholdW0 + ln(E/(totalE)))) (in GeV)
 thresholdW0 = 2.9 

@@ -35,6 +35,7 @@ def makePlotLayer(event:LoadedEvent, layer:int):
         .addRechits()
         .addImpactPoint()
         .addButtons()
+        .addDetectorExtent()
     ).fig
     fig.update_layout(dict(uirevision=1))
     return fig
