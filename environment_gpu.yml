@@ -2,6 +2,9 @@ name: clustering-analysis
 channels:
  - conda-forge
  - nodefaults
+ - pytorch
+ - nvidia # for cuda
+ - pyg # pytorch_geometric
 dependencies:
  - python>=3.10
  - uproot=5.*
@@ -32,10 +35,11 @@ dependencies:
  - cython>=0.28,<1 # (recommended) for accelerating some functions in dataframe.py (very slow otherwise)
 
 # Pytorch on CPU
- - pytorch::pytorch
- - pytorch::cpuonly
- - pyg::pyg # torch_geometric
- - pyg::pytorch-cluster
+ - pytorch
+# - pytorch::cpuonly
+ - pytorch-cuda=11.8 # for llrai01
+ - pyg # torch_geometric
+ - pytorch-cluster
 
  - pip
  - pip:
