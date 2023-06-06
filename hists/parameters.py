@@ -90,3 +90,10 @@ def loadClue3DParameters(clueClustersFile:str):
         ["clue3DParams"]
         .members
     )
+
+
+dEdx_weights_list = [11.289,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,9.851,11.360,11.360,11.360,11.360,10.995,10.995,11.153,6.17]
+dEdx_weights = dict(zip(range(1, len(dEdx_weights_list)+1), dEdx_weights_list))
+""" the dEdx weights that are applied, in MeV/MIP, taken from TestBeamReconstruction/DataProcessing/interface/CLUEAnalysis.h 
+dict mapping layer -> weight
+"""
