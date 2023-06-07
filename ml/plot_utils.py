@@ -9,8 +9,8 @@ def plotLossPerEpoch(epochs:np.ndarray[int], training_loss:np.ndarray[float], te
     else:
         fig = plt.gcf()
     
-    ax.plot(np.array(epochs),np.array(training_loss), c='b+', label='Training loss')
-    ax.plot(np.array(epochs),np.array(testing_loss), c='r+', label='Testing loss')
+    ax.plot(np.array(epochs),np.array(training_loss), '+-b', label='Training loss', markersize=10)
+    ax.plot(np.array(epochs),np.array(testing_loss), '+-r', label='Testing loss', markersize=10)
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss value")

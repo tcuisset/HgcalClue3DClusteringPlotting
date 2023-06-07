@@ -189,23 +189,25 @@ class DataframeComputations:
             )
         )
     
-    def rechits_totalReconstructedEnergyPerEventLayer_allLayers(self, joinWithBeamEnergy=True) -> pd.DataFrame:
+    def rechits_totalReconstructedEnergyPerEventLayer_allLayers(self, joinWithBeamEnergy=True, reset_layer_index=True) -> pd.DataFrame:
         """ Sum of all rechits energy per event and per layer, but with all layers present (filled with zeroes if necessary)
         To compute profile on energy sums correctly, it is necessary to include rows with zeroes in case a layer does not have any rechits
         about 2% increase in nb of rows at 100 GeV (probably much more at 20 GeV)
         Index : eventInternal
-        Columns : beamEnergy rechits_energy_sum_perLayer
+        Columns : rechits_layer rechits_energy_sum_perLayer beamEnergy 
+        (NB: index is not unique as rechits_layer is a column)
         """
         df = self.rechits_totalReconstructedEnergyPerEventLayer
         # We build the cartesian product event * layer
         newIndex = pd.MultiIndex.from_product([df.index.levels[0], df.index.levels[1]])
 
-        return_df = (
-            # Reindex the dataframe, this will create new rows as needed, filled with zeros
-            # Make sure only columns where 0 makes sense are included (not beamEnergy !)
-            df.reindex(newIndex, fill_value=0)
-            .reset_index("rechits_layer")
-        )
+        # Reindex the dataframe, this will create new rows as needed, filled with zeros
+        # Make sure only columns where 0 makes sense are included (not beamEnergy !)
+        return_df = df.reindex(newIndex, fill_value=0)
+
+        if reset_layer_index:
+            return_df = return_df.reset_index("rechits_layer")
+        
         if joinWithBeamEnergy:
             return return_df.pipe(self.join_divideByBeamEnergy, colName="rechits_energy_sum_perLayer")
         else:

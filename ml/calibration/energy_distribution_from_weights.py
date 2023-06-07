@@ -1,6 +1,7 @@
 import os
 from functools import cached_property
 import copy
+import typing
 
 import awkward as ak
 import hist
@@ -12,7 +13,8 @@ import matplotlib.pyplot as plt
 import mplhep as hep
 plt.style.use(hep.style.CMS)
 
-from ntupleReaders.computation import BaseComputation, computeAllFromTree
+from ntupleReaders.computation import BaseComputation, computeAllFromTree, Report, ComputationToolBase
+from ntupleReaders.tools import DataframeComputationsToolMaker
 from ntupleReaders.clue_ntuple_reader import ClueNtupleReader
 from hists.dataframe import DataframeComputations
 from hists.custom_hists import beamEnergiesAxis, layerAxis_custom
@@ -21,27 +23,30 @@ from hists.parameters import dEdx_weights
 from HistogramLib.histogram import HistogramKind
 from longitudinalProfile.violin import makeViolinBeamEnergy
 
-from energy_resolution.sigma_over_e import fitSigmaOverEFromEnergyDistribution, EResolutionFitResult, SigmaOverEPlotElement, plotSCAsEllipse
+from energy_resolution.sigma_over_e import SigmaOverEComputations, fitSigmaOverEFromEnergyDistribution, EResolutionFitResult, SigmaOverEPlotElement, plotSCAsEllipse, fitSigmaOverE
 
 
 class WeightedEnergyDistributionComputation(BaseComputation):
-    neededBranches = ["beamEnergy", "rechits_layer", "rechits_energy"]
+    """ Computes an histogram of the total energy distribution, computed using the given layer weights, for each beam energy """
 
     def __init__(self, weights_dict:dict[int, float]) -> None:
         """ Parameters :
          - weights_dict : dict layer nb -> multiplicative factor to apply to hits energies on layer
         """
+        super().__init__(neededBranches=["beamEnergy", "rechits_layer", "rechits_energy"], 
+            neededComputationTools=[DataframeComputationsToolMaker(rechits_columns=["rechits_layer", "rechits_energy"])])
+        
         self.weights_series = pd.Series(weights_dict).rename_axis("rechits_layer")
         self.h = hist.Hist(beamEnergiesAxis(), 
             hist.axis.Regular(bins=2000, start=0, stop=350, name="rechits_energy_sum_weighted", label="Rechits energy sum, with layer weights (GeV)"))
 
-    def process(self, array: ak.Array) -> None:
-        comp = DataframeComputations(array, rechits_columns=self.neededBranches)
+    def processBatch(self, array:ak.Array, report:Report, computationTools:dict[typing.Type[ComputationToolBase], ComputationToolBase]) -> None:
+        comp = computationTools[DataframeComputations]
 
         df = (
             comp.rechits_totalReconstructedEnergyPerEventLayer # Index : eventInternal, rechits_layer ; Columns: rechits_energy_sum_perLayer 
             .rechits_energy_sum_perLayer
-            .multiply(self.weights_series, level=1) # Multiply by the weights for each layer
+            .multiply(self.weights_series, level="rechits_layer") # Multiply by the weights for each layer
             .groupby("eventInternal").sum().rename("rechits_energy_sumPerEvent") # Sum energy per event
 
             .to_frame().join(comp.beamEnergy) # Add beamEnergy
@@ -50,34 +55,38 @@ class WeightedEnergyDistributionComputation(BaseComputation):
 
 
 class WeightedLongitudinalProfileComputation(BaseComputation):
-    neededBranches = ["beamEnergy", "rechits_layer", "rechits_energy"]
+    """ Compute an histogram of the """
     
     def __init__(self, weights_dict:dict[int, float]) -> None:
         """ Parameters :
          - weights_dict : dict layer nb -> multiplicative factor to apply to hits energies on layer
         """
+        super().__init__(neededBranches=["beamEnergy", "rechits_layer", "rechits_energy"], 
+            neededComputationTools=[DataframeComputationsToolMaker(rechits_columns=["rechits_layer", "rechits_energy"])])
+        
         self.weights_series = pd.Series(weights_dict).rename_axis("rechits_layer")
         self.h = hist.Hist(beamEnergiesAxis(), 
             layerAxis_custom(name="rechits_layer", label="RecHit layer number"),
             storage=hist.storage.Mean())
 
-    def process(self, array: ak.Array) -> None:
-        comp = DataframeComputations(array, rechits_columns=self.neededBranches)
-        df = comp.rechits_totalReconstructedEnergyPerEventLayer_allLayers()
-        self.h.fill(df.beamEnergy, df.rechits_layer, sample=df.rechits_energy_sum_perLayer_fractionOfSynchrotronBeamEnergy)
+    def processBatch(self, array:ak.Array, report:Report, computationTools:dict[typing.Type[ComputationToolBase], ComputationToolBase]) -> None:
+        comp = computationTools[DataframeComputations]
+        df = comp.rechits_totalReconstructedEnergyPerEventLayer_allLayers(reset_layer_index=False)
+        self.h.fill(df.beamEnergy, df.reset_index("rechits_layer").rechits_layer, sample=df.rechits_energy_sum_perLayer.multiply(self.weights_series, level="rechits_layer"))
    
 
 def convert2DHistogramToDictOfHistograms(h:hist.Hist) -> dict[int, hist.Hist]:
     return {beamEnergy : h[{"beamEnergy" : hist.loc(beamEnergy)}] for beamEnergy in h.axes["beamEnergy"]}
 
 
-def plotEllipsesComparedToDeDx(weightedFitResult:EResolutionFitResult, reader:ClueNtupleReader):
-    dedx_rechits_plotElt = reader.loadSigmaOverEResults("rechits")
+# def plotEllipsesComparedToDeDx(weightedFitResult:EResolutionFitResult, reader:ClueNtupleReader):
+#     dedx_rechits_plotElt = reader.loadSigmaOverEResults("rechits")
 
-    weighted_plotElt = SigmaOverEPlotElement(legend="Layer weighted", fitResult=weightedFitResult, color="red")
+#     weighted_plotElt = SigmaOverEPlotElement(legend="Layer weighted", fitResult=weightedFitResult, color="red")
 
-    plotSCAsEllipse([dedx_rechits_plotElt, weighted_plotElt])
-
+#     plotSCAsEllipse([dedx_rechits_plotElt, weighted_plotElt])
+#     hep.cms.text("Preliminary")
+#     hep.cms.lumitext("$e^+$ TB")
 
 
 class WeightedLayersComputations:
@@ -122,8 +131,14 @@ class WeightedLayersComputations:
         return self.longitudinalProfileComp.h
     
     @cached_property
+    def sigmaOverEComputation(self) -> SigmaOverEComputations:
+        comp = SigmaOverEComputations()
+        comp.compute(convert2DHistogramToDictOfHistograms(self.weightedEnergyDistribution))
+        return comp
+    
+    @property
     def sigmaOverE(self) -> EResolutionFitResult:
-        return fitSigmaOverEFromEnergyDistribution(convert2DHistogramToDictOfHistograms(self.weightedEnergyDistribution))
+        return fitSigmaOverE(self.sigmaOverEComputation.results)
     
     def plotRelativeWeights(self):
         fig, ax = plt.subplots()
@@ -143,8 +158,9 @@ class WeightedLayersComputations:
         corrected_dedx = [dEdx_weights[layer] * self.weights[layer] for layer in layers]
         original_dedx = [dEdx_weights[layer] for layer in layers]
 
-        ax.plot(layers, original_dedx, "o", label="dEdx weights", color="blue", fillstyle="none")
-        ax.plot(layers, corrected_dedx, "+", label="ML weights", color="orange")
+        common_kwargs = dict(markersize=15)
+        ax.plot(layers, original_dedx, "o", label="dEdx weights", color="blue", fillstyle="none", **common_kwargs)
+        ax.plot(layers, corrected_dedx, "+", label="ML weights", color="orange", **common_kwargs)
 
         ax.set_xlabel("Layer")
         ax.set_ylabel("Layer weights (MeV/MIP)")
@@ -155,8 +171,8 @@ class WeightedLayersComputations:
         ax.legend()
         return fig
 
-    def plotEllipse(self):
-        plotEllipsesComparedToDeDx(self.sigmaOverE, self.reader)
+    # def plotEllipse(self):
+    #     plotEllipsesComparedToDeDx(self.sigmaOverE, self.reader)
     
     def plotViolin(self):
         figsize = copy.copy(matplotlib.rcParams['figure.figsize'])
@@ -165,14 +181,9 @@ class WeightedLayersComputations:
 
         makeViolinBeamEnergy(self.longitudinalProfile, self.reader.datatype, ax=ax_weighted)
         makeViolinBeamEnergy((self.reader.histStore
-                .get(HistogramId("Clus3DClusteredEnergyPerLayer", self.reader.clueParams, self.reader.datatype))
+                .get(HistogramId("RechitsEnergyReconstructedPerLayer", self.reader.clueParams, self.reader.datatype))
                 .getHistogram(HistogramKind.PROFILE)
-                [{
-                    "mainOrAllTracksters" : hist.loc("mainTrackster"),
-                    # Project on clus3D_size
-                    # keep beamEnergy, clus2D_layer
-                }]
-                .project("beamEnergy", "clus2D_layer")
+                #.project("beamEnergy", "rechits_layer")
             ), self.reader.datatype, ax=ax_unweighted)
         
         for ax, text in [(ax_weighted, "Layer weights from ML"), (ax_unweighted, "Layer weights from $\\frac{dE}{dx}$")]:
