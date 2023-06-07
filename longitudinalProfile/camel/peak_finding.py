@@ -58,18 +58,18 @@ def find_peaks_reverse(df:pd.DataFrame, settings:dict):
 
 class MakePeaksDfComputation(BaseComputation):
     """ Makes a dataframe holding all camel shower candidates """
-    neededBranches = ["beamEnergy", "event", "ntupleNumber", "rechits_energy", "rechits_layer"]
     def __init__(self, settings, peakFindingFunction=find_peaks_reverse) -> None:
         """ Parameters :
          - settings : passed to scipy.signal.find_peaks
          - peakFindingFunction : function to find peaks, should be find_peaks_reverse
         """
+        super().__init__(neededBranches=["beamEnergy", "event", "ntupleNumber", "rechits_energy", "rechits_layer"])
         self.dfList = []
         self.perLayerDfList = []
         self.settings = settings
         self.peakFindingFunction = peakFindingFunction
 
-    def process(self, array: ak.Array) -> None:
+    def processBatch(self, array: ak.Array, **kwargs) -> None:
         comp = DataframeComputations(array, rechits_columns=["rechits_energy", "rechits_layer"])
         energyPerLayer_df = computeEnergyPerLayerDf(comp)
         peaks_series = self.peakFindingFunction(energyPerLayer_df, self.settings)

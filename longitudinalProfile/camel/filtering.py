@@ -50,12 +50,14 @@ class FilterLowBaseHeight(FilterBase):
             return None # in case no peaks pass selections
         
         # select from input peaks_info only the peaks whose indices are in peaks_indices_selection
-        getter = itemgetter(peaks_indices_selection)
+        getter = itemgetter(np.nonzero(peaks_indices_selection)[0])
         return getter(peaks), {key : getter(val) for key, val in properties.items()}
 
 
 class FilterNoisyCellsPeaks(FilterBase):
-    """ Filter out events which have high and narrow peaks compatible with a noisy cell """
+    """ Filter out events which have high and narrow peaks compatible with a noisy cell
+    
+    """
     def __init__(self, maxPeakWidth=2, quantileForMaxProminence=0.7, minRatioFirstToSecondRechit=5) -> None:
         self.maxPeakWidth = maxPeakWidth
         self.quantileForMaxProminence = quantileForMaxProminence
@@ -75,7 +77,59 @@ class FilterNoisyCellsPeaks(FilterBase):
         
         return row.peaks_info
 
-class FilterIsolatedPeaks(FilterBase):
+class FilterNoisyCellsPeaksUsingBases(FilterBase):
+    """ Filter out events which have high and narrow peaks compatible with a noisy cell
+    Does this by looking, for each dip, at the right and left bases layers. If on one of these layers,
+    the ratio of first to second rechits energies (sorted by decreasing energies) is greater than a threshold, the dip is discarded
+    """
+    def __init__(self, minRatioFirstToSecondRechit=10) -> None:
+        self.minRatioFirstToSecondRechit = minRatioFirstToSecondRechit
+
+    def _applyFct(self, row: RowObject) -> object:
+        peaks, properties = row.peaks_info
+
+        peaks_indices_selection = []
+        for peak, left_base, right_base in zip(peaks, properties["left_bases"], properties["right_bases"]):
+            drop_peak = False
+            # map 0-based to 1-based indexing
+            for base_layer in (left_base+1, right_base+1):
+                ratioFirstToSecond = row.df_energyPerLayer.at[(row.eventInternal, base_layer), "rechits_ratioFirstToSecondMostEnergeticHitsPerLayer"]
+                if ratioFirstToSecond > self.minRatioFirstToSecondRechit:
+                    drop_peak = True
+            
+            peaks_indices_selection.append(not drop_peak)
+
+        if not np.any(peaks_indices_selection):
+            return None # in case no peaks pass selections
+        
+        # select from input peaks_info only the peaks whose indices are in peaks_indices_selection
+        getter = itemgetter(np.nonzero(peaks_indices_selection)[0])
+        return getter(peaks), {key : getter(val) for key, val in properties.items()}
+
+class FilterDipsNotInCenter(FilterBase):
+    """ Filter out dips that are either at the very beginning or the very end of the shower 
+    (these are mainly caused by abnormally high energetic cells at the first or last layer)
+    """
+    def __init__(self, minLayerPosition=3, maxLayerPosition=26) -> None:
+        self.minLayer = minLayerPosition
+        self.maxLayer = maxLayerPosition
+    
+    def _applyFct(self, row: RowObject) -> object:
+        peaks, properties = row.peaks_info
+
+        peaks_indices_selection = []
+        for peak in peaks:
+            # map 0-based to 1-based indexing
+            peaks_indices_selection.append((peak+1 >= self.minLayer) and (peak+1 <= self.maxLayer))
+
+        if not np.any(peaks_indices_selection):
+            return None # in case no peaks pass selections
+        
+        # select from input peaks_info only the peaks whose indices are in peaks_indices_selection
+        getter = itemgetter(np.nonzero(peaks_indices_selection)[0])
+        return getter(peaks), {key : getter(val) for key, val in properties.items()}
+
+class FilterIsolatedPeaks(FilterBase): # not used anymore
     """ Filter out dips which are bordered by an abnormal peak (for example a noisy cell) 
     In case : - the dip min is one layer out from one of the maximas
     - the energy in the dip min is greater than than the layer after the adjacent maxima
@@ -103,7 +157,7 @@ class FilterIsolatedPeaks(FilterBase):
             return None # in case no peaks pass selections
 
         # select from input peaks_info only the peaks whose indices are in peaks_indices_selection
-        getter = itemgetter(indices)
+        getter = itemgetter(np.nonzero(indices)[0])
         return getter(peaks), {key : getter(val) for key, val in properties.items()}
 
 
