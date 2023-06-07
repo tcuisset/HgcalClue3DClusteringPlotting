@@ -46,7 +46,6 @@ class NumpyArrayFilter(EventFilterBase):
         return array[filterArray_currentIteration]
 
 class BaseComputation:
-    eventFilter:EventFilterBase = NoFilter()
     def __init__(self, neededBranches=[], eventFilter = NoFilter(), neededComputationTools:list[ComputationToolMakerBase]=[]) -> None:
         self.neededBranches:list[str] = neededBranches
         """ List of branches needed for the computation """
