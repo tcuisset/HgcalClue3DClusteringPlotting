@@ -181,7 +181,8 @@ def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None
                 h = ax.plot(xValues, yValues_nominal, **common_kwargs)[0]
 
             cur_handle_group.append(h)
-
+        else:
+            assert False, "Must supply data points"
         
         if xMode == "1/sqrt(E)" and plotElement.fitResult is not None:
             fitFctBound = functools.partial(plotElement.fitFunction, **{key : value.nominal_value for key, value in plotElement.fitResult._asdict().items()})
