@@ -54,7 +54,6 @@ class HistogramEstimates:
         return iqr / 1.349 # Gaussian has an IQR of 1.349
 
 # Code taken from zfit docs (for convenience in notebooks)
-all_params = {}
 def get_param(name, value=None, lower=None, upper=None, step_size=None, **kwargs):
     """Either create a parameter or return existing if a parameter with this name already exists.
 
@@ -89,28 +88,30 @@ def get_param(name, value=None, lower=None, upper=None, step_size=None, **kwargs
     return parameter
 
 class GaussianParameters:
-    mu = get_param("mu", 100, 0., max(beamEnergies)*2)
-    sigma = get_param("sigma", 1., 0., max(beamEnergies))
+    def __init__(self) -> None:
+        self.mu = get_param("mu", 100)
+        self.sigma = get_param("sigma", 1.)
 
-    @classmethod
-    def adaptParametersToHist(cls, h:hist.Hist):
+    def adaptParametersToHist(self, h:hist.Hist):
         estimates = HistogramEstimates(h)
         # Be robust with outliers
         mean_h, sigma_h = estimates.median, estimates.sigmaEstimateUsingIQR
-        cls.mu.lower_limit, cls.mu.upper_limit = max(0, mean_h*0.5), max(350, mean_h*1.5)
-        cls.mu.assign(mean_h)
+        self.mu.lower_limit, self.mu.upper_limit = max(0, mean_h*0.5), max(350, mean_h*1.5)
+        self.mu.assign(mean_h)
 
-        cls.sigma.lower_limit, cls.sigma.upper_limit = 0.1*sigma_h, 5*sigma_h
-        cls.sigma.assign(sigma_h)
+        self.sigma.lower_limit, self.sigma.upper_limit = 0.1*sigma_h, 5*sigma_h
+        self.sigma.assign(sigma_h)
     
-    @classmethod
-    def print(cls):
-        print(cls.mu)
-        print(cls.sigma)
+    def print(self):
+        print(self.mu)
+        print(self.sigma)
         
 
 class SingleFitter:
-    def __init__(self, h:hist.Hist, params:typing.Type[GaussianParameters]=GaussianParameters) -> None:
+    def __init__(self, h:hist.Hist, params:GaussianParameters=None) -> None:
+        if params is None:
+            params = GaussianParameters()
+        
         self.h = h
         self.params = params
         self.data = zfit.data.BinnedData.from_hist(self.h)
@@ -138,7 +139,7 @@ class GaussianIterativeFitter:
     def __init__(self, h:hist.Hist, sigmaWindow:tuple[float, float]) -> None:
         self.h = h
         self.sigmaWindow = sigmaWindow
-        self.params = GaussianParameters
+        self.params = GaussianParameters()
 
         self.params.adaptParametersToHist(h)
 
@@ -154,10 +155,10 @@ class GaussianIterativeFitter:
             plot(fitter.h, fitter.unbinned_pdf, fitter.data.space, text="Before fit")
         return fitter.doFit(), fitter
     
-    def multiIteration(self, maxIter=5, verbose=False, plotDebug=True) -> zfit.minimizers.fitresult.FitResult:
-        for i in tqdm(range(maxIter), desc=f"Iterative fitting - {self.params.mu.value().numpy():.0f} GeV", leave=None):
+    def multiIteration(self, maxIter=5, verbose=False, plotDebug=True, progressBar=True) -> zfit.minimizers.fitresult.FitResult:
+        for i in tqdm(range(maxIter), desc=f"Iterative fitting - {self.params.mu.value().numpy():.0f} GeV", leave=None, disable=(not progressBar)):
             if verbose:
-                GaussianParameters.print()
+                self.params.print()
             fitResult, fitter = self.fitIteration(plotDebugBeforeFit=((i==0) and plotDebug))
             if plotDebug:
                 plot(fitter.h, fitter.unbinned_pdf, fitter.data.space, text=f"After fit, iteration {i}")

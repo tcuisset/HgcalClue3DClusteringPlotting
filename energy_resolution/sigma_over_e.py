@@ -35,28 +35,35 @@ class SigmaOverEComputations:
         self.plotDebug = plotDebug
 
 
-    def singleFit(self, rechit_energies_h:hist.Hist):
+    def singleFit(self, rechit_energies_h:hist.Hist, fitter_kwargs=dict()):
         fitter = GaussianIterativeFitter(rechit_energies_h, sigmaWindow=self.sigmaWindow)
-        fitRes = fitter.multiIteration(plotDebug=self.plotDebug)
+        fitRes = fitter.multiIteration(plotDebug=self.plotDebug, **fitter_kwargs)
 
         params = [fitter.params.mu, fitter.params.sigma]
-        return SigmaMuResult(*uncertainties.correlated_values([fitRes.values[param] for param in params], 
-                    fitRes.covariance(params)), fitRes)
+        covariance = fitRes.covariance(params)
+        mu, sigma = uncertainties.correlated_values([fitRes.values[param] for param in params], 
+                    fitRes.covariance(params))
+        fitRes.freeze()  # freeze to make the FitResult pickleable
+        return SigmaMuResult(mu, sigma, fitRes)
 
-    def compute(self, h_per_energy:dict[int, hist.Hist], multithread=False) -> dict[int, SigmaMuResult]:
+    def compute(self, h_per_energy:dict[int, hist.Hist], multiprocess=False, tqdm_dict=dict()) -> dict[int, SigmaMuResult]:
         """ Make all the gaussian fits for the histograms given
         Parameters : 
-         - h_per_energy : dict beamEnergy -> histogram of reconstructed energy
-         - multithread : if on, use ProcessPoolExecutor (does not work currently)
+         - h_per_energy : dict beamEnergy -> histogram of reconstructed energy (or a 2D histogram with axes beamEnergy, recoEnergy)
+         - multiprocess : if on, use ProcessPoolExecutor for fitting all energies in parallel
         Returns : a dictionnary beamEnergy -> SigmaMuResult, which is a namedtuple with mu and sigma as uncertainties package floats
         (includes correlation)
         """
+        if isinstance(h_per_energy, hist.Hist):
+            # convert 2D histogram to dict of histograms
+            h_per_energy = {beamEnergy : h_per_energy[{"beamEnergy" : hist.loc(beamEnergy)}] for beamEnergy in h_per_energy.axes["beamEnergy"]}
+        
         self.h_per_energy = h_per_energy
-        if multithread:
+        if multiprocess:
             with ProcessPoolExecutor(max_workers=10) as executor:
-                self.results = dict(zip(h_per_energy.keys(), executor.map(self.singleFit, h_per_energy.values())))
+                self.results = dict(zip(h_per_energy.keys(), executor.map(functools.partial(self.singleFit, fitter_kwargs=dict(progressBar=False)), h_per_energy.values())))
         else:
-            self.results = dict(zip(h_per_energy.keys(), map(self.singleFit, tqdm(h_per_energy.values(), desc="Fitting"))))
+            self.results = dict(zip(h_per_energy.keys(), map(self.singleFit, tqdm(h_per_energy.values(), desc="Fitting", **tqdm_dict))))
         return self.results
     
     def plotFitResult(self, beamEnergy:int, ax=None, sim=False):
@@ -232,7 +239,7 @@ def plotEllipse(x:uncertainties.ufloat, y:uncertainties.ufloat, cl:float=0.95, e
         **ellipse_kwargs
     )
 
-def plotSCAsEllipse(plotElements:list[SigmaOverEPlotElement]):
+def plotSCAsEllipse(plotElements:list[SigmaOverEPlotElement]) -> matplotlib.figure.Figure:
     fig, ax = plt.subplots()
     
     for plotElement in plotElements:
@@ -245,3 +252,5 @@ def plotSCAsEllipse(plotElements:list[SigmaOverEPlotElement]):
     ax.set_xlabel(r"$S (\sqrt{GeV} \%)$")
     ax.set_ylabel(r"C (%)")
     ax.legend()
+
+    return fig
