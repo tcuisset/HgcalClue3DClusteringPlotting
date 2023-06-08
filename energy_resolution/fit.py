@@ -2,8 +2,14 @@ import math
 import typing
 from functools import cached_property
 
-import numpy as np
+# Note : zfit uses tensorflow, which by default will use all the memory of the first GPU if there is one
+# So disable the use of GPUs by tensorflow (must be done before any zfit object is created)
+# it will only use the CPU
+import tensorflow as tf
+tf.config.set_visible_devices([], "GPU")
 import zfit
+
+import numpy as np
 import hist
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
