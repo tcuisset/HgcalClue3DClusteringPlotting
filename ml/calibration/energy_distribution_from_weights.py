@@ -24,7 +24,7 @@ from HistogramLib.histogram import HistogramKind
 from longitudinalProfile.violin import makeViolinBeamEnergy
 
 from energy_resolution.sigma_over_e import SigmaOverEComputations, fitSigmaOverEFromEnergyDistribution, EResolutionFitResult, SigmaOverEPlotElement, plotSCAsEllipse, fitSigmaOverE
-
+from ml.energy_resolution_tools import convert2DHistogramToDictOfHistograms
 
 class WeightedEnergyDistributionComputation(BaseComputation):
     """ Computes an histogram of the total energy distribution, computed using the given layer weights, for each beam energy """
@@ -74,10 +74,6 @@ class WeightedLongitudinalProfileComputation(BaseComputation):
         df = comp.rechits_totalReconstructedEnergyPerEventLayer_allLayers(reset_layer_index=False)
         self.h.fill(df.beamEnergy, df.reset_index("rechits_layer").rechits_layer, sample=df.rechits_energy_sum_perLayer.multiply(self.weights_series, level="rechits_layer"))
    
-
-def convert2DHistogramToDictOfHistograms(h:hist.Hist) -> dict[int, hist.Hist]:
-    return {beamEnergy : h[{"beamEnergy" : hist.loc(beamEnergy)}] for beamEnergy in h.axes["beamEnergy"]}
-
 
 # def plotEllipsesComparedToDeDx(weightedFitResult:EResolutionFitResult, reader:ClueNtupleReader):
 #     dedx_rechits_plotElt = reader.loadSigmaOverEResults("rechits")
