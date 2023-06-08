@@ -17,6 +17,7 @@ class ClueNtupleReader:
         self.datatype = datatype
         self.baseHistsFolder = "/grid_mnt/data_cms_upgrade/cuisset/testbeam18/clue3d/"
         self.pathToFolder = os.path.join(self.baseHistsFolder, version, clueParams, datatype)
+        """ Full path to folder holding CLUE_clusters.root """
         self.pathToFile = os.path.join(self.pathToFolder, "CLUE_clusters.root")
     
     @functools.cached_property
