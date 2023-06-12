@@ -7,7 +7,9 @@ import numpy as np
 import hist
 import pandas as pd
 import awkward as ak
+import scipy
 
+from hists.parameters import beamEnergies
 from hists.dataframe import DataframeComputations
 from hists.custom_hists import beamEnergiesAxis, layerAxis_custom
 from ntupleReaders.clue_ntuple_reader import ClueNtupleReader
@@ -20,9 +22,13 @@ neededBranchesGlobal = ["clus3D_energy", "clus3D_idxs", "clus3D_size",  'clus3D_
             "rechits_energy", "rechits_layer", "beamEnergy", "trueBeamEnergy", 'clus2D_x', 'clus2D_y', 'clus2D_z', 'clus2D_energy', 'clus2D_layer', 'clus2D_size', 'clus2D_rho', 'clus2D_delta', 'clus2D_pointType']
 
 class RechitsTensorMaker(BaseComputation):
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, beamEnergiesToSelect=beamEnergies, tensorFileName="rechitsGeometric", **kwargs) -> None:
+        """ Parameters : 
+         - beamEnergiesToSelect : beam energies to keep in dataset
+        """
         self.requestedBranches = ["rechits_x", "rechits_y", "rechits_layer", "rechits_energy"]
-        self.tensorFileName = "rechitsGeometric"
+        self.tensorFileName = tensorFileName
+        self.beamEnergiesToSelect = beamEnergiesToSelect
         super().__init__(**kwargs, neededBranches=self.requestedBranches + ["clus3D_energy", "clus3D_idxs", "clus2D_idxs", "beamEnergy", "trueBeamEnergy"])
         
         self.geometric_data_objects = []
@@ -48,11 +54,12 @@ class RechitsTensorMaker(BaseComputation):
         
         
         for eventBranches, beamEnergy, trueBeamEnergy in zip(zip(*columns), array.beamEnergy, array.trueBeamEnergy):
-            tensor_array = np.array(eventBranches, dtype=np.float32)
-            tensor = torch.tensor(tensor_array.T)
-            self.geometric_data_objects.append(Data(x=tensor, 
-                beamEnergy=torch.tensor(beamEnergy, dtype=torch.float32),
-                trueBeamEnergy=torch.tensor(trueBeamEnergy, dtype=torch.float32)))
+            if int(beamEnergy) in self.beamEnergiesToSelect:
+                tensor_array = np.array(eventBranches, dtype=np.float32)
+                tensor = torch.tensor(tensor_array.T)
+                self.geometric_data_objects.append(Data(x=tensor, 
+                    beamEnergy=torch.tensor(beamEnergy, dtype=torch.float32),
+                    trueBeamEnergy=torch.tensor(trueBeamEnergy, dtype=torch.float32)))
 
     def saveTensor(self, pathToFolder:str) -> None:
         """ Save the tensor to file """
@@ -60,34 +67,8 @@ class RechitsTensorMaker(BaseComputation):
             tensorName = self.tensorFileName
         except AttributeError:
             tensorName = self.__class__.__name__
-        torch.save(self.geometric_data_objects, os.path.join(pathToFolder, tensorName + ".pt"))
+        torch.save(self.geometric_data_objects, os.path.join(pathToFolder, tensorName))
     
-
-class TracksterPropertiesDataset(InMemoryDataset):
-    def __init__(self, reader:ClueNtupleReader, transform=None, pre_transform=None, pre_filter=None):
-        self.reader = reader
-        super().__init__(reader.pathToFolder, transform, pre_transform, pre_filter)
-        self.data, self.slices = torch.load(self.processed_paths[0])
-
-    @property
-    def processed_file_names(self):
-        return ['rechitsGeometric.pt']
-
-    def process(self):
-        # Read data into huge `Data` list.
-        tracksterPropComp = RechitsTensorMaker()
-        computeAllFromTree(self.reader.tree, [tracksterPropComp])
-        data_list = tracksterPropComp.geometric_data_objects
-
-        if self.pre_filter is not None:
-            data_list = [data for data in data_list if self.pre_filter(data)]
-
-        if self.pre_transform is not None:
-            data_list = [self.pre_transform(data) for data in data_list]
-
-        data, slices = self.collate(data_list)
-        torch.save((data, slices), self.processed_paths[0])
-
 
 
 def makeHist():
