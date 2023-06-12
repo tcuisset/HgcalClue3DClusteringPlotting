@@ -33,11 +33,12 @@ class DynamicReductionNetwork(nn.Module):
     One encoding layer is used to abstract away the input features. 
     """
 
-    def __init__(self, input_dim=5, hidden_dim=64, output_dim=1, k=16, aggr='add',
-                 norm=torch.tensor([1./500., 1./500., 1./54., 1/25., 1./1000.])):
+    def __init__(self, input_dim:int=5, hidden_dim:int=64, output_dim:int=1, k:int=16, aggr:str='add',
+                 norm:torch.Tensor|list[float]=torch.tensor([1./500., 1./500., 1./54., 1/25., 1./1000.])):
  #                norm=torch.tensor([1., 1., 1., 1., 1.])):
         super(DynamicReductionNetwork, self).__init__()
-
+        if isinstance(norm, list):
+            norm = torch.tensor(norm)
         self.datanorm = nn.Parameter(norm,requires_grad=True)
         
         self.k = k
