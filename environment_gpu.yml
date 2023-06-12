@@ -34,10 +34,11 @@ dependencies:
  - xrootd # facultative, for opening testbeam ntuples with xrootd and uproot (in notebooks) but necessary for zfit
  - cython>=0.28,<1 # (recommended) for accelerating some functions in dataframe.py (very slow otherwise)
 
-# Pytorch on CPU
- - pytorch
-# - pytorch::cpuonly
+# Pytorch on GPU
  - pytorch-cuda=11.8 # for llrai01
+ - pytorch=2.0.1 # for some reason, just putting pytorch installs pytorch with cuda 11.2, which leads to OSError later. Forcing 2.0.1 solves the problem for some reason
+# - pytorch::cpuonly
+
  - pyg # torch_geometric
  - pytorch-cluster
 
@@ -46,3 +47,4 @@ dependencies:
     - awkward-pandas
     - wpca # for weighted PCA of 3D clusters
     - zfit # for fitting (version on conda-forge is very old)
+    - jsonargparse[signatures] # for Lightning-CLI
