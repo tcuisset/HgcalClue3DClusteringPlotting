@@ -19,14 +19,20 @@ class ClueNtupleReader:
         self.pathToFolder = os.path.join(self.baseHistsFolder, version, clueParams, datatype)
         """ Full path to folder holding CLUE_clusters.root """
         self.pathToFile = os.path.join(self.pathToFolder, "CLUE_clusters.root")
+        self.pathToMLDatasetsFolder = os.path.join(self.pathToFolder, "ML_datasets")
+
+        self.filterArrays:dict[str, np.ndarray[bool]] = dict()
     
     @functools.cached_property
     def tree(self) -> uproot.TTree:
         return uproot.open(self.pathToFile + ":clusters")
     
     def loadFilterArray(self, filterName="default_filter") -> np.ndarray[bool]:
-        self.filterArray = np.load(os.path.join(self.pathToFolder, filterName+".npy"))
-        return self.filterArray
+        try:
+            return self.filterArrays[filterName]
+        except KeyError:
+            self.filterArrays[filterName] = np.load(os.path.join(self.pathToFolder, "filters", filterName+".npy"))
+            return self.filterArrays[filterName]
 
     @functools.cached_property
     def histStore(self) -> HistogramStore:

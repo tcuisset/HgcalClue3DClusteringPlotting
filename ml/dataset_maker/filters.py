@@ -109,4 +109,5 @@ def applyAllFilters(tree:uproot.TTree, filters:list[FilteringComputation]=None):
     
 def makeAndSaveFilters(reader:ClueNtupleReader, fileName="default_filter"):
     filters = applyAllFilters(reader.tree)
-    np.save(os.path.join(reader.pathToFolder, fileName), filters) # will append .npy to the filename
+    os.makedirs(os.path.join(reader.pathToFolder, "filters"), exist_ok=True)
+    np.save(os.path.join(reader.pathToFolder, "filters", fileName), filters) # will append .npy to the filename
