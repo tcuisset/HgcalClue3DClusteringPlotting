@@ -135,6 +135,14 @@ def plot(h:hist.Hist, pdf:zfit.pdf.BasePDF, space:zfit.Space, ax=None, text=None
     if text is not None:
         ax.text(0.15, 0.85, text, transform=ax.transAxes)
 
+
+class IterativeFitFailed(Exception):
+    def __init__(self, lastGoodFitResult:zfit.minimizers.fitresult.FitResult=None, successfulFitIterationsCount=0) -> None:
+        super().__init__()
+        self.lastGoodFitResult = lastGoodFitResult
+        self.successfulFitIterationsCount = successfulFitIterationsCount
+
+
 class GaussianIterativeFitter:
     def __init__(self, h:hist.Hist, sigmaWindow:tuple[float, float]) -> None:
         self.h = h
@@ -159,7 +167,11 @@ class GaussianIterativeFitter:
         for i in tqdm(range(maxIter), desc=f"Iterative fitting - {self.params.mu.value().numpy():.0f} GeV", leave=None, disable=(not progressBar)):
             if verbose:
                 self.params.print()
-            fitResult, fitter = self.fitIteration(plotDebugBeforeFit=((i==0) and plotDebug))
+            try:
+                fitResult, fitter = self.fitIteration(plotDebugBeforeFit=((i==0) and plotDebug))
+            except zfit.minimizers.FailMinimizeNaN:
+                raise IterativeFitFailed(lastGoodFitResult=fitResult if i > 0 else None, successfulFitIterationsCount=i)
+            
             if plotDebug:
                 plot(fitter.h, fitter.unbinned_pdf, fitter.data.space, text=f"After fit, iteration {i}")
 

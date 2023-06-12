@@ -18,33 +18,58 @@ import matplotlib.pyplot as plt
 import mplhep as hep
 from tqdm.auto import tqdm
 
-from energy_resolution.fit import GaussianIterativeFitter
+from energy_resolution.fit import GaussianIterativeFitter, IterativeFitFailed
 from hists.parameters import synchrotronBeamEnergiesMap
 
-SigmaMuResult = namedtuple("SigmaMuResult", ["mu", "sigma", "fitResult"])
-""" Results of gaussian fit, as uncertainties ufloat. fitResult is the zfit FitResult. """
+SigmaMuResult = namedtuple("SigmaMuResult", ["mu", "sigma", "fitResult", "fitQuality"])
+""" Results of gaussian fit, as uncertainties ufloat. fitResult is the zfit FitResult. 
+Attributes : 
+ - mu, sigma : zfit Parameters
+ - fitResult : zfit.minimizers.fitresult.FitResult
+ - fitQuality : can be "good" or "bad" (bad can happen if some of steps of iterative fitting failed)
+"""
+
+class SigmaOverEFitError(Exception):
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
 
 class SigmaOverEComputations:
     """ Class to manage gaussian fits of distribution of reconstructed energy """
-    def __init__(self, sigmaWindow:tuple[float, float]=(1, 2.5), plotDebug=False) -> None:
+    def __init__(self, sigmaWindow:tuple[float, float]=(1, 2.5), plotDebug=False, recoverFromFailedFits=False) -> None:
         """ Parameters : 
          - sigmaWindow : window around the mean (as tuple (down, up)) for fitting a gaussian, in unit of sigma (nb down must be positive)
          - plotDebug : plot intermediate fit results (to be used in notebook)
+         - recoverFromFailedFits : will try to recover as much as possible from failed fits. At least half of the fits must succeed
         """
         self.sigmaWindow = sigmaWindow
         self.plotDebug = plotDebug
+        self.recoverFromFailedFits = recoverFromFailedFits
 
 
-    def singleFit(self, rechit_energies_h:hist.Hist, fitter_kwargs=dict()):
+    def singleFit(self, rechit_energies_h:hist.Hist, fitter_kwargs=dict()) -> SigmaMuResult|None:
+        """ Iterative fit of rechits_energies_h histogram with a gaussian
+        Returns : a SigmaMuResult object.
+        In case self.recoverFromFailedFits is True, can return an object with SigmaMuResult.fitQuality = "bad", or None in case no fit result could be obtained
+        In case self.recoverFromFailedFits is False, will either return a good SigmaMuResult or raise IterativeFitFailed"""
         fitter = GaussianIterativeFitter(rechit_energies_h, sigmaWindow=self.sigmaWindow)
-        fitRes = fitter.multiIteration(plotDebug=self.plotDebug, **fitter_kwargs)
+        try:
+            fitRes = fitter.multiIteration(plotDebug=self.plotDebug, **fitter_kwargs)
+            fitQuality = "good"
+        except IterativeFitFailed as e:
+            if not self.recoverFromFailedFits:
+                raise
+            if e.lastGoodFitResult is not None:
+                fitRes = e.lastGoodFitResult
+                fitQuality = "bad"
+            else:
+                return None
 
         params = [fitter.params.mu, fitter.params.sigma]
         covariance = fitRes.covariance(params)
         mu, sigma = uncertainties.correlated_values([fitRes.values[param] for param in params], 
                     fitRes.covariance(params))
         fitRes.freeze()  # freeze to make the FitResult pickleable
-        return SigmaMuResult(mu, sigma, fitRes)
+        return SigmaMuResult(mu, sigma, fitRes, fitQuality)
 
     def compute(self, h_per_energy:dict[int, hist.Hist], multiprocess=False, tqdm_dict=dict()) -> dict[int, SigmaMuResult]:
         """ Make all the gaussian fits for the histograms given
@@ -64,6 +89,13 @@ class SigmaOverEComputations:
                 self.results = dict(zip(h_per_energy.keys(), executor.map(functools.partial(self.singleFit, fitter_kwargs=dict(progressBar=False)), h_per_energy.values())))
         else:
             self.results = dict(zip(h_per_energy.keys(), map(self.singleFit, tqdm(h_per_energy.values(), desc="Fitting", **tqdm_dict))))
+        
+        if self.recoverFromFailedFits:
+            good_results = [x for x in self.results if x is not None]
+            if len(good_results)*2 < len(self.results):
+                raise SigmaOverEFitError(f"Not enough good fit results ({len(good_results)} fits succeeded out of {len(self.results)})")
+            self.results = good_results
+
         return self.results
     
     def plotFitResult(self, beamEnergy:int, ax=None, sim=False):
