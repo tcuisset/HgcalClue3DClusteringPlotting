@@ -24,7 +24,6 @@ from HistogramLib.histogram import HistogramKind
 from longitudinalProfile.violin import makeViolinBeamEnergy
 
 from energy_resolution.sigma_over_e import SigmaOverEComputations, fitSigmaOverEFromEnergyDistribution, EResolutionFitResult, SigmaOverEPlotElement, plotSCAsEllipse, fitSigmaOverE
-from ml.energy_resolution_tools import convert2DHistogramToDictOfHistograms
 
 class WeightedEnergyDistributionComputation(BaseComputation):
     """ Computes an histogram of the total energy distribution, computed using the given layer weights, for each beam energy """
@@ -129,7 +128,7 @@ class WeightedLayersComputations:
     @cached_property
     def sigmaOverEComputation(self) -> SigmaOverEComputations:
         comp = SigmaOverEComputations()
-        comp.compute(convert2DHistogramToDictOfHistograms(self.weightedEnergyDistribution))
+        comp.compute(self.weightedEnergyDistribution)
         return comp
     
     @property
