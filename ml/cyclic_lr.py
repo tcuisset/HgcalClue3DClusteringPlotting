@@ -206,7 +206,7 @@ class CyclicLRWithRestarts(_LRScheduler):
             self.iteration += 1
             self.total_iterations += 1
         except (IndexError):
-            raise StopIteration("Epoch size and batch size used in the "
+            raise RuntimeError("Epoch size and batch size used in the "
                                 "training loop and while initializing "
                                 "scheduler should be the same.")
         
