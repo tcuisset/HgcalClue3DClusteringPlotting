@@ -15,8 +15,8 @@ class TensorMakingComputation(BaseComputation):
     def __init__(self, *args, **kwargs) -> None:
         self.tensorFileName = kwargs.pop("tensorFileName")
         super().__init__(*args, **kwargs)
+
         self.tensorsList = []
-        
         """ List of computed tensors to be merged """
 
     def getResult(self) -> torch.Tensor:
@@ -46,4 +46,6 @@ class SimpleTensorMakingComputation(TensorMakingComputation):
         pass
 
     def processBatch(self, array:ak.Array, report:Report, computationTools:dict[typing.Type[ComputationToolBase], ComputationToolBase]) -> None:
-        self.tensorsList.append(self.computeTensor(computationTools[DataframeComputations]))
+        result = self.computeTensor(computationTools[DataframeComputations])
+        if result is not None:
+            self.tensorsList.append(result)
