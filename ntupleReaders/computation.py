@@ -20,23 +20,30 @@ class ComputationToolMakerBase:
         """ Branches needed by the computation """
 
     def instantiateComputationTool(self, array:ak.Array, report:Report) -> ComputationToolBase:
-        """ Create a ComputationTool instance, called once per batch and per filter """
+        """ Create a ComputationTool instance, called once per batch and per filter 
+        Note that there may be less events in array than report suggests, since events could have been filtered
+        """
         pass
 
 class EventFilterBase:
+    """ Base class for a filter. Must implement applyFilter """
     def __init__(self, neededBranches=[]) -> None:
         self.neededBranches = neededBranches
         """ List of branches needed for the the filter (usually left empty) """
 
     
     def applyFilter(self, array:ak.Array, report:Report) -> ak.Array:
-        return array
+        """ Applies the filter. Should return a subset of rows of array """
+        raise NotImplementedError()
 
 class NoFilter(EventFilterBase):
     """ Filter that does not filter anything """
-    pass
+    def applyFilter(self, array:ak.Array, report:Report) -> ak.Array:
+        """ Applies the filter. Should return a subset of rows of array """
+        return array
 
 class NumpyArrayFilter(EventFilterBase):
+    """ Filter that uses a numpy boolean array to filter based on indices """
     def __init__(self, filterArray:np.ndarray[bool]) -> None:
         super().__init__()
         self.filterArray = filterArray
@@ -44,6 +51,30 @@ class NumpyArrayFilter(EventFilterBase):
     def applyFilter(self, array: ak.Array, report:Report) -> ak.Array:
         filterArray_currentIteration = self.filterArray[report.global_entry_start:report.global_entry_stop]
         return array[filterArray_currentIteration]
+
+class BeamEnergyFilter(EventFilterBase):
+    """ Filter to select only beam energies given in argument """
+    def __init__(self, beamEnergiesToSelect:list[int]) -> None:
+        super().__init__(neededBranches=["beamEnergy"])
+        self.beamEnergiesToSelect = beamEnergiesToSelect
+
+    def applyFilter(self, array: ak.Array, report:Report) -> ak.Array:
+        return array[np.isin(array.beamEnergy, self.beamEnergiesToSelect)]
+
+class ChainedFilter(EventFilterBase):
+    """ Filter that applies a series of filters one by one (events have to pass all filters) 
+    Warning : only the first filter can rely on absolute indices
+    """
+    def __init__(self, filterList:list[EventFilterBase]) -> None:
+        super().__init__()
+        self.filterList = filterList
+
+    def applyFilter(self, array: ak.Array, report:Report) -> ak.Array:
+        # give the report only to the first filter
+        array = self.filterList[0].applyFilter(array, report)
+        for filterObject in self.filterList[1:]:
+            array = filterObject.applyFilter(array, None)
+        return array
 
 class BaseComputation:
     def __init__(self, neededBranches=[], eventFilter = NoFilter(), neededComputationTools:list[ComputationToolMakerBase]=[]) -> None:
@@ -93,7 +124,7 @@ def computeAllFromTree(tree:uproot.TTree|list[uproot.TTree], computations:list[B
             filteredArray = eventFilter.applyFilter(array, report)
 
             # instantiate tools for current filter
-            computationTools = {compToolMaker : compToolMaker.instantiateComputationTool(array, report) for compToolMaker in computationToolMakers[eventFilter]}
+            computationTools = {compToolMaker : compToolMaker.instantiateComputationTool(filteredArray, report) for compToolMaker in computationToolMakers[eventFilter]}
             
             for comp in computationsPerFilter[eventFilter]:
                 # making a dict Type[ComputationToolBase] -> ComputationToolBase
