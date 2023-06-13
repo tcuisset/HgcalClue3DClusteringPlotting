@@ -1,4 +1,6 @@
 import os
+from typing import Any, Optional
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 
 import numpy as np
 import hist
@@ -10,17 +12,19 @@ from torch import optim, nn, utils, Tensor
 from torch.utils.data import DataLoader, TensorDataset
 import lightning.pytorch as pl
 
+from hists.parameters import beamEnergies
 from hists.dataframe import DataframeComputations
 from hists.custom_hists import beamEnergiesAxis, layerAxis_custom
 
 from ntupleReaders.clue_ntuple_reader import ClueNtupleReader
-from ntupleReaders.computation import BaseComputation, ComputationToolBase
+from ntupleReaders.computation import BaseComputation, ComputationToolBase, NumpyArrayFilter, ChainedFilter, BeamEnergyFilter, computeAllFromTree
 from ntupleReaders.tools import DataframeComputationsToolMaker
 from energy_resolution.sigma_over_e import SigmaOverEComputations, fitSigmaOverE, plotSCAsEllipse, SigmaOverEPlotElement
 
 from ml.dataset_maker.tensors import SimpleTensorMakingComputation
 
-
+# beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
+beamEnergiesForTestSet = [30, 100, 250]
 
 neededBranchesGlobal = ["clus3D_energy", "clus3D_idxs", "clus3D_size",  'clus3D_x', 'clus3D_y', 'clus3D_z',
             "rechits_energy", "rechits_layer", "beamEnergy", "trueBeamEnergy", 'clus2D_x', 'clus2D_y', 'clus2D_z', 'clus2D_energy', 'clus2D_layer', 'clus2D_size', 'clus2D_rho', 'clus2D_delta', 'clus2D_pointType']
@@ -28,22 +32,47 @@ neededBranchesGlobal = ["clus3D_energy", "clus3D_idxs", "clus3D_size",  'clus3D_
 def makeDataframeFromComp(comp:DataframeComputations) -> pd.DataFrame:
     df = comp.clusters3D_intervalHoldingFractionOfEnergy_joined(fraction=0.7)
     df = df[df.index.isin(comp.clusters3D_largestClusterIndex_fast)]
-    return df
+    return pd.merge(
+        df, 
+        (comp.clusters3D_layerWithMaxClusteredEnergy
+            [["eventInternal","clus3D_id","layer_with_max_clustered_energy", "clus2D_energy_sum"]]
+            .set_index(["eventInternal", "clus3D_id"])
+        ), 
+        left_index=True, 
+        right_index=True)
     
 def makeInputTensorFromDf(df:pd.DataFrame):
     # converting to float32 is necessary (otherwise everything gets converted to double)
-    return torch.tensor(df[["clus3D_energy", "intervalFractionEnergy_length", "intervalFractionEnergy_minLayer", "intervalFractionEnergy_maxLayer"]].to_numpy(dtype=np.float32))
+    return torch.tensor(df[["clus3D_energy", "intervalFractionEnergy_length", "intervalFractionEnergy_minLayer", "intervalFractionEnergy_maxLayer",
+                            "layer_with_max_clustered_energy", "clus2D_energy_sum"]].to_numpy(dtype=np.float32))
 
 class TracksterPropertiesTensorMaker(SimpleTensorMakingComputation):
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, tensorFileName="tracksterProperties", **kwargs) -> None:
         super().__init__(**kwargs, neededBranches=neededBranchesGlobal,
-            rechits_columns=["rechits_energy", "rechits_layer"], tensorFileName="tracksterProperties")
+            rechits_columns=["rechits_energy", "rechits_layer"], tensorFileName=tensorFileName)
 
     def computeTensor(self, comp:DataframeComputations) -> torch.Tensor:
+        if len(comp.trueBeamEnergy) == 0:
+            return None # in case no events are in current batch (pandas does weird things during merges of empty dataframes)
         df = makeDataframeFromComp(comp).join(comp.trueBeamEnergy.trueBeamEnergy)
         
         return makeInputTensorFromDf(df), torch.tensor(df.trueBeamEnergy.to_numpy(dtype=np.float32)), torch.tensor(df.beamEnergy.to_numpy(dtype=np.float32))
 
+def computeInputTensor(reader:ClueNtupleReader):
+    filter = reader.loadFilterArray()
+    tensorComp_trainVal = TracksterPropertiesTensorMaker(
+        eventFilter=ChainedFilter(
+            [NumpyArrayFilter(filter), BeamEnergyFilter(list(set(beamEnergies).difference(beamEnergiesForTestSet)))]),
+        tensorFileName="tracksterProperties_train_val")
+    
+    tensorComp_test = TracksterPropertiesTensorMaker(
+        eventFilter=ChainedFilter(
+            [NumpyArrayFilter(filter), BeamEnergyFilter(beamEnergiesForTestSet)]),
+        tensorFileName="tracksterProperties_test")
+    
+    computeAllFromTree(reader.tree, [tensorComp_trainVal, tensorComp_test])
+    tensorComp_trainVal.saveTensor(reader.pathToMLDatasetsFolder)
+    tensorComp_test.saveTensor(reader.pathToMLDatasetsFolder)
 
 def makeHist():
     return hist.Hist(beamEnergiesAxis(), 
@@ -86,14 +115,15 @@ class TracksterPropDataModule(pl.LightningDataModule):
         self.reader = reader
     
     def setup(self, stage: str):
-        self.dataset = TensorDataset(*torch.load(os.path.join(self.reader.pathToFolder, "tracksterProperties.pt")))
-        totalev = len(self.dataset)
+        self.dataset_train_val = TensorDataset(*torch.load(os.path.join(self.reader.pathToMLDatasetsFolder, "tracksterProperties_train_val.pt")))
+        self.dataset_test = TensorDataset(*torch.load(os.path.join(self.reader.pathToMLDatasetsFolder, "tracksterProperties_test.pt")))
+        totalev = len(self.dataset_train_val)
         ntrain = int(0.8*totalev)
         ntest = totalev - ntrain
 
         self.train_batch_size = 200
         self.test_batch_size = 100
-        self.train_dataset, self.test_dataset = torch.utils.data.random_split(self.dataset, [ntrain, ntest])
+        self.train_dataset, self.test_dataset = torch.utils.data.random_split(self.dataset_train_val, [ntrain, ntest])
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.train_batch_size, shuffle=True, num_workers=4)
@@ -101,28 +131,34 @@ class TracksterPropDataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.test_batch_size, shuffle=False, num_workers=4)
 
-    # def test_dataloader(self):
-    #     return DataLoader(self.mnist_test, batch_size=self.batch_size)
+    def test_dataloader(self):
+        return DataLoader(self.dataset_test, batch_size=1000)
 
     def predict_dataloader(self):
-        return DataLoader(self.dataset, batch_size=1000, num_workers=4)
+        return DataLoader(self.dataset_train_val, batch_size=1000, num_workers=4)
+
+    def full_dataset_loader(self):
+        return DataLoader(torch.utils.data.ConcatDataset([self.dataset_train_val, self.dataset_test]), batch_size=1000)
 
 
-
-class BasicHiddenLayerModel(torch.nn.Module):
-    def __init__(self, hidden_size=10) -> None:
+class BasicHiddenLayerModel(nn.Module):
+    def __init__(self, hidden_size:int) -> None:
         super().__init__()
         self.hidden_size = hidden_size
         self.net = nn.Sequential(
-            nn.Linear(4, self.hidden_size),
+            nn.Linear(6, self.hidden_size),
             nn.ReLU(),
-            nn.Linear(self.hidden_size, 1)
+            nn.Linear(self.hidden_size, self.hidden_size),
+            nn.ReLU(),
+            nn.Linear(self.hidden_size, self.hidden_size//2),
+            nn.ReLU(),
+            nn.Linear(self.hidden_size//2, 1)
         )
     def forward(self, x):
         return self.net(x)
 
 class TracksterPropModule(pl.LightningModule):
-    def __init__(self, net:nn.Module=None):
+    def __init__(self, net:nn.Module):
         super().__init__()
         if net is None:
             net = BasicHiddenLayerModel()
@@ -140,14 +176,18 @@ class TracksterPropModule(pl.LightningModule):
         # it is independent of forward
         result, loss = self._common_prediction_step(batch)
         # Logging to TensorBoard (if installed) by default
-        self.log("train_loss", loss)
+        self.log("Loss/Training", loss, on_step=True, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         result, loss = self._common_prediction_step(batch)
-        self.log("val_loss", loss)
+        self.log("Loss/Validation", loss, on_step=True, on_epoch=True)
         return result
 
+    def test_step(self, batch, batch_idx):
+        result, loss = self._common_prediction_step(batch)
+        self.log("result", result)
+        
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=1e-3)
         return optimizer
