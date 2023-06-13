@@ -20,6 +20,8 @@ from hists.parameters import beamEnergies
 class HistogramEstimates:
     def __init__(self, h:hist.Hist) -> None:
         self.h = h
+        if h.sum() == 0:
+            raise ValueError("Histogram is empty")
     
     @cached_property
     def quantiles(self):
@@ -54,7 +56,7 @@ class HistogramEstimates:
         return iqr / 1.349 # Gaussian has an IQR of 1.349
 
 # Code taken from zfit docs (for convenience in notebooks)
-def get_param(name, value=None, lower=None, upper=None, step_size=None, **kwargs):
+def get_param(name, value, lower=None, upper=None, step_size=None, **kwargs):
     """Either create a parameter or return existing if a parameter with this name already exists.
 
     If anything else than *name* is given, this will be used to change the existing parameter.
@@ -72,14 +74,10 @@ def get_param(name, value=None, lower=None, upper=None, step_size=None, **kwargs
     all_params = zfit.core.parameter.ZfitParameterMixin._existing_params
     if name in all_params:
         parameter = all_params[name]
-        if lower is not None:
-            parameter.lower = lower
-        if upper is not None:
-            parameter.upper = upper
-        if step_size is not None:
-            parameter.step_size = step_size
-        if value is not None:
-            parameter.set_value(value)
+        parameter.lower = lower
+        parameter.upper = upper
+        parameter.step_size = step_size
+        parameter.set_value(value)
         return parameter
 
     # otherwise create new one
@@ -128,7 +126,7 @@ def plot(h:hist.Hist, pdf:zfit.pdf.BasePDF, space:zfit.Space, ax=None, text=None
     if ax is None:
         fig, ax = plt.subplots()
     
-    hep.histplot(h, ax=ax, histtype="errorbar")
+    hep.histplot(h, ax=ax, histtype="errorbar", flow="none")
     x_plot = np.linspace(h.axes[0].edges[0], h.axes[0].edges[0-1], num=1000)
     y_plot = zfit.run(pdf.pdf(x_plot, norm=space))
     ax.plot(x_plot, y_plot * h.sum() / h.axes[0].size * space.area())
@@ -169,7 +167,7 @@ class GaussianIterativeFitter:
                 self.params.print()
             try:
                 fitResult, fitter = self.fitIteration(plotDebugBeforeFit=((i==0) and plotDebug))
-            except zfit.minimizers.FailMinimizeNaN:
+            except zfit.minimizers.strategy.FailMinimizeNaN:
                 raise IterativeFitFailed(lastGoodFitResult=fitResult if i > 0 else None, successfulFitIterationsCount=i)
             
             if plotDebug:

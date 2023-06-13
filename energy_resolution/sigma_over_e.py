@@ -33,6 +33,18 @@ class SigmaOverEFitError(Exception):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
 
+def convert2DHistogramToDictOfHistograms(h_2D:hist.Hist) -> dict[int, hist.Hist]:
+    """ Convert a 2D histogram with beamEnergy, X axises 
+    to a dict of hists : { beamEnergy : h_2D[hist.loc(beamEnergy), :] }
+    Removes empty slices
+    """
+    res_dict = dict()
+    for beamEnergy in h_2D.axes["beamEnergy"]:
+        sliced_h = h_2D[{"beamEnergy":hist.loc(beamEnergy)}]
+        if sliced_h.sum() > 0:
+            res_dict[beamEnergy] = sliced_h
+    return res_dict
+
 class SigmaOverEComputations:
     """ Class to manage gaussian fits of distribution of reconstructed energy """
     def __init__(self, sigmaWindow:tuple[float, float]=(1, 2.5), plotDebug=False, recoverFromFailedFits=False) -> None:
@@ -81,7 +93,7 @@ class SigmaOverEComputations:
         """
         if isinstance(h_per_energy, hist.Hist):
             # convert 2D histogram to dict of histograms
-            h_per_energy = {beamEnergy : h_per_energy[{"beamEnergy" : hist.loc(beamEnergy)}] for beamEnergy in h_per_energy.axes["beamEnergy"]}
+            h_per_energy = convert2DHistogramToDictOfHistograms(h_per_energy)
         
         self.h_per_energy = h_per_energy
         if multiprocess:
