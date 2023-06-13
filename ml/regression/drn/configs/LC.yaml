@@ -13,6 +13,8 @@ model:
        - 1
        - 1
        - 1 #torch.tensor([ 1., 1., 1., 1.])
+  loss: mse_ratio
+
 data:
   reader: 
     class_path: ClueNtupleReader
@@ -20,7 +22,9 @@ data:
       version: v40
       clueParams: cmssw
       datatype: sim_proton_v46_patchMIP
-  
+  datasetComputationClass: ml.regression.drn.dataset_making.LayerClustersTensorMaker
+  transformFct: ml.regression.drn.modules.ratioTransform
+
 ckpt_path: null
 
 trainer:
@@ -37,11 +41,11 @@ trainer:
         mode: min
         save_top_k: 10
         every_n_epochs: 50
-        save_last: true   
+        save_last: false   
     # - class_path: SigmaOverECallback
     #   init_args:
     #     every_n_epochs: 50
-  max_epochs: 100
+  max_epochs: 1000
   log_every_n_steps: null
   enable_checkpointing: true
 

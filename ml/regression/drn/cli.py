@@ -9,7 +9,7 @@ from ml.regression.drn.modules import *
 
 
 def cli_main():
-    cli = LightningCLI(RechitsDRNModule, RechitsDRNDataModule)
+    cli = LightningCLI(DRNModule, DRNDataModule)
     # note: don't call fit!!
 
 

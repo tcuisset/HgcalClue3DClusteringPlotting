@@ -1,7 +1,7 @@
 
 
 
-from typing import Any, Optional
+from typing import Type, Callable
 import os
 
 import torch
@@ -13,8 +13,8 @@ from torch_geometric.loader import DataLoader
 from hists.parameters import beamEnergies
 from ntupleReaders.clue_ntuple_reader import ClueNtupleReader
 from ntupleReaders.computation import BaseComputation, ComputationToolBase, computeAllFromTree, NumpyArrayFilter
-from ml.regression.rechits import RechitsTensorMaker
 
+from ml.regression.drn.dataset_making import LayerClustersTensorMaker, RechitsTensorMaker
 from ml.dynamic_reduction_network import DynamicReductionNetwork
 from ml.cyclic_lr import CyclicLRWithRestarts
 from ml.regression.drn.plot import scatterPredictionVsTruth
@@ -22,19 +22,23 @@ from ml.regression.drn.plot import scatterPredictionVsTruth
 # beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
 beamEnergiesForTestSet = [30, 100, 250]
 
-class RechitsDataset(InMemoryDataset):
-    def __init__(self, reader:ClueNtupleReader, is_test_set=False, transform=None, pre_transform=None, pre_filter=None):
+class DRNDataset(InMemoryDataset):
+    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], is_test_set=False, transform=None, pre_transform=None, pre_filter=None):
+        """ Parameters : 
+         - datasetComputationClass : the class, inheriting from BaseComputation, used to build the dataset form CLUE_clusters.root file.
+            Must be a class that takes as __init__ args beamEnergiesToSelect, tensorFileName
+            and which computes the attribute geometric_data_objects (list of PYG Data objects)
+        """
         self.reader = reader
         self.is_test_set = is_test_set
-        super().__init__(os.path.join(reader.pathToMLDatasetsFolder, "rechits_DRN"), transform, pre_transform, pre_filter)
+        self.datasetComputationClass = datasetComputationClass
+        try:
+            transform_name = pre_transform.__name__
+        except:
+            transform_name = "no_transform"
+        super().__init__(os.path.join(reader.pathToMLDatasetsFolder, "DRN", datasetComputationClass.shortName, transform_name, "test" if is_test_set else "train_val"), 
+                transform, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
-
-    @property
-    def processed_file_names(self):
-        if self.is_test_set:
-            return ['rechits_DRN_processed_test.pt']
-        else:
-            return ['rechits_DRN_processed.pt']
 
     def process(self):
         # Read data into huge `Data` list.
@@ -43,9 +47,9 @@ class RechitsDataset(InMemoryDataset):
         else:
             beamEnergiesToSelect = list(set(beamEnergies).difference(beamEnergiesForTestSet))
         
-        tracksterPropComp = RechitsTensorMaker(beamEnergiesToSelect=beamEnergiesToSelect, 
+        tracksterPropComp = self.datasetComputationClass(beamEnergiesToSelect=beamEnergiesToSelect, 
             tensorFileName=self.processed_file_names[0], eventFilter=NumpyArrayFilter(self.reader.loadFilterArray()))
-        computeAllFromTree(self.reader.tree, [tracksterPropComp], tqdm_options=dict(desc="Processing rechits data" + (" (test set)" if self.is_test_set else "")))
+        computeAllFromTree(self.reader.tree, [tracksterPropComp], tqdm_options=dict(desc="Processing data" + (" (test set)" if self.is_test_set else "")))
         data_list = tracksterPropComp.geometric_data_objects
 
         if self.pre_filter is not None:
@@ -57,26 +61,35 @@ class RechitsDataset(InMemoryDataset):
         data, slices = self.collate(data_list)
         torch.save((data, slices), self.processed_paths[0])
 
+    @property
+    def processed_file_names(self):
+        return "processed_data.pt"
 
 
-# beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
-defaultBeamEnergiesForTest = [30, 120, 250]
+def ratioTransform(data:Data) -> Data:
+    data.y = torch.sum(data.x[:, 3]) / data.trueBeamEnergy
+    return data
 
-class RechitsDRNDataModule(pl.LightningDataModule):
-    def __init__(self, reader:ClueNtupleReader=None):
+
+class DRNDataModule(pl.LightningDataModule):
+    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], transformFct:Callable[[Data], Data]=None):
         super().__init__()
         self.reader = reader
+        self.datasetComputationClass = datasetComputationClass
+        self.transformFct = transformFct
     
+    def prepare_data(self) -> None:
+        kwargs = dict(reader=self.reader, datasetComputationClass=self.datasetComputationClass, pre_transform=self.transformFct)
+        self.dataset_train_val = DRNDataset(is_test_set=False, **kwargs).shuffle()
+        self.dataset_test = DRNDataset(is_test_set=True, **kwargs)
+
     def setup(self, stage: str):
-        self.dataset_train_val = RechitsDataset(self.reader, is_test_set=False).shuffle()
         totalev = len(self.dataset_train_val)
         self.ntrain = int(0.8*totalev)
         self.ntest = totalev - self.ntrain
 
         self.train_batch_size = 200
         self.val_batch_size = 100
-
-        self.dataset_test = RechitsDataset(self.reader, is_test_set=True)
         self.test_batch_size = 400
 
     def train_dataloader(self):
@@ -92,17 +105,24 @@ class RechitsDRNDataModule(pl.LightningDataModule):
     #     return DataLoader(self.dataset, batch_size=1000, num_workers=4)
 
 
-class RechitsDRNModule(pl.LightningModule):
-    def __init__(self, drn:nn.Module=None, scheduler:str="CyclicLRWithRestarts"):
+class DRNModule(pl.LightningModule):
+    def __init__(self, drn:nn.Module=None, scheduler:str="CyclicLRWithRestarts", loss:str="mse_relative"):
         super().__init__()
         self.drn = drn
         self.validation_predictions = []
         self.validation_trueBeamEnergy = []
         self.scheduler_name = scheduler
 
+        if loss == "mse_relative":
+            self._loss_function = lambda result, batch : nn.functional.mse_loss(result/batch.trueBeamEnergy, torch.ones_like(result)) # Loss is MSE of E_estimate / E_beam wrt to 1
+        elif loss == "mse_ratio":
+            self._loss_function = lambda result, batch : nn.functional.mse_loss(result, batch.y)
+        else:
+            raise ValueError("DRNModule : wrong loss")
+
     def _common_prediction_step(self, batch):
         result = self(batch)
-        loss = nn.functional.mse_loss(result/batch.trueBeamEnergy, torch.ones_like(result)) # Loss is MSE of E_estimate / E_beam wrt to 1
+        loss = self._loss_function(result, batch)
         return result, loss
 
     def training_step(self, batch, batch_idx):
@@ -130,7 +150,7 @@ class RechitsDRNModule(pl.LightningModule):
         elif self.scheduler_name == "default":
             return optimizer
         else:
-            raise ValueError("RechitsDRNModule.scheduler")
+            raise ValueError("DRNModule.scheduler")
 
     def lr_scheduler_step(self, scheduler, metric):
         if isinstance(scheduler, CyclicLRWithRestarts):
