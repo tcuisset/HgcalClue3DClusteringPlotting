@@ -72,11 +72,13 @@ def ratioTransform(data:Data) -> Data:
 
 
 class DRNDataModule(pl.LightningDataModule):
-    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], transformFct:Callable[[Data], Data]=None):
+    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], transformFct:Callable[[Data], Data]=None,
+            multiprocess_loader=True):
         super().__init__()
         self.reader = reader
         self.datasetComputationClass = datasetComputationClass
         self.transformFct = transformFct
+        self.multiprocess_loader = multiprocess_loader
     
     def prepare_data(self) -> None:
         kwargs = dict(reader=self.reader, datasetComputationClass=self.datasetComputationClass, pre_transform=self.transformFct)
@@ -93,30 +95,41 @@ class DRNDataModule(pl.LightningDataModule):
         self.test_batch_size = 400
 
     def train_dataloader(self):
-        return DataLoader(self.dataset_train_val[:self.ntrain], batch_size=self.train_batch_size, num_workers=4)
+        return DataLoader(self.dataset_train_val[:self.ntrain], batch_size=self.train_batch_size, num_workers=4 if self.multiprocess_loader else 0)
 
     def val_dataloader(self):
-        return DataLoader(self.dataset_train_val[self.ntrain:], batch_size=self.val_batch_size, num_workers=2)
+        return DataLoader(self.dataset_train_val[self.ntrain:], batch_size=self.val_batch_size, num_workers=2 if self.multiprocess_loader else 0)
 
     def test_dataloader(self):
-        return DataLoader(self.dataset_test, batch_size=self.test_batch_size, num_workers=2)
+        return DataLoader(self.dataset_test, batch_size=self.test_batch_size, num_workers=2 if self.multiprocess_loader else 0)
 
+    def full_dataloader(self):
+        return DataLoader(torch.utils.data.ConcatDataset([self.dataset_train_val, self.dataset_test]), batch_size=500, num_workers=2 if self.multiprocess_loader else 0)
+    
     # def predict_dataloader(self):
     #     return DataLoader(self.dataset, batch_size=1000, num_workers=4)
 
 
 class DRNModule(pl.LightningModule):
     def __init__(self, drn:nn.Module=None, scheduler:str="CyclicLRWithRestarts", loss:str="mse_relative"):
+        """ Parameters :
+         - drn : the module
+         - scheduler : can be "CyclicLRWithRestarts", "default"
+         - loss : can be "mse_relative", "mse_ratio" 
+        """
         super().__init__()
         self.drn = drn
         self.validation_predictions = []
         self.validation_trueBeamEnergy = []
         self.scheduler_name = scheduler
 
+        
         if loss == "mse_relative":
             self._loss_function = lambda result, batch : nn.functional.mse_loss(result/batch.trueBeamEnergy, torch.ones_like(result)) # Loss is MSE of E_estimate / E_beam wrt to 1
+            self.prediction_type = "absolute"
         elif loss == "mse_ratio":
             self._loss_function = lambda result, batch : nn.functional.mse_loss(result, batch.y)
+            self.prediction_type = "ratio"
         else:
             raise ValueError("DRNModule : wrong loss")
 
@@ -193,12 +206,21 @@ class DRNModule(pl.LightningModule):
         self.validation_trueBeamEnergy.clear()
 
         try:
-            self.logger.experiment.add_histogram("Validation/Pred-truth / truth", 
-                (validation_pred-validation_trueBeamEnergy)/validation_trueBeamEnergy, self.current_epoch)
+            if self.prediction_type == "absolute":
+                self.logger.experiment.add_histogram("Validation/Pred-truth / truth", 
+                    (validation_pred-validation_trueBeamEnergy)/validation_trueBeamEnergy, self.current_epoch)
 
-            self.logger.experiment.add_figure("Validation/Scatter",
-                scatterPredictionVsTruth(validation_trueBeamEnergy.cpu().numpy(), validation_pred.cpu().numpy(), epoch=self.current_epoch),
-                self.current_epoch)
+                self.logger.experiment.add_figure("Validation/Scatter",
+                    scatterPredictionVsTruth(validation_trueBeamEnergy.cpu().numpy(), validation_pred.cpu().numpy(), epoch=self.current_epoch),
+                    self.current_epoch)
+            elif self.prediction_type == "ratio":
+                self.logger.experiment.add_histogram("Validation/Prediction histogram", 
+                    validation_pred, self.current_epoch)
+                
+                self.logger.experiment.add_figure("Validation/Scatter",
+                    scatterPredictionVsTruth(validation_trueBeamEnergy.cpu().numpy(), (validation_pred*validation_trueBeamEnergy).cpu().numpy(), epoch=self.current_epoch),
+                    self.current_epoch)
+                
         except AttributeError:
             pass # no logger
     
@@ -208,8 +230,16 @@ class DRNModule(pl.LightningModule):
         self._test_val_common_epoch_end()
 
 
-
-
-
+    def on_fit_start(self):
+        try:
+            # Overlay plots. See https://stackoverflow.com/a/71524389
+            tb = self.logger.experiment
+            tb.add_custom_scalars({
+                "Loss" : {
+                    "Epoch" : ["Multiline", ["Loss/Training", "Loss/Validation"]]
+                }
+            })
+        except AttributeError:
+            pass
 
 
