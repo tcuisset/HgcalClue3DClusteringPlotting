@@ -150,6 +150,11 @@ class GaussianIterativeFitter:
         self.params.adaptParametersToHist(h)
 
     def fitIteration(self, plotDebugBeforeFit=False) -> tuple[zfit.minimizers.fitresult.FitResult, SingleFitter]:
+        """ Single iteration of iterative fitting 
+        Raises :
+          - ValueError : in case the window is smaller than the binning of the histogram
+          - zfit.minimizers.strategy.FailMinimizeNaN : when the fit failed
+        """
         low_bound = self.params.mu.value().numpy() - self.sigmaWindow[0]*self.params.sigma.value().numpy()
         high_bound = self.params.mu.value().numpy() + self.sigmaWindow[1]*self.params.sigma.value().numpy()
         low_bound = max(self.h.axes[0].edges[0], low_bound) # If low_bound is negative then we get ValueError : begin < end required
@@ -167,7 +172,7 @@ class GaussianIterativeFitter:
                 self.params.print()
             try:
                 fitResult, fitter = self.fitIteration(plotDebugBeforeFit=((i==0) and plotDebug))
-            except zfit.minimizers.strategy.FailMinimizeNaN:
+            except (zfit.minimizers.strategy.FailMinimizeNaN, ValueError): # ValueError : begin < end required -> the window is too narrow
                 raise IterativeFitFailed(lastGoodFitResult=fitResult if i > 0 else None, successfulFitIterationsCount=i)
             
             if plotDebug:

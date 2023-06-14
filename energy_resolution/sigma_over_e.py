@@ -2,6 +2,7 @@
 
 from collections import namedtuple
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import multiprocessing
 import math
 import functools
 import itertools
@@ -87,7 +88,7 @@ class SigmaOverEComputations:
         """ Make all the gaussian fits for the histograms given
         Parameters : 
          - h_per_energy : dict beamEnergy -> histogram of reconstructed energy (or a 2D histogram with axes beamEnergy, recoEnergy)
-         - multiprocess : if on, use ProcessPoolExecutor for fitting all energies in parallel
+         - multiprocess : if not False, use ProcessPoolExecutor for fitting all energies in parallel. (can be False, True (uses default start method), "fork", "forkserver", "spawn", a string being passed as a multiprocessing start method)
         Returns : a dictionnary beamEnergy -> SigmaMuResult, which is a namedtuple with mu and sigma as uncertainties package floats
         (includes correlation)
         """
@@ -96,15 +97,19 @@ class SigmaOverEComputations:
             h_per_energy = convert2DHistogramToDictOfHistograms(h_per_energy)
         
         self.h_per_energy = h_per_energy
-        if multiprocess:
-            with ProcessPoolExecutor(max_workers=10) as executor:
+        if multiprocess is not False:
+            if isinstance(multiprocess, str):
+                ctx = multiprocessing.get_context(multiprocess)
+            else:
+                ctx = None
+            with ProcessPoolExecutor(max_workers=10, mp_context=ctx) as executor:
                 self.results = dict(zip(h_per_energy.keys(), executor.map(functools.partial(self.singleFit, fitter_kwargs=dict(progressBar=False)), h_per_energy.values())))
         else:
             self.results = dict(zip(h_per_energy.keys(), map(self.singleFit, tqdm(h_per_energy.values(), desc="Fitting", **tqdm_dict))))
         
         if self.recoverFromFailedFits:
-            good_results = [x for x in self.results if x is not None]
-            if len(good_results)*2 < len(self.results):
+            good_results = {beamEnergy : result for beamEnergy, result in self.results.items() if result is not None}
+            if len(good_results)*2 < len(self.results) or len(good_results) < 3:
                 raise SigmaOverEFitError(f"Not enough good fit results ({len(good_results)} fits succeeded out of {len(self.results)})")
             self.results = good_results
 
@@ -116,6 +121,8 @@ class SigmaOverEComputations:
         energy_h = self.h_per_energy[beamEnergy]
         if ax is None:
             fig, ax = plt.subplots()
+        else:
+            fig = ax.figure
 
         xlimits = (mu - 5*sigma, mu+3*sigma)
         ax.set_xlim(xlimits)
@@ -136,6 +143,8 @@ class SigmaOverEComputations:
         else:
             hep.cms.text("Preliminary")
         hep.cms.lumitext(f"{beamEnergy} GeV - $e^+$ TB")
+
+        return fig
         
 
 class EResolutionFitResult(namedtuple("EResolutionFitResult", ["S", "C"])):
@@ -151,6 +160,9 @@ def sigmaOverE_fitFunction(x, S, C):
 def fitSigmaOverE(sigmaOverEValues:dict[int, SigmaMuResult]) -> EResolutionFitResult:
     """ Fit the given sigma and mu values, as sigma/mu = quadratic_sum( S/sqrt(E_beam) ; C) 
     Returns EResolutionFitResult object
+    Raises
+     - RuntimeError in case of failed fit (scipy.optimize.OptimizeWarning in case covariance could not be estimated)
+     - TypeError in case there less than 2 values for the fit
     """
     xValues = [1/math.sqrt(synchrotronBeamEnergiesMap[beamEnergy]) for beamEnergy in sigmaOverEValues.keys()]
     # yValues are uncertainties float
@@ -177,7 +189,7 @@ def fitSigmaOverEFromEnergyDistribution(h_per_energy:dict[int, hist.Hist]) -> ER
 
 SigmaOverEPlotElement = namedtuple("SigmaOverEPlotElement", 
     ["legend", "fitResult", "fitFunction", "dataPoints", "color", "legendGroup"], 
-    defaults=[None, None, "blue", None])
+    defaults=[None, None, None, "blue", None])
 """ Plot element of sigma/<E>
 Attributes :
  - legend : text for legend
@@ -188,7 +200,7 @@ Attributes :
  - legendGroup : different plot elements with the same value of legendGroup will see their legend together
 """
 
-def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None, xMode="E", errors=True, plotFit=False, sim=False, linkPointsWithLines=True, markersize=5):
+def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None, xMode="E", errors=True, plotFit=False, sim=False, linkPointsWithLines=True, markersize=5) -> matplotlib.figure.Figure:
     """ Make plots of sigma over <E> as a function of E or of 1/sqrt(E)
     Parameters : 
      - plotElements : list of plot elements
@@ -201,6 +213,8 @@ def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None
     """
     if ax is None:
         fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
 
     
     if xMode == "E":
@@ -264,6 +278,7 @@ def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None
     for handle_group, loc in zip(handles.values(), itertools.chain(legend_positions, itertools.repeat(None))):
         ax.add_artist(ax.legend(handles=handle_group, loc=loc, **legend_kwargs))
 
+    return fig
 
 
 
