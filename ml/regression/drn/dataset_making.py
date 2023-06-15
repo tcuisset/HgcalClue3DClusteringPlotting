@@ -23,14 +23,19 @@ neededBranchesGlobal = ["clus3D_energy", "clus3D_idxs", "clus3D_size",  'clus3D_
 
 class RechitsTensorMaker(BaseComputation):
     shortName = "rechits"
-    def __init__(self, beamEnergiesToSelect=beamEnergies, tensorFileName="rechitsGeometric", **kwargs) -> None:
+    def __init__(self, beamEnergiesToSelect=beamEnergies, tensorFileName="rechitsGeometric", simulation=True, **kwargs) -> None:
         """ Parameters : 
          - beamEnergiesToSelect : beam energies to keep in dataset
         """
+        self.simulation = simulation
+
         self.requestedBranches = ["rechits_x", "rechits_y", "rechits_layer", "rechits_energy"]
+        neededBranches = self.requestedBranches + ["clus3D_energy", "clus3D_idxs", "clus2D_idxs", "beamEnergy"] # branches that need to be loaded from tree
+        if simulation:
+            neededBranches.append("trueBeamEnergy")
         self.tensorFileName = tensorFileName
         self.beamEnergiesToSelect = beamEnergiesToSelect
-        super().__init__(**kwargs, neededBranches=self.requestedBranches + ["clus3D_energy", "clus3D_idxs", "clus2D_idxs", "beamEnergy", "trueBeamEnergy"])
+        super().__init__(**kwargs, neededBranches=neededBranches)
         
         self.geometric_data_objects = []
 
@@ -51,16 +56,27 @@ class RechitsTensorMaker(BaseComputation):
         rechits_ids = ak.flatten(array.clus2D_idxs[clus2D_ids], axis=-1)
         
 
-        columns = [array[colName][rechits_ids] for colName in self.requestedBranches]
-        
-        
-        for eventBranches, beamEnergy, trueBeamEnergy in zip(zip(*columns), array.beamEnergy, array.trueBeamEnergy):
+        # columns that are a tensor for each event
+        perClusterColumns = [array[colName][rechits_ids] for colName in self.requestedBranches]
+
+        # Columns that are a scalar per event (beamEnergy, gunEnergy)
+        perEventColumns = [array.beamEnergy] # NB: beamEnery has to be the first
+        perEventColumnNames = ["beamEnergy"]
+        if self.simulation:
+            perEventColumns.append(array.trueBeamEnergy)
+            perEventColumnNames.append("trueBeamEnergy")
+
+        for eventBranches, perEventValues in zip(zip(*perClusterColumns), zip(*perEventColumns)):
+            beamEnergy = perEventValues[0]
             if int(beamEnergy) in self.beamEnergiesToSelect:
                 tensor_array = np.array(eventBranches, dtype=np.float32)
                 tensor = torch.tensor(tensor_array.T)
-                self.geometric_data_objects.append(Data(x=tensor, 
-                    beamEnergy=torch.tensor(beamEnergy, dtype=torch.float32),
-                    trueBeamEnergy=torch.tensor(trueBeamEnergy, dtype=torch.float32)))
+
+                self.geometric_data_objects.append(Data(
+                    x=tensor, 
+                    # append all scalar columns as scalar tensors
+                    **{colName : torch.tensor(colValue, dtype=torch.float32) for colName, colValue in zip(perEventValues, perEventColumnNames, strict=True)}
+                ))
 
     def saveTensor(self, pathToFolder:str) -> None:
         """ Save the tensor to file """
@@ -72,14 +88,20 @@ class RechitsTensorMaker(BaseComputation):
     
 class LayerClustersTensorMaker(BaseComputation):
     shortName = "LC"
-    def __init__(self, beamEnergiesToSelect=beamEnergies, tensorFileName="layerClustersGeometric", **kwargs) -> None:
+    def __init__(self, beamEnergiesToSelect=beamEnergies, tensorFileName="layerClustersGeometric", simulation=True, **kwargs) -> None:
         """ Parameters : 
          - beamEnergiesToSelect : beam energies to keep in dataset
+         - simulation : if True (the default), will save gun energy. False is for data
         """
-        self.requestedBranches = ["clus2D_x", "clus2D_y", "clus2D_layer", "clus2D_energy"]
+        self.simulation = simulation
+        self.requestedBranches = ["clus2D_x", "clus2D_y", "clus2D_layer", "clus2D_energy"] # branches that will go in tensors
+        neededBranches = self.requestedBranches + ["clus3D_energy", "clus3D_idxs", "clus2D_idxs", "beamEnergy"] # branches that need to be loaded from tree
+        if simulation:
+            neededBranches.append("trueBeamEnergy")
+
         self.tensorFileName = tensorFileName
         self.beamEnergiesToSelect = beamEnergiesToSelect
-        super().__init__(**kwargs, neededBranches=self.requestedBranches + ["clus3D_energy", "clus3D_idxs", "clus2D_idxs", "beamEnergy", "trueBeamEnergy"])
+        super().__init__(**kwargs, neededBranches=neededBranches)
         
         self.geometric_data_objects = []
 
@@ -95,15 +117,27 @@ class LayerClustersTensorMaker(BaseComputation):
         # resulting event * clus2D_ids
         clus2D_ids = array.clus3D_idxs[clus3D_energySortedIndices][:, 0, :]
         
-        columns = [array[colName][clus2D_ids] for colName in self.requestedBranches]
+        # columns that are a tensor for each evebt
+        perClusterColumns = [array[colName][clus2D_ids] for colName in self.requestedBranches]
+
+        # Columns that are a scalar per event (beamEnergy, gunEnergy)
+        perEventColumns = [array.beamEnergy] # NB: beamEnery has to be the first
+        perEventColumnNames = ["beamEnergy"]
+        if self.simulation:
+            perEventColumns.append(array.trueBeamEnergy)
+            perEventColumnNames.append("trueBeamEnergy")
         
-        for eventBranches, beamEnergy, trueBeamEnergy in zip(zip(*columns), array.beamEnergy, array.trueBeamEnergy):
+        for eventBranches, perEventValues in zip(zip(*perClusterColumns), zip(*perEventColumns)):
+            beamEnergy = perEventValues[0]
             if int(beamEnergy) in self.beamEnergiesToSelect:
                 tensor_array = np.array(eventBranches, dtype=np.float32)
                 tensor = torch.tensor(tensor_array.T)
-                self.geometric_data_objects.append(Data(x=tensor, 
-                    beamEnergy=torch.tensor(beamEnergy, dtype=torch.float32),
-                    trueBeamEnergy=torch.tensor(trueBeamEnergy, dtype=torch.float32)))
+
+                self.geometric_data_objects.append(Data(
+                    x=tensor, 
+                    # append all scalar columns as scalar tensors
+                    **{colName : torch.tensor(colValue, dtype=torch.float32) for colName, colValue in zip(perEventColumnNames, perEventValues, strict=True)}
+                ))
 
     def saveTensor(self, pathToFolder:str) -> None:
         """ Save the tensor to file """

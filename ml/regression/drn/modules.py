@@ -23,33 +23,44 @@ from ml.regression.drn.plot import scatterPredictionVsTruth
 beamEnergiesForTestSet = [30, 100, 250]
 
 class DRNDataset(InMemoryDataset):
-    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], is_test_set=False, transform=None, pre_transform=None, pre_filter=None):
+    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], datasetType:str, simulation:bool=True, transform=None, pre_transform=None, pre_filter=None):
         """ Parameters : 
          - datasetComputationClass : the class, inheriting from BaseComputation, used to build the dataset form CLUE_clusters.root file.
             Must be a class that takes as __init__ args beamEnergiesToSelect, tensorFileName
             and which computes the attribute geometric_data_objects (list of PYG Data objects)
+         - datasetType : can be 
+              "full" : full dataset, no selection 
+              "train_val" : some beam energies removed for training
+              "test" : complementary of "train"
+         - simulation: if True (default), will load gun energy
         """
         self.reader = reader
-        self.is_test_set = is_test_set
+        self.datasetType = datasetType
         self.datasetComputationClass = datasetComputationClass
+        self.simulation = simulation
         try:
             transform_name = pre_transform.__name__
         except:
             transform_name = "no_transform"
-        super().__init__(os.path.join(reader.pathToMLDatasetsFolder, "DRN", datasetComputationClass.shortName, transform_name, "test" if is_test_set else "train_val"), 
+        super().__init__(os.path.join(reader.pathToMLDatasetsFolder, "DRN", datasetComputationClass.shortName, transform_name, self.datasetType), 
                 transform, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     def process(self):
         # Read data into huge `Data` list.
-        if self.is_test_set:
+        if self.datasetType == "test":
             beamEnergiesToSelect = beamEnergiesForTestSet
-        else:
+        elif self.datasetType == "train_val":
             beamEnergiesToSelect = list(set(beamEnergies).difference(beamEnergiesForTestSet))
+        elif self.datasetType == "full":
+            beamEnergiesToSelect = beamEnergies
+        else:
+            raise ValueError(f"Wrong datasetType : {self.datasetType}")
         
         tracksterPropComp = self.datasetComputationClass(beamEnergiesToSelect=beamEnergiesToSelect, 
-            tensorFileName=self.processed_file_names[0], eventFilter=NumpyArrayFilter(self.reader.loadFilterArray()))
-        computeAllFromTree(self.reader.tree, [tracksterPropComp], tqdm_options=dict(desc="Processing data" + (" (test set)" if self.is_test_set else "")))
+            tensorFileName=self.processed_file_names[0], eventFilter=NumpyArrayFilter(self.reader.loadFilterArray()),
+            simulation=self.simulation)
+        computeAllFromTree(self.reader.tree, [tracksterPropComp], tqdm_options=dict(desc=f"Processing {self.datasetType} set"))
         data_list = tracksterPropComp.geometric_data_objects
 
         if self.pre_filter is not None:
