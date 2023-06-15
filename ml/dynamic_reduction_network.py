@@ -34,7 +34,8 @@ class DynamicReductionNetwork(nn.Module):
     """
 
     def __init__(self, input_dim:int=5, hidden_dim:int=64, output_dim:int=1, k:int=16, aggr:str='add',
-                 norm:torch.Tensor|list[float]=torch.tensor([1./500., 1./500., 1./54., 1/25., 1./1000.])):
+                 norm:torch.Tensor|list[float]=torch.tensor([1./500., 1./500., 1./54., 1/25., 1./1000.]),
+                dropout:float=0.2):
  #                norm=torch.tensor([1., 1., 1., 1., 1.])):
         super(DynamicReductionNetwork, self).__init__()
         if isinstance(norm, list):
@@ -50,16 +51,16 @@ class DynamicReductionNetwork(nn.Module):
         self.inputnet =  nn.Sequential(
             nn.Linear(input_dim, hidden_dim*2),            
             nn.ELU(),
-            nn.Dropout(0.2),
+            nn.Dropout(dropout),
             nn.Linear(hidden_dim*2, hidden_dim*2),
             nn.ELU(),
-            nn.Dropout(0.2),
+            nn.Dropout(dropout),
 #            nn.Linear(hidden_dim*2, hidden_dim*2),
 #            nn.ELU(),
-#            nn.Dropout(0.2),
+#            nn.Dropout(dropout),
 #            nn.Linear(hidden_dim*2, hidden_dim*2),
 #            nn.ELU(),
-#            nn.Dropout(0.2),
+#            nn.Dropout(dropout),
 #            nn.Linear(hidden_dim*2, hidden_dim*2),
 #            nn.ELU(),
 #            nn.Linear(hidden_dim*2, hidden_dim*2),
@@ -71,20 +72,20 @@ class DynamicReductionNetwork(nn.Module):
         
         convnn1 = nn.Sequential(nn.Linear(start_width, middle_width),
                                 nn.ELU(),
-                                nn.Dropout(0.2),
+                                nn.Dropout(dropout),
                                 nn.Linear(middle_width, hidden_dim),                                             
                                 nn.ELU()
                                 )
         convnn2 = nn.Sequential(nn.Linear(start_width, middle_width),
                                 nn.ELU(),
-                                nn.Dropout(0.2),
+                                nn.Dropout(dropout),
                                 nn.Linear(middle_width, hidden_dim),                                             
                                 nn.ELU()
                                 )
         
         convnn3 = nn.Sequential(nn.Linear(start_width, middle_width),
                                 nn.ELU(),
-                                nn.Dropout(0.2),
+                                nn.Dropout(dropout),
                                 nn.Linear(middle_width, hidden_dim),                                             
                                 nn.ELU()
                                 )
@@ -95,15 +96,15 @@ class DynamicReductionNetwork(nn.Module):
         
         self.output = nn.Sequential(nn.Linear(hidden_dim, hidden_dim),
                                     nn.ELU(),
-                                    nn.Dropout(0.2),
+                                    nn.Dropout(dropout),
                                     #nn.Softplus(),
                                     nn.Linear(hidden_dim, hidden_dim//2),
                                     nn.ELU(),
-                                    nn.Dropout(0.2),
+                                    nn.Dropout(dropout),
                                     #nn.Softplus(),
                                     nn.Linear(hidden_dim//2, hidden_dim//2),#added
                                     nn.ELU(),
-                                    nn.Dropout(0.2),
+                                    nn.Dropout(dropout),
                                     #nn.Softplus(),
                                     nn.Linear(hidden_dim//2, output_dim)
                                    )

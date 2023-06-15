@@ -1,6 +1,7 @@
 import hist
 import torch
 from torch_geometric.loader import DataLoader
+from torch_geometric.data import Data, Batch
 import lightning.pytorch as pl
 import matplotlib
 from tqdm.auto import tqdm
@@ -8,6 +9,7 @@ from tqdm.auto import tqdm
 from hists.custom_hists import beamEnergiesAxis
 from energy_resolution.sigma_over_e import SigmaOverEComputations, fitSigmaOverE, plotSCAsEllipse, SigmaOverEPlotElement, plotSigmaOverMean, sigmaOverE_fitFunction, SigmaOverEFitError, EResolutionFitResult
 
+from ml.regression.drn.modules import BaseLossParameters
 
 def makeHist():
     return hist.Hist(beamEnergiesAxis(), 
@@ -15,15 +17,13 @@ def makeHist():
 
 
 class SigmaOverEPlotter:
-    def __init__(self, prediction_type:str, fit_data:str="full", overlaySigmaOverEResults:list[SigmaOverEPlotElement]=[],
+    def __init__(self, fit_data:str="full", overlaySigmaOverEResults:list[SigmaOverEPlotElement]=[],
             multiprocess_fit:str="forkserver", debug_mode=False, interactive=False) -> None:
         """ Parameters : 
-         - prediction_type : can be "absolute" (prediction is estimate of energy in GeV) or "ratio" (pred is ratio estimate energy/gun energy)
          - fit_data : which dataset to use for sigma/E fitting (can be "full", or "test")
          - 
         """
         super().__init__()
-        self.prediction_type = prediction_type
         self.overlaySigmaOverEResults = overlaySigmaOverEResults
         self.fit_data = fit_data
         self.multiprocess_fit = multiprocess_fit
@@ -32,18 +32,13 @@ class SigmaOverEPlotter:
 
         self.histogram_2D = makeHist()
     
-    def _batchFillHistogram(self, pred_batch:torch.Tensor, data_batch:torch.Tensor):
-        if self.prediction_type == "absolute":
-            self.histogram_2D.fill(data_batch.beamEnergy.detach().cpu().numpy(), pred_batch.detach().cpu().numpy())
-        elif self.prediction_type == "ratio":
-            self.histogram_2D.fill(data_batch.beamEnergy.detach().cpu().numpy(), (pred_batch*data_batch.trueBeamEnergy).detach().cpu().numpy())
-        else:
-            raise ValueError(f"SigmaOverECallback : prediction_type not supported : {self.prediction_type}")
+    def _batchFillHistogram(self, pred_batch:torch.Tensor, data_batch:Batch, loss_params:BaseLossParameters):
+        self.histogram_2D.fill(data_batch.beamEnergy.detach().cpu().numpy(), loss_params.mapNetworkOutputToEnergyEstimate(pred_batch, data_batch).detach().cpu().numpy())
 
-    def fillHistogramFromPrediction(self, predictions:list[torch.Tensor], dataloader:DataLoader) -> hist.Hist:
+    def fillHistogramFromPrediction(self, predictions:list[torch.Tensor], dataloader:DataLoader, loss_params:BaseLossParameters) -> hist.Hist:
         assert self.histogram_2D.sum() == 0, "Should start with an empty histogram"
-        for pred_batch, data_batch in zip(tqdm(predictions, disable=not self.interactive), dataloader, strict=True):
-            self._batchFillHistogram(pred_batch, data_batch)
+        for pred_batch, data_batch in zip(tqdm(predictions, disable=not self.interactive, desc="Filling histogram"), dataloader, strict=True):
+            self._batchFillHistogram(pred_batch, data_batch, loss_params)
         return self.histogram_2D
     
     def sigma_mu_fits(self):
@@ -70,16 +65,14 @@ class SigmaOverEPlotter:
                 dataPoints={beamEnergy : result.sigma / result.mu for beamEnergy, result in self.sigma_mu_results.items()}, color="green")
     
 class SigmaOverECallback(pl.Callback):
-    def __init__(self, prediction_type:str, fit_data:str="full", every_n_epochs:int=100, overlaySigmaOverEResults:list[SigmaOverEPlotElement]=[],
+    def __init__(self, fit_data:str="full", every_n_epochs:int=100, overlaySigmaOverEResults:list[SigmaOverEPlotElement]=[],
             multiprocess_fit:str="forkserver", debug_mode=False) -> None:
         """ Parameters : 
-         - prediction_type : can be "absolute" (prediction is estimate of energy in GeV) or "ratio" (pred is ratio estimate energy/gun energy)
          - fit_data : which dataset to use for sigma/E fitting (can be "full", or "test")
          - 
         """
         super().__init__()
         
-        self.prediction_type = prediction_type
         self.every_n_epochs = every_n_epochs
         self.overlaySigmaOverEResults = overlaySigmaOverEResults
         self.fit_data = fit_data
@@ -91,7 +84,7 @@ class SigmaOverECallback(pl.Callback):
             batch_device = pl_module.transfer_batch_to_device(batch, pl_module.device, dataloader_idx=0)
             pred = pl_module.predict_step(batch_device, i)
 
-            plotter._batchFillHistogram(pred, batch_device)
+            plotter._batchFillHistogram(pred, batch_device, loss_params=pl_module.loss_params)
         
         return plotter.histogram_2D
     
@@ -111,7 +104,7 @@ class SigmaOverECallback(pl.Callback):
             else:
                 raise ValueError("Wrong fit_data")
             
-            self.sigmaOverEPlotter = SigmaOverEPlotter(prediction_type=self.prediction_type, fit_data=self.fit_data, overlaySigmaOverEResults=self.overlaySigmaOverEResults,
+            self.sigmaOverEPlotter = SigmaOverEPlotter(fit_data=self.fit_data, overlaySigmaOverEResults=self.overlaySigmaOverEResults,
                 multiprocess_fit=self.multiprocess_fit)
             h = self._fillHistogram(dataloader, pl_module, self.sigmaOverEPlotter)
 
