@@ -30,4 +30,15 @@ class HistLoader:
             [{"beamEnergy":hist.loc(beamEnergy)}]
             .project("rechits_energy_sum")
         )
+    
+    def getProjected(self, datatype, beamEnergy, level):
+        """ Level can be rechits, clue, clue3d """
+        if level == "rechits":
+            return self.getRechitsProjected(datatype, beamEnergy)
+        elif level == "clue":
+            return self.getClue2DProjected(datatype, beamEnergy)
+        elif level == "clue3d":
+            return self.getClue3DProjected(datatype, beamEnergy)
+        else:
+            raise ValueError("Level")
 
