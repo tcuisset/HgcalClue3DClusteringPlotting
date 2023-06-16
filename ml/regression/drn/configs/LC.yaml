@@ -28,6 +28,8 @@ data:
       datatype: sim_proton_v46_patchMIP
   datasetComputationClass: ml.regression.drn.dataset_making.LayerClustersTensorMaker
   transformFct: null
+  multiprocessLoader: false
+  keepOnGpu: cuda:3
 
 sigma_over_e_callback:
   fit_data: full
@@ -53,7 +55,7 @@ trainer:
     - class_path: lightning.pytorch.callbacks.EarlyStopping
       init_args:
         monitor: Loss/Validation_epoch
-        patience: 5
+        patience: 8
   max_epochs: 50
   log_every_n_steps: null
   enable_checkpointing: true

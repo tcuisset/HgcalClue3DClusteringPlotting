@@ -1,4 +1,4 @@
-from typing import Type, Callable
+from typing import Any, Type, Callable
 import os
 import matplotlib
 
@@ -89,7 +89,12 @@ class DRNDataset(InMemoryDataset):
 
 class DRNDataModule(pl.LightningDataModule):
     def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], transformFct:Callable[[Data], Data]=None,
-            multiprocess_loader:bool=True, batch_size:int=2**14):
+            multiprocess_loader:bool=True, batch_size:int=2**14, keepOnGpu:str|bool=False):
+        """
+        Parameters : 
+         - keepOnGpu : if a devie (torch.Device or string), the dataset will be moved once to the GPU given as a device and stay there.
+               If False, use the usual way of transferring each batch from CPU to GPU
+        """
         super().__init__()
         self.reader = reader
         self.datasetComputationClass = datasetComputationClass
@@ -100,6 +105,9 @@ class DRNDataModule(pl.LightningDataModule):
         self.val_batch_size = self.batch_size
         self.test_batch_size = self.batch_size
         self.multiprocess_workers = 2
+        self.keepOnGpu = keepOnGpu
+        if keepOnGpu is not False and multiprocess_loader:
+            raise ValueError("keepOnGpu is not compatible with multiprocess_loader. Set multiprocess_loader=False")
     
     def prepare_data(self) -> None:
         kwargs = dict(reader=self.reader, datasetComputationClass=self.datasetComputationClass, pre_transform=self.transformFct)
@@ -110,6 +118,16 @@ class DRNDataModule(pl.LightningDataModule):
         totalev = len(self.dataset_train_val)
         self.ntrain = int(0.8*totalev)
         self.ntest = totalev - self.ntrain
+        if self.keepOnGpu is not False:
+            self.dataset_train_val.data.to(self.keepOnGpu)
+    
+    def transfer_batch_to_device(self, batch, device, dataloader_idx: int) -> Any:
+        if self.keepOnGpu is False:
+            # default behaviour
+            return super().transfer_batch_to_device(batch, device, dataloader_idx)
+        else:
+            assert torch.device(self.keepOnGpu) == torch.device(device), "Mismatch of GPUs"
+            return batch # don't do anythingn the data is already on gpu
 
     def train_dataloader(self):
         return DataLoader(self.dataset_train_val[:self.ntrain], batch_size=self.batch_size, num_workers=self.multiprocess_workers if self.multiprocess_loader else 0)
