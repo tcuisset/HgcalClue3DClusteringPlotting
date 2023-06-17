@@ -20,6 +20,7 @@ class ClueNtupleReader:
         """ Full path to folder holding CLUE_clusters.root """
         self.pathToFile = os.path.join(self.pathToFolder, "CLUE_clusters.root")
         self.pathToMLDatasetsFolder = os.path.join(self.pathToFolder, "ML_datasets")
+        self.pathToSigmaOverEFolder = os.path.join(self.pathToFolder, "sigmaOverE")
 
         self.filterArrays:dict[str, np.ndarray[bool]] = dict()
     
@@ -39,7 +40,8 @@ class ClueNtupleReader:
         return HistogramStore(os.path.join(self.baseHistsFolder, self.version), HistogramId)
 
     def loadSigmaOverEResults(self, resultName="rechits"):
-        with open(os.path.join(self.pathToFolder, "sigmaOverE", resultName+".pickle"), 'rb') as f:
+        """ resultName can be : rechits, clue, clue3d """
+        with open(os.path.join(self.pathToSigmaOverEFolder, resultName+".pickle"), 'rb') as f:
             try:
                 return pickle.load(f)
             except ModuleNotFoundError:

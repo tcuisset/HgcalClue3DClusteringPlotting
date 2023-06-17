@@ -62,7 +62,8 @@ class SigmaOverEPlotter:
         except AttributeError:
             fitResult = None
         return SigmaOverEPlotElement(legend="ML", fitResult=fitResult, fitFunction=sigmaOverE_fitFunction, 
-                dataPoints={beamEnergy : result.sigma / result.mu for beamEnergy, result in self.sigma_mu_results.items()}, color="green")
+                dataPoints={beamEnergy : result.sigma / result.mu for beamEnergy, result in self.sigma_mu_results.items()}, 
+                color="purple")
     
 class SigmaOverECallback(pl.Callback):
     def __init__(self, fit_data:str="full", every_n_epochs:int=100, overlaySigmaOverEResults:list[SigmaOverEPlotElement]=[],
@@ -146,6 +147,7 @@ class SigmaOverECallback(pl.Callback):
 
         except (RuntimeError, SigmaOverEFitError) as e:
             print("SigmaOverE fit failed due to : " + str(e))
+            raise e
         except Exception as e:
             print("SigmaOverE fit failed due to unknown exception : ")
             if self.debug_mode:

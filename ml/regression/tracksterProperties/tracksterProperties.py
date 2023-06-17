@@ -221,7 +221,7 @@ class SigmaOverECallback(pl.Callback):
         try:
             h = self._fillHistogram(trainer.datamodule.predict_dataloader(), pl_module)
             
-            E_res_fitResult = fitSigmaOverE(SigmaOverEComputations().compute(h, tqdm_dict=dict(disable=True), multiprocess=True))
+            E_res_fitResult = fitSigmaOverE(SigmaOverEComputations(recoverFromFailedFits=True).compute(h, tqdm_dict=dict(disable=True), multiprocess=True))
             fig = plotSCAsEllipse([SigmaOverEPlotElement(legend="From ML", fitResult=E_res_fitResult)])
             pl_module.logger.experiment.add_figure("Validation/SigmaOverEEllipse", fig, trainer.current_epoch)
         except:
