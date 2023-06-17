@@ -75,7 +75,7 @@ class RechitsTensorMaker(BaseComputation):
                 self.geometric_data_objects.append(Data(
                     x=tensor, 
                     # append all scalar columns as scalar tensors
-                    **{colName : torch.tensor(colValue, dtype=torch.float32) for colName, colValue in zip(perEventValues, perEventColumnNames, strict=True)}
+                    **{colName : torch.tensor(colValue, dtype=torch.float32) for colValue, colName in zip(perEventValues, perEventColumnNames, strict=True)}
                 ))
 
     def saveTensor(self, pathToFolder:str) -> None:
