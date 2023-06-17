@@ -2,10 +2,18 @@ import math
 import typing
 from functools import cached_property
 
+
+# Remove annoying tensorflow / tensorflow-addons warnings
+import os
+os.environ["ZFIT_DISABLE_TF_WARNINGS"] = "1" 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
+import warnings
+warnings.filterwarnings(action="ignore", category=UserWarning, module="tensorflow_addons.utils.tfa_eol_msg")
+import tensorflow as tf
+
 # Note : zfit uses tensorflow, which by default will use all the memory of the first GPU if there is one
 # So disable the use of GPUs by tensorflow (must be done before any zfit object is created)
 # it will only use the CPU
-import tensorflow as tf
 tf.config.set_visible_devices([], "GPU")
 import zfit
 
