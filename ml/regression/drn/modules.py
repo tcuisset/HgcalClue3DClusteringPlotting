@@ -1,11 +1,13 @@
-from typing import Any, Type, Callable
+from typing import Any, Type, Callable, Iterable, Union, Optional
 import os
 import matplotlib
 
 import torch
 from torch import optim, nn, utils, Tensor
-from torch.utils.tensorboard import SummaryWriter
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 import lightning.pytorch as pl
+from lightning.pytorch.cli import OptimizerCallable, LRSchedulerCallable
 from torch_geometric.data import Data, InMemoryDataset, Batch
 from torch_geometric.loader import DataLoader
 
@@ -16,7 +18,6 @@ from ntupleReaders.computation import BaseComputation, ComputationToolBase, comp
 from ml.regression.drn.dataset_making import LayerClustersTensorMaker, RechitsTensorMaker
 from ml.dynamic_reduction_network import DynamicReductionNetwork
 from ml.cyclic_lr import CyclicLRWithRestarts
-from ml.regression.drn.plot import scatterPredictionVsTruth
 
 # beamEnergies = [20, 30, 50, 80, 100, 120, 150, 200, 250, 300]
 beamEnergiesForTestSet = [30, 100, 250]
@@ -41,22 +42,23 @@ class DRNDataset(InMemoryDataset):
             transform_name = pre_transform.__name__
         except:
             transform_name = "no_transform"
+        
+        if self.datasetType == "test":
+            self.beamEnergiesToSelect = beamEnergiesForTestSet
+        elif self.datasetType == "train_val":
+            self.beamEnergiesToSelect = list(set(beamEnergies).difference(beamEnergiesForTestSet))
+        elif self.datasetType == "full":
+            self.beamEnergiesToSelect = beamEnergies
+        else:
+            raise ValueError(f"Wrong datasetType : {self.datasetType}")
+        
         super().__init__(os.path.join(reader.pathToMLDatasetsFolder, "DRN", datasetComputationClass.shortName, transform_name, self.datasetType), 
                 transform, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     def process(self):
         # Read data into huge `Data` list.
-        if self.datasetType == "test":
-            beamEnergiesToSelect = beamEnergiesForTestSet
-        elif self.datasetType == "train_val":
-            beamEnergiesToSelect = list(set(beamEnergies).difference(beamEnergiesForTestSet))
-        elif self.datasetType == "full":
-            beamEnergiesToSelect = beamEnergies
-        else:
-            raise ValueError(f"Wrong datasetType : {self.datasetType}")
-        
-        tracksterPropComp = self.datasetComputationClass(beamEnergiesToSelect=beamEnergiesToSelect, 
+        tracksterPropComp = self.datasetComputationClass(beamEnergiesToSelect=self.beamEnergiesToSelect, 
             tensorFileName=self.processed_file_names[0], eventFilter=NumpyArrayFilter(self.reader.loadFilterArray()),
             simulation=self.simulation)
         computeAllFromTree(self.reader.tree, [tracksterPropComp], tqdm_options=dict(desc=f"Processing {self.datasetType} set"))
@@ -119,7 +121,8 @@ class DRNDataModule(pl.LightningDataModule):
         self.ntrain = int(0.8*totalev)
         self.ntest = totalev - self.ntrain
         if self.keepOnGpu is not False:
-            self.dataset_train_val.data.to(self.keepOnGpu)
+            self.dataset_train_val._data.to(self.keepOnGpu)
+            self.dataset_test._data.to(self.keepOnGpu)
     
     def transfer_batch_to_device(self, batch, device, dataloader_idx: int) -> Any:
         if self.keepOnGpu is False:
@@ -150,43 +153,94 @@ class DRNDataModule(pl.LightningDataModule):
 
 class BaseLossParameters:
     def mapNetworkOutputToEnergyEstimate(self, network_output_batch:torch.Tensor, data_batch:Batch):
+        """ Given the network output and the corresponding input batch, compute the energy estimate by the network (energy estimate of the incident particle in GeV)
+        """
         pass
+
+    def simpleCorrectedEnergyEstimate(self, data_batch:Batch):
+        """ Return the baseline prediction of energy of incident particle, without using the network.
+        Usually equivalent to setting the network output to all ones
+        Meant as a baseline comparison.
+        The default is just the trackster energy, but subclasses can override it if they use pre-corrections
+        """
+        return data_batch.tracksterEnergy
     
+    def rawEnergyEstimate(self, data_batch:Batch):
+        """ Returns input trackster energy """
+        return data_batch.tracksterEnergy
+
     def loss(self, network_output_batch:torch.Tensor, data_batch:Batch):
         pass
 
-class  SimpleRelativeMSE(nn.Module, BaseLossParameters):
+class  SimpleRelativeMSE(BaseLossParameters):
     def mapNetworkOutputToEnergyEstimate(self, network_output_batch:Batch, data_batch:Batch):
         return network_output_batch
     
     def loss(self, network_output_batch:torch.Tensor, data_batch:Batch):
         nn.functional.mse_loss(network_output_batch/data_batch.trueBeamEnergy, torch.ones_like(network_output_batch)) # Loss is MSE of E_estimate / E_beam wrt to 1
 
-class  RatioRelativeMSE(nn.Module, BaseLossParameters):
+class  RatioRelativeMSE(BaseLossParameters):
     def mapNetworkOutputToEnergyEstimate(self, network_output_batch:Batch, data_batch:Batch):
-        return network_output_batch * data_batch.trueBeamEnergy
+        return network_output_batch * data_batch.trueBeamEnergy # probably not genenerlizable to data
     
     def loss(self, network_output_batch:torch.Tensor, data_batch:Batch):
-        nn.functional.mse_loss(network_output_batch, data_batch.tracksterEnergy / data_batch.trueBeamEnergy)
+        return nn.functional.mse_loss(network_output_batch, data_batch.tracksterEnergy / data_batch.trueBeamEnergy)
 
+class RatioRelativeExpLoss(RatioRelativeMSE):
+    def loss(self, network_output_batch:torch.Tensor, data_batch:Batch):
+        return torch.mean(torch.exp(torch.abs(network_output_batch - data_batch.tracksterEnergy / data_batch.trueBeamEnergy)))
 
-class RatioCorrectedLoss(nn.Module, BaseLossParameters):
+class RatioCorrectedLoss(BaseLossParameters):
     """ Default for coefs : [-0.2597882 , -0.24326517,  1.01537901] """
     def __init__(self, coefs:list[float]) -> None:
         super().__init__()
         self.a = torch.tensor(coefs)
     
-    def mapNetworkOutputToEnergyEstimate(self, network_output_batch:torch.Tensor, data_batch: Batch) -> torch.Tensor:
+    def _correctTracksterEnergy(self, data_batch: Batch) -> torch.Tensor:
+        """ Corrects the trackster energy so the mean is a non-biased estimator of incident particle energy """
         rawTracksterEnergy = data_batch.tracksterEnergy
-        correctedTracksterEnergy = rawTracksterEnergy * 1/ (self.a[0] * rawTracksterEnergy**(self.a[1]) + self.a[2] )
-        return network_output_batch * correctedTracksterEnergy
+        return rawTracksterEnergy * 1/ (self.a[0] * rawTracksterEnergy**(self.a[1]) + self.a[2] )
+    
+    def mapNetworkOutputToEnergyEstimate(self, network_output_batch:torch.Tensor, data_batch: Batch) -> torch.Tensor:
+        return network_output_batch * self._correctTracksterEnergy(data_batch)
 
+    def simpleCorrectedEnergyEstimate(self, data_batch: Batch):
+        return self._correctTracksterEnergy(data_batch)
+    
     def loss(self, network_output_batch:torch.Tensor, data_batch:Batch):
         return nn.functional.mse_loss(self.mapNetworkOutputToEnergyEstimate(network_output_batch, data_batch), data_batch.trueBeamEnergy)
 
+    @property
+    def hyperparameters(self) -> dict[str, float]:
+        return {"tracksterEnergyCorrection_0_prop" : self.a[0],
+                "tracksterEnergyCorrection_1_exp" : self.a[1],
+                "tracksterEnergyCorrection_2_cst" : self.a[2]}
+
+
+class LRSchedulerAdapter:
+    def instantiate(self, optimizer, batch_size, epoch_size) -> LRScheduler:
+        pass
+
+class CyclicLRWithRestartsAdapter(LRSchedulerAdapter):
+    def __init__(self, restart_period:int=100, t_mult:float=2, verbose:bool=False,
+                 policy:str="cosine", policy_fn=None, min_lr:float=1e-7,
+                 gamma:float=1.0, triangular_step:float=0.5) -> None:
+        self.kwargs_stored = {"restart_period":restart_period, "t_mult":t_mult, "verbose":verbose,
+            "policy":policy, "policy_fn":policy_fn, "min_lr":min_lr,
+            "gamma":gamma, "triangular_step":triangular_step}
+
+    def instantiate(self, optimizer, batch_size, epoch_size) -> LRScheduler:
+        return CyclicLRWithRestarts(optimizer, batch_size=batch_size, epoch_size=epoch_size, **self.kwargs_stored)
+
 
 class DRNModule(pl.LightningModule):
-    def __init__(self, drn:nn.Module, loss:BaseLossParameters, scheduler:str="CyclicLRWithRestarts"):
+    #defaultOptimizer = lambda 
+    def __init__(self, drn:nn.Module, loss:BaseLossParameters,
+        optimizer:Callable[[Iterable], Optimizer],
+        lr_scheduler:Optional[Union[Callable[[Optimizer], LRScheduler], CyclicLRWithRestartsAdapter]]=None,
+        #optimizer:str="AdamW", optimizer_params:dict=dict(lr=1e-3, weight_decay=1e-3),
+        #        scheduler:str="CyclicLRWithRestarts", scheduler_params:dict=dict(restart_period=80, t_mult=1.2, policy="cosine")
+            ):
         """ Parameters :
          - drn : the module
          - scheduler : can be "CyclicLRWithRestarts", "default"
@@ -194,10 +248,17 @@ class DRNModule(pl.LightningModule):
         """
         super().__init__()
         self.drn = drn
-        self.validation_predictions = []
-        self.validation_trueBeamEnergy = []
-        self.scheduler_name = scheduler
         self.loss_params = loss
+
+        self.optimizer = optimizer
+        self.scheduler = lr_scheduler
+        hp = dict()
+        try:
+            hp.update(drn.hyperparameters)
+        except:
+            pass
+        self.hyperparameters = hp
+
 
     def _common_prediction_step(self, batch):
         result = self(batch)
@@ -208,28 +269,53 @@ class DRNModule(pl.LightningModule):
         result, loss = self._common_prediction_step(batch)
          # NB: setting batch_size is important as otherwise Lightning does not know how to compute the batch size from PYG DataBatch batches
         self.log("Loss/Training", loss, batch_size=batch.num_graphs, on_step=True, on_epoch=True)
-        return loss
+        return {"loss":loss, "output":result}
 
     def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=1e-3, weight_decay=1e-3)
-        if self.scheduler_name == "CyclicLRWithRestarts":
-            # need to load dataloader to access data size and batch_size.
-            # Trick taken from https://github.com/Lightning-AI/lightning/issues/10430#issuecomment-1487753339
-            self.trainer.fit_loop.setup_data() 
-
-            scheduler = CyclicLRWithRestarts(optimizer, self.trainer.train_dataloader.batch_size, 
-                len(self.trainer.train_dataloader.dataset), restart_period=80, t_mult=1.2, policy="cosine")
-            return {
-                "optimizer" : optimizer,
-                "lr_scheduler" : {
-                    "scheduler" : scheduler,
-                    "interval" : "step",
-                }
-            }
-        elif self.scheduler_name == "default":
+        optimizer = self.optimizer(self.parameters())
+        if self.scheduler is None:
             return optimizer
+        try:
+            scheduler = self.scheduler(optimizer)
+        except:
+            # need to load dataloader to access data size and batch_size.
+            #  Trick taken from https://github.com/Lightning-AI/lightning/issues/10430#issuecomment-1487753339
+            self.trainer.fit_loop.setup_data() 
+            scheduler = self.scheduler.instantiate(optimizer, 
+                self.trainer.train_dataloader.batch_size, 
+                len(self.trainer.train_dataloader.dataset))
+        
+        if isinstance(scheduler, CyclicLRWithRestarts):
+            scheduler_config = {
+                "scheduler" : scheduler,
+                "interval" : "step",
+            }
         else:
-            raise ValueError("DRNModule.scheduler")
+            scheduler_config = scheduler
+        # if self.optimizer_name == "AdamW":
+        #     optimizer = optim.AdamW(self.parameters(), **self.optimizer_params)
+        # else:
+        #     raise ValueError("Optimizer name")
+        # if self.scheduler_name is None:
+        #     return optimizer
+        # elif self.scheduler_name == "CyclicLRWithRestarts":
+        #     # need to load dataloader to access data size and batch_size.
+        #     # Trick taken from https://github.com/Lightning-AI/lightning/issues/10430#issuecomment-1487753339
+        #     self.trainer.fit_loop.setup_data() 
+
+        #     scheduler = CyclicLRWithRestarts(optimizer, self.trainer.train_dataloader.batch_size, 
+        #         len(self.trainer.train_dataloader.dataset), **self.scheduler_params)
+        #     scheduler_config = {
+        #         "scheduler" : scheduler,
+        #         "interval" : "step",
+        #     }
+                
+        # else:
+        #     raise ValueError("DRNModule.scheduler")
+        return {
+            "optimizer" : optimizer,
+            "lr_scheduler" : scheduler_config
+        }
 
     def lr_scheduler_step(self, scheduler, metric):
         if isinstance(scheduler, CyclicLRWithRestarts):
@@ -250,58 +336,12 @@ class DRNModule(pl.LightningModule):
         result, loss = self._common_prediction_step(batch)
         self.log("Loss/Validation", loss, batch_size=batch.num_graphs, on_step=True, on_epoch=True)
 
-        self.validation_predictions.append(result)
-        self.validation_trueBeamEnergy.append(batch.trueBeamEnergy)
-
-        return result
+        return {"loss":loss, "output":result}
     
     def test_step(self, batch, batch_idx):
         result, loss = self._common_prediction_step(batch)
         self.log("Loss/Test", loss, batch_size=batch.num_graphs, on_step=True, on_epoch=True)
-
-        self.validation_predictions.append(result)
-        self.validation_trueBeamEnergy.append(batch.trueBeamEnergy)
-
-    def _test_val_common_epoch_end(self):
-        validation_pred = torch.cat([x.detach() for x in self.validation_predictions])
-        self.validation_predictions.clear()
-        validation_trueBeamEnergy = torch.cat([x.detach() for x in self.validation_trueBeamEnergy])
-        self.validation_trueBeamEnergy.clear()
-
-        try:
-            tbWriter:SummaryWriter = self.logger.experiment
-            tbWriter.add_histogram("Validation/Prediction",
-                validation_pred, self.current_epoch)
-            
-            # tbWriter.add_figure(
-            #     "Validation/Scatter",
-            #     scatterPredictionVsTruth(validation_trueBeamEnergy.cpu().numpy(), 
-            #         self.loss_params.mapNetworkOutputToEnergyEstimate(validation_pred))
-            # )
-
-            # if self.prediction_type == "absolute":
-            #     self.logger.experiment.add_histogram("Validation/Pred-truth / truth", 
-            #         (validation_pred-validation_trueBeamEnergy)/validation_trueBeamEnergy, self.current_epoch)
-
-            #     self.logger.experiment.add_figure("Validation/Scatter",
-            #         scatterPredictionVsTruth(validation_trueBeamEnergy.cpu().numpy(), validation_pred.cpu().numpy(), epoch=self.current_epoch),
-            #         self.current_epoch)
-            # elif self.prediction_type == "ratio":
-            #     self.logger.experiment.add_histogram("Validation/Prediction histogram", 
-            #         validation_pred, self.current_epoch)
-                
-            #     self.logger.experiment.add_figure("Validation/Scatter",
-            #         scatterPredictionVsTruth(validation_trueBeamEnergy.cpu().numpy(), (validation_pred*validation_trueBeamEnergy).cpu().numpy(), epoch=self.current_epoch),
-            #         self.current_epoch)
-                
-        except AttributeError:
-            pass # no logger
-    
-    def on_validation_epoch_end(self) -> None:
-        self._test_val_common_epoch_end()
-    def on_test_epoch_end(self) -> None:
-        self._test_val_common_epoch_end()
-
+        return {"loss":loss, "output":result}
 
     def on_fit_start(self):
         try:

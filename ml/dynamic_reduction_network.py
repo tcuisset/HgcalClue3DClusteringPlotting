@@ -40,6 +40,8 @@ class DynamicReductionNetwork(nn.Module):
         super(DynamicReductionNetwork, self).__init__()
         if isinstance(norm, list):
             norm = torch.tensor(norm)
+        self.hyperparameters = {"drn.hidden_dim":hidden_dim, "drn.k":k, "drn.aggr":aggr, "drn.dropout":dropout}
+        self.hyperparameters.update({f"drn.norm_{i}":norm_val for i, norm_val in enumerate(norm.numpy())})
         self.datanorm = nn.Parameter(norm,requires_grad=True)
         
         self.k = k

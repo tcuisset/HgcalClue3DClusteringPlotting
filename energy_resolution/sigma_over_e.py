@@ -1,6 +1,8 @@
 
 
 from collections import namedtuple
+from dataclasses import dataclass
+import typing
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import multiprocessing
 import math
@@ -157,6 +159,10 @@ def sigmaOverE_fitFunction(x, S, C):
     """ x is 1/sqrt(E), S and C are parameters """
     return np.sqrt((x*S)**2 + C**2)
 
+class EnergyResolutionFitError(Exception):
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
 def fitSigmaOverE(sigmaOverEValues:dict[int, SigmaMuResult]) -> EResolutionFitResult:
     """ Fit the given sigma and mu values, as sigma/mu = quadratic_sum( S/sqrt(E_beam) ; C) 
     Returns EResolutionFitResult object
@@ -164,10 +170,12 @@ def fitSigmaOverE(sigmaOverEValues:dict[int, SigmaMuResult]) -> EResolutionFitRe
      - RuntimeError in case of failed fit (scipy.optimize.OptimizeWarning in case covariance could not be estimated)
      - TypeError in case there less than 2 values for the fit
     """
+    if len(sigmaOverEValues) < 2:
+        raise SigmaOverEFitError("Not enough sigma/E points to fit : only energies " + " ".join((str(val) for val in sigmaOverEValues.keys())) + " were provided")
     xValues = [1/math.sqrt(synchrotronBeamEnergiesMap[beamEnergy]) for beamEnergy in sigmaOverEValues.keys()]
     # yValues are uncertainties float
     yValues = np.array([sigmaMuResult.sigma / sigmaMuResult.mu for sigmaMuResult in sigmaOverEValues.values()])
-
+    
     (S, C), covMatrix = scipy.optimize.curve_fit(sigmaOverE_fitFunction, 
         xdata=xValues,
         ydata=unumpy.nominal_values(yValues), sigma=unumpy.std_devs(yValues),
@@ -187,18 +195,21 @@ def fitSigmaOverEFromEnergyDistribution(h_per_energy:dict[int, hist.Hist]) -> ER
 #     x_space = zfit.Space("sigma_over_e", limits=(min(sigmaOverEValues.keys()), max(sigmaOverEValues.keys())))
 #     data = zfit.Data.from_numpy(x_space, )
 
-SigmaOverEPlotElement = namedtuple("SigmaOverEPlotElement", 
-    ["legend", "fitResult", "fitFunction", "dataPoints", "color", "legendGroup"], 
-    defaults=[None, None, None, "blue", None])
-""" Plot element of sigma/<E>
-Attributes :
- - legend : text for legend
- - fitResult : EResolutionFitResult object (values of S and C)
- - dataPoints : dict beamEnergy -> sigma/<E> value (as ufloat)
- - color : mpl color
- - fitFunction : function used to fit
- - legendGroup : different plot elements with the same value of legendGroup will see their legend together
-"""
+@dataclass(frozen=True)
+class SigmaOverEPlotElement:
+    """ Plot element of sigma/<E> """
+    legend:str
+    """ text for legend """
+    fitResult:EResolutionFitResult = None
+    """ EResolutionFitResult object (values of S and C) """
+    fitFunction:typing.Callable[[float, float, float], float] = None
+    """ Fit function of sigma over E (usually stochastic +(quadratic) constant terms)"""
+    dataPoints:dict[int, uncertainties.ufloat] = None
+    """ dict beamEnergy -> sigma/<E> value (as ufloat) """
+    color:str = "blue"
+    """ mpl color """
+    legendGroup:str = None
+    """ different plot elements with the same value of legendGroup will see their legend together """
 
 def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None, xMode="E", errors=True, plotFit=False, sim=False, linkPointsWithLines=True, markersize=5) -> matplotlib.figure.Figure:
     """ Make plots of sigma over <E> as a function of E or of 1/sqrt(E)

@@ -86,9 +86,13 @@ class CyclicLRWithRestarts(_LRScheduler):
         if not isinstance(optimizer, Optimizer):
             raise TypeError('{} is not an Optimizer'.format(
                 type(optimizer).__name__))
-        
+        if not isinstance(batch_size, int):
+            raise TypeError("batch_size should be provided")
         self.optimizer = optimizer
-        
+        self.hyperparameters = {"lr_sched.restart_period":restart_period, "lr_sched.t_mult":t_mult, "lr_sched.last_epoch":last_epoch,
+            "lr_sched.policy":policy, "lr_sched.policy_fn":policy_fn, "lr_sched.min_lr":min_lr,
+            "lr_sched.gamma":gamma, "lr_sched.triangular_step":triangular_step}
+
         if last_epoch == -1:
             for group in optimizer.param_groups:
                 group.setdefault('initial_lr', group['lr'])

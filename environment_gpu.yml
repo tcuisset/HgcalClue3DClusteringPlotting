@@ -42,6 +42,8 @@ dependencies:
  - pyg # torch_geometric
  - pytorch-cluster
 
+ -lighnitng>=2.0.2,<3
+
  - pip
  - pip:
     - awkward-pandas

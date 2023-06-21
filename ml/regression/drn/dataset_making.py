@@ -23,6 +23,8 @@ neededBranchesGlobal = ["clus3D_energy", "clus3D_idxs", "clus3D_size",  'clus3D_
 
 class RechitsTensorMaker(BaseComputation):
     shortName = "rechits"
+    optimalBatchSize = 1024
+    """ Batch size to use to avoid out-of-memory on llrai01 """
     def __init__(self, beamEnergiesToSelect=beamEnergies, tensorFileName="rechitsGeometric", simulation=True, **kwargs) -> None:
         """ Parameters : 
          - beamEnergiesToSelect : beam energies to keep in dataset
@@ -88,6 +90,8 @@ class RechitsTensorMaker(BaseComputation):
     
 class LayerClustersTensorMaker(BaseComputation):
     shortName = "LC"
+    optimalBatchSize = 2**14
+    """ Batch size to use to avoid out-of-memory on llrai01 """
     def __init__(self, beamEnergiesToSelect=beamEnergies, tensorFileName="layerClustersGeometric", simulation=True, **kwargs) -> None:
         """ Parameters : 
          - beamEnergiesToSelect : beam energies to keep in dataset
