@@ -24,12 +24,13 @@ from longitudinalProfile.camel.filtering import FilterLowBaseHeight, FilterNoisy
 from longitudinalProfile.camel.plot import plotIndividualProfile_scipy
 
 class EventList:
-    def __init__(self, peaks_df_subset:pd.DataFrame, energyPerLayer_df:pd.DataFrame, eventLoader:EventLoader) -> None:
+    def __init__(self, peaks_df_subset:pd.DataFrame, energyPerLayer_df:pd.DataFrame, eventLoader:EventLoader, simulation=False) -> None:
         self.peaks_df_subset = peaks_df_subset
         self.energyPerLayer_df = energyPerLayer_df
         self.eventLoader = eventLoader
         self.cur_index_i = 0
         self.cur_eventInternal = self.peaks_df_subset.index[0]
+        self.simulation = simulation
     
     def query(self, query_str:str):
         return EventList(self.peaks_df_subset.query(query_str), self.energyPerLayer_df, self.eventLoader)
@@ -64,14 +65,17 @@ class EventList:
     def plotLongitudinalProfile(self, ax=None):
         event_data = self._getCurrentEvent()
         plotIndividualProfile_scipy(event_data["energyPerLayer"], *event_data["peaksInfo"], ax=ax)
-        hep.cms.text("Preliminary", loc=2)
+        if self.simulation:
+            hep.cms.text("Preliminary Simulation", loc=2)
+        else:
+            hep.cms.text("Preliminary", loc=2)
         
         if ax is None:
             ax = plt.gca()
         plt.ylim(ax.get_ylim()[0], ax.get_ylim()[1]*1.2)
         try:
             #hep.cms.label("Preliminary")
-            text = f'{event_data["beamEnergy"]:.0f} GeV - ntuple {event_data["ntupleNumber"]} - event {event_data["event"]}'
+            text = f'{event_data["beamEnergy"]:.0f} GeV - ntuple {event_data["ntupleNumber"]} - event {event_data["event"]} - localIndex {self.cur_index_i}'
             #hep.cms.lumitext(text)
             ax.text(x=0.99, y=0.95, s=text, transform=ax.transAxes, ha="right", va="bottom", fontsize=20)
         except:
@@ -101,6 +105,7 @@ class CamelFinderDriver:
         self.reader = ClueNtupleReader(version, clueParams, datatype)
         self.datatype = datatype
         self.eventLoader = EventLoader(self.reader.pathToFile)
+        self.simulation = (datatype != "data")
     
 
     def findPeaks(self, peakFindindSettings:dict=dict(distance=5,  width=1.5, rel_height=0.7)):
@@ -234,4 +239,4 @@ class CamelFinderDriver:
         hep.cms.lumitext(f"{beamEnergy_orig} GeV - $e^+$ TB", fontsize=20, ax=ax)
     
     def getPassingEventList(self) -> EventList:
-        return EventList(self.peaks_df_mostProminent, self.energyPerLayer_df, self.eventLoader)
+        return EventList(self.peaks_df_mostProminent, self.energyPerLayer_df, self.eventLoader, simulation=self.simulation)
