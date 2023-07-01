@@ -128,7 +128,7 @@ class WeightedLayersComputations:
     @cached_property
     def sigmaOverEComputation(self) -> SigmaOverEComputations:
         comp = SigmaOverEComputations()
-        comp.compute(self.weightedEnergyDistribution)
+        comp.compute(self.weightedEnergyDistribution, multiprocess="forkserver")
         return comp
     
     @property
@@ -148,14 +148,14 @@ class WeightedLayersComputations:
         return fig
 
     def plotDeDxWeights(self):
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(10, 7))
         layers = list(self.weights.keys())
         corrected_dedx = [dEdx_weights[layer] * self.weights[layer] for layer in layers]
         original_dedx = [dEdx_weights[layer] for layer in layers]
 
-        common_kwargs = dict(markersize=15)
-        ax.plot(layers, original_dedx, "o", label="dEdx weights", color="blue", fillstyle="none", **common_kwargs)
-        ax.plot(layers, corrected_dedx, "+", label="ML weights", color="orange", **common_kwargs)
+        common_kwargs = dict(markersize=15, markeredgewidth=2)
+        ax.plot(layers, original_dedx, "o", label=r"$\frac{dE}{dx}$ weights", color="tab:blue", fillstyle="none", **common_kwargs)
+        ax.plot(layers, corrected_dedx, "+", label="Fitted weights", color="tab:orange", **common_kwargs)
 
         ax.set_xlabel("Layer")
         ax.set_ylabel("Layer weights (MeV/MIP)")
@@ -163,7 +163,7 @@ class WeightedLayersComputations:
 
         hep.cms.text("Simulation Preliminary", ax=ax)
         hep.cms.lumitext("$e^+$ TB", ax=ax)
-        ax.legend()
+        ax.legend(frameon=True)
         return fig
 
     # def plotEllipse(self):
