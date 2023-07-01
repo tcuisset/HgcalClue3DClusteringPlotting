@@ -40,6 +40,7 @@ def makeAndWriteFit(reader:ClueNtupleReader):
         plotElt = SigmaOverEPlotElement(
             legend=legend, fitResult=fitSigmaOverE(sigma_e_results), fitFunction=sigmaOverE_fitFunction,
             dataPoints={beamEnergy : result.sigma / result.mu for beamEnergy, result in sigma_e_results.items()},
+            sigmaMuResults=sigma_e_results,
             color=color)
         
         with open(os.path.join(reader.pathToSigmaOverEFolder, level + ".pickle"), 'wb') as f:

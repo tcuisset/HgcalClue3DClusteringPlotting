@@ -1,6 +1,7 @@
 
 
 from collections import namedtuple
+import dataclasses
 from dataclasses import dataclass
 import typing
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -12,7 +13,6 @@ import collections
 
 import numpy as np
 import scipy
-import scipy.stats
 import hist
 import uncertainties
 from uncertainties import unumpy
@@ -23,6 +23,9 @@ from tqdm.auto import tqdm
 
 from energy_resolution.fit import GaussianIterativeFitter, IterativeFitFailed
 from hists.parameters import synchrotronBeamEnergiesMap
+
+#NB : import zfit after importing energy_resolution.fit so we use the warnings filter defined there
+import zfit
 
 SigmaMuResult = namedtuple("SigmaMuResult", ["mu", "sigma", "fitResult", "fitQuality"])
 """ Results of gaussian fit, as uncertainties ufloat. fitResult is the zfit FitResult. 
@@ -117,27 +120,42 @@ class SigmaOverEComputations:
 
         return self.results
     
-    def plotFitResult(self, beamEnergy:int, ax=None, sim=False):
+    def plotFitResult(self, beamEnergy:int, ax=None, sim=False, rebin=1):
         result = self.results[beamEnergy]
         mu, sigma = result.mu.nominal_value, result.sigma.nominal_value
-        energy_h = self.h_per_energy[beamEnergy]
+        energy_h = self.h_per_energy[beamEnergy][::hist.rebin(rebin)]
         if ax is None:
             fig, ax = plt.subplots()
         else:
             fig = ax.figure
 
-        xlimits = (mu - 5*sigma, mu+3*sigma)
+        fitWindow = mu - self.sigmaWindow[0]*sigma, mu + self.sigmaWindow[1]*sigma
+
+        xlimits = (mu - 5*sigma, mu+4*sigma)
         ax.set_xlim(xlimits)
+        # ax.axvline(fitWindow[0], linestyle="dotted", label="Fit region")
+        # ax.axvline(fitWindow[1], linestyle="dotted")
+        fitWindow_plot = ax.axvspan(*fitWindow, alpha=0.5, facecolor="0.5", label="Fit window")
 
-        hep.histplot(energy_h, flow="none", ax=ax, label="Energy distribution", histtype="errorbar", color="black")
+        h_plot = hep.histplot(energy_h, flow="none", ax=ax, label="Energy distribution", histtype="errorbar", color="black")
 
+        # Plotting pdf
+        # Note : the normalization has to be handled carefully since we only fitted over a subset
         x_pdf = np.linspace(*xlimits, num=1000)
-        y_pdf = scipy.stats.norm.pdf(x_pdf, loc=mu, scale=sigma) * energy_h.sum() / energy_h.axes[0].size * (energy_h.axes[0].edges[-1]-energy_h.axes[0].edges[0])
-        ax.plot(x_pdf, y_pdf, label="Gaussian fit")
+        pdf = zfit.pdf.Gauss(mu, sigma, zfit.Space("x"))
+        y_pdf = zfit.run(pdf.pdf(x_pdf, norm=fitWindow))
+        # Scale with the nb of events in the fit, but then correct for bin width over whole plot
+        scaleFactor = energy_h[hist.loc(fitWindow[0]):hist.loc(fitWindow[1])].sum() / energy_h.axes[0].size * (energy_h.axes[0].edges[-1]-energy_h.axes[0].edges[0])
+        pdf_plot,  = ax.plot(x_pdf, y_pdf*scaleFactor, label="Gaussian fit")
         
-        ax.plot([], [], " ", label=f"Fit results :\nmean = {result.mu:.2f}\nsigma = {result.sigma:.2f}")
+        
 
-        ax.legend()
+        ax.legend(handles=[h_plot[0][0], pdf_plot, fitWindow_plot])
+
+        #fitRes_plot, = ax.plot([], [], " ", label=f"Fit results :\nmean = {result.mu}\nsigma = {result.sigma}")
+        ax.text(0.05, 0.6, f"Fit results :\n$\\mu = {result.mu:L}$\n$\\sigma = {result.sigma:L}$",
+                transform=ax.transAxes, fontsize=22)
+
         ax.set_ylabel("Event count")
 
         if sim:
@@ -147,10 +165,15 @@ class SigmaOverEComputations:
         hep.cms.lumitext(f"{beamEnergy} GeV - $e^+$ TB")
 
         return fig
-        
 
-class EResolutionFitResult(namedtuple("EResolutionFitResult", ["S", "C"])):
+
+
+@dataclass
+class EResolutionFitResult:
     """ Fit result of sigma over mean, for a quadratic sum of stochastic and constant terms. Values are uncertainties package floats (with correlations) """
+    S:uncertainties.ufloat
+    C:uncertainties.ufloat
+    
     def __str__(self):
         return f"$S = ({self.S*100:L})" r"\sqrt{GeV} \%$" "\n" f"$C = ({self.C*100:L}) \%$"
 
@@ -179,7 +202,7 @@ def fitSigmaOverE(sigmaOverEValues:dict[int, SigmaMuResult]) -> EResolutionFitRe
     (S, C), covMatrix = scipy.optimize.curve_fit(sigmaOverE_fitFunction, 
         xdata=xValues,
         ydata=unumpy.nominal_values(yValues), sigma=unumpy.std_devs(yValues),
-        p0=[22., 0.6], # starting values of parameters
+        p0=[0.22, 0.6*1e-3], # starting values of parameters
         absolute_sigma=True, # units of sigma are the same as units of ydata, so this is appropriate
     )
     (S, C) = uncertainties.correlated_values([S, C], covMatrix)
@@ -206,12 +229,15 @@ class SigmaOverEPlotElement:
     """ Fit function of sigma over E (usually stochastic +(quadratic) constant terms)"""
     dataPoints:dict[int, uncertainties.ufloat] = None
     """ dict beamEnergy -> sigma/<E> value (as ufloat) """
+    sigmaMuResults:dict[int, SigmaMuResult] = None
+    """ dict beamEnergy -> SigmaMuResult (with mu and sigma values) """
     color:str = "blue"
     """ mpl color """
     legendGroup:str = None
     """ different plot elements with the same value of legendGroup will see their legend together """
 
-def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None, xMode="E", errors=True, plotFit=False, sim=False, linkPointsWithLines=True, markersize=5) -> matplotlib.figure.Figure:
+def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None, xMode="E", 
+        errors=True, plotFit=False, sim=False, linkPointsWithLines=True, markersize=5, legend=True) -> matplotlib.figure.Figure:
     """ Make plots of sigma over <E> as a function of E or of 1/sqrt(E)
     Parameters : 
      - plotElements : list of plot elements
@@ -229,9 +255,9 @@ def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None
 
     
     if xMode == "E":
-        ax.set_xlabel("Beam energy (incl. synchroton losses) (GeV)")
+        ax.set_xlabel("Incident beam energy (GeV)")
     elif xMode == "1/sqrt(E)":
-        ax.set_xlabel(r"$\frac{1}{\sqrt{E_{beam} [GeV]}}$")
+        ax.set_xlabel(r"$\frac{1}{\sqrt{E_{i}^{incident} [GeV]}}$")
     else:
         raise ValueError("xMode must be E or 1/sqrt(E)")
 
@@ -251,8 +277,8 @@ def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None
                 common_kwargs["linestyle"] = "none"
             
             if errors:
-                h = ax.errorbar(xValues, yValues_nominal, 
-                    yerr=unumpy.std_devs(yValues), **common_kwargs)
+                h = ax.errorbar(xValues, yValues_nominal, yerr=unumpy.std_devs(yValues),  
+                        capsize=1.5, elinewidth=1.5,**common_kwargs)
             else:
                 h = ax.plot(xValues, yValues_nominal, **common_kwargs)[0]
 
@@ -260,27 +286,38 @@ def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None
         else:
             assert False, "Must supply data points"
         
-        if xMode == "1/sqrt(E)" and plotElement.fitResult is not None:
-            fitFctBound = functools.partial(plotElement.fitFunction, **{key : value.nominal_value for key, value in plotElement.fitResult._asdict().items()})
+        if plotElement.fitResult is not None:
             linestyle = '--' if plotFit else "None"
             if plotElement.dataPoints is None:
                 label = plotElement.legend + "\n"
             else:
                 label = ""
             label += str(plotElement.fitResult)
-            h = ax.axline((xValues[0], fitFctBound(xValues[0])), (xValues[-1], fitFctBound(xValues[-1])),
-                linestyle=linestyle, color=plotElement.color,
-                label=label)
+        
+            fitFct_params_dict = {key : value.nominal_value for key, value in dataclasses.asdict(plotElement.fitResult).items()}
+            if xMode == "1/sqrt(E)":
+                fitFctBound = functools.partial(plotElement.fitFunction, **fitFct_params_dict)
+                h = ax.axline((xValues[0], fitFctBound(xValues[0])), (xValues[-1], fitFctBound(xValues[-1])),
+                    linestyle=linestyle, color=plotElement.color,
+                    label=label)
+            elif xMode == "E":
+                fitFctBound = lambda E : plotElement.fitFunction(1/math.sqrt(E), **fitFct_params_dict)
+                xVals_function = np.linspace(xValues[0], xValues[-1], 500)
+                h, = ax.plot(xVals_function, [fitFctBound(x) for x in xVals_function], linestyle=linestyle, color=plotElement.color,
+                    label=label)
+            
             cur_handle_group.append(h)
 
 
-    ax.set_ylabel("$\\frac{\sigma_E}{<E>}$")
+    ax.set_ylabel(r"$\frac{\hat{\sigma}_i}{\hat{\mu}_i}$")
     if sim:
         hep.cms.text("Simulation Preliminary", ax=ax)
     else:
         hep.cms.text("Preliminary", ax=ax)
-    hep.cms.lumitext(f"$e^+$ test beam", ax=ax)
+    hep.cms.lumitext(f"$e^+$ Test Beam", ax=ax)
     
+    if not legend:
+        return fig
     legend_kwargs = dict(frameon=True, handletextpad=0.3)
     if xMode == "E":
         legend_positions = ["upper right", "lower left"]
@@ -309,7 +346,7 @@ def plotEllipse(x:uncertainties.ufloat, y:uncertainties.ufloat, cl:float=0.95, e
         **ellipse_kwargs
     )
 
-def plotSCAsEllipse(plotElements:list[SigmaOverEPlotElement]) -> matplotlib.figure.Figure:
+def plotSCAsEllipse(plotElements:list[SigmaOverEPlotElement], detailedLabels=False) -> matplotlib.figure.Figure:
     fig, ax = plt.subplots()
     
     for plotElement in plotElements:
@@ -319,8 +356,147 @@ def plotSCAsEllipse(plotElements:list[SigmaOverEPlotElement]) -> matplotlib.figu
         ax.add_patch(plotEllipse(S_scaled, C_scaled, ellipse_kwargs=dict(color=plotElement.color, alpha=0.5)))
         ax.annotate(plotElement.legend, xy=(x, y))
 
-    ax.set_xlabel(r"$S (\sqrt{GeV} \%)$")
-    ax.set_ylabel(r"C (%)")
+    if detailedLabels:
+        ax.set_xlabel(r"Stochastic term $S (\sqrt{GeV} \%)$")
+        ax.set_ylabel(r"Constant term C (%)")
+    else:
+        ax.set_xlabel(r"$S (\sqrt{GeV} \%)$")
+        ax.set_ylabel(r"C (%)")
+    ax.legend()
+
+    return fig
+
+def plotFittedMean(datatype_dict:dict[str, dict[int, SigmaMuResult]]|list[SigmaOverEPlotElement], ax:plt.Axes=None, normByRechits=False, errors=False,
+            levelLabelMap:dict[str, str]=dict(), beamEnergiesToCircle:dict[str, list[int]]|bool=None):
+    """ Plot fitted mu as a function of beam energy
+    Parameters : 
+     - datatype_dict : nested dicts :  level -> beamEnergy ->  SigmaMuResult
+     - levelLabelMap : dict mapping level (key of datatype_dict) -> legend label
+     - beamEnergiesToCircle : dict : level -> list of beam energy values to circle (meant for circling test points in ML)
+            can also be set to True, in which case it will look into the SigmaOverEPlotElement given
+    """
+    if isinstance(datatype_dict, list):
+        # convert SigmaOverEPlotElement to dict
+        datatype_dict = {plotElt.legend : plotElt.sigmaMuResults for plotElt in datatype_dict}
+        if beamEnergiesToCircle is True:
+            beamEnergiesToCircle = {}
+            for plotElt in datatype_dict:
+                try:
+                    beamEnergiesToCircle[plotElt.legend] = plotElt.beamEnergiesInTestSet
+                except:
+                    pass
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+    if normByRechits:
+        datatype_dict = datatype_dict.copy()
+        rechits_dict = datatype_dict.pop("rechits")
+        
+        plot_dict = {level : np.array([level_dict[beamEnergy].mu / rechits_dict[beamEnergy].mu for beamEnergy in level_dict]) 
+            for level, level_dict in datatype_dict.items()}
+        ax.set_ylabel("$\\frac{<E>}{<E_{rechits}>}$")
+
+    else:
+        plot_dict = {level : np.array([level_dict[beamEnergy].mu / synchrotronBeamEnergiesMap[beamEnergy] for beamEnergy in level_dict]) 
+            for level, level_dict in datatype_dict.items()}
+        ax.set_ylabel("$\\frac{\hat{\mu}_i}{E_{i}^{incident}}$")
+    
+    for level, plot_level_values in plot_dict.items():
+        xValues = [synchrotronBeamEnergiesMap[beamEnergy] for beamEnergy in datatype_dict[level]]
+        yValues = unumpy.nominal_values(plot_level_values)
+        if errors:
+            ax.errorbar(xValues, yValues, yerr=unumpy.std_devs(plot_level_values),
+                fmt='-', label=levelLabelMap.get(level, level), capsize=1.5, ecolor="black", elinewidth=1.5, barsabove=True)
+        else:
+            ax.plot(xValues, yValues, 'o-', label=levelLabelMap.get(level, level))
+
+        if beamEnergiesToCircle is not None and level in beamEnergiesToCircle:
+            allBeamEnergies = list(datatype_dict[level].keys())
+            xToCircle = []
+            yToCircle = []
+            for beamEnergy in beamEnergiesToCircle[level]:
+                idx = allBeamEnergies.index(beamEnergy)
+                xToCircle.append(xValues[idx])
+                yToCircle.append(yValues[idx])
+            ax.scatter(xToCircle, yToCircle, s=500, facecolors="none", edgecolors="red", label="Test points")
+
+    ax.set_xlabel("Incident beam energy (GeV)")
+    
+    ax.axhline(y=1, linestyle="--", color="black")
+    hep.cms.text("Preliminary", ax=ax)
+    hep.cms.lumitext(f"$e^+$ Test Beam", ax=ax)
+    ax.legend()
+
+    return fig
+
+def plotFittedSigma(datatype_dict:dict[str, dict[int, SigmaMuResult]]|list[SigmaOverEPlotElement], ax:plt.Axes=None, normBy:str=None, errors=False,
+            levelLabelMap:dict[str, str]=dict(), beamEnergiesToCircle:dict[str, list[int]]|bool=None):
+    """ Plot fitted mu as a function of beam energy
+    Parameters : 
+     - datatype_dict : nested dicts :  level -> beamEnergy ->  SigmaMuResult
+     - normBy : can be None (no normalization), "rechits" (norm to rechits)
+     - levelLabelMap : dict mapping level (key of datatype_dict) -> legend label
+     - beamEnergiesToCircle : dict : level -> list of beam energy values to circle (meant for circling test points in ML)
+            can also be set to True, in which case it will look into the SigmaOverEPlotElement given
+    """
+    if isinstance(datatype_dict, list):
+        # convert SigmaOverEPlotElement to dict
+        datatype_dict = {plotElt.legend : plotElt.sigmaMuResults for plotElt in datatype_dict}
+        if beamEnergiesToCircle is True:
+            beamEnergiesToCircle = {}
+            for plotElt in datatype_dict:
+                try:
+                    beamEnergiesToCircle[plotElt.legend] = plotElt.beamEnergiesInTestSet
+                except:
+                    pass
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.figure
+    if normBy == "rechits":
+        datatype_dict = datatype_dict.copy()
+        rechits_dict = datatype_dict.pop("rechits")
+        
+        plot_dict = {level : np.array([level_dict[beamEnergy].sigma / rechits_dict[beamEnergy].sigma for beamEnergy in level_dict]) 
+            for level, level_dict in datatype_dict.items()}
+        ax.set_ylabel("$\\frac{\hat{\sigma}_i}{\hat{\sigma}_{rechits}}$")
+        ax.axhline(y=1, linestyle="--", color="black")
+
+    elif normBy == "sqrt(E)":
+        plot_dict = {level : np.array([level_dict[beamEnergy].sigma / math.sqrt(synchrotronBeamEnergiesMap[beamEnergy]) for beamEnergy in level_dict]) 
+            for level, level_dict in datatype_dict.items()}
+        ax.set_ylabel(r"$\frac{\hat{\sigma}_i}{\sqrt{E_i^{incident}}}$")
+    elif normBy is None:
+        plot_dict = {level : np.array([level_dict[beamEnergy].sigma for beamEnergy in level_dict]) 
+            for level, level_dict in datatype_dict.items()}
+        ax.set_ylabel(r"$\hat{\sigma}_i$ (GeV)")
+    else:
+        raise ValueError(f"Invalid normBy={normBy}")
+
+    for level, plot_level_values in plot_dict.items():
+        xValues = [synchrotronBeamEnergiesMap[beamEnergy] for beamEnergy in datatype_dict[level]]
+        yValues = unumpy.nominal_values(plot_level_values)
+        if errors:
+            ax.errorbar(xValues, yValues, yerr=unumpy.std_devs(plot_level_values),
+                fmt='-', label=levelLabelMap.get(level, level), capsize=1.5, ecolor="black", elinewidth=1.5, barsabove=True)
+        else:
+            ax.plot(xValues, yValues, 'o-', label=levelLabelMap.get(level, level))
+
+        if beamEnergiesToCircle is not None and level in beamEnergiesToCircle:
+            allBeamEnergies = list(datatype_dict[level].keys())
+            xToCircle = []
+            yToCircle = []
+            for beamEnergy in beamEnergiesToCircle[level]:
+                idx = allBeamEnergies.index(beamEnergy)
+                xToCircle.append(xValues[idx])
+                yToCircle.append(yValues[idx])
+            ax.scatter(xToCircle, yToCircle, s=500, facecolors="none", edgecolors="red", label="Test points")
+
+    ax.set_xlabel("Incident beam energy (GeV)")
+        
+    hep.cms.text("Preliminary", ax=ax)
+    hep.cms.lumitext(f"$e^+$ Test Beam", ax=ax)
     ax.legend()
 
     return fig
