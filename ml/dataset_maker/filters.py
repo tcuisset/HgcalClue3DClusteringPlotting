@@ -47,7 +47,7 @@ class FilteringComputation(BaseComputation):
     #def computeFilterArray_comp(self, comp:DataframeComputations) -> pd.Series[bool]:
     #    pass
 
-    #def computeFilterArray_awkward(self, array:ak.Array) -> np.array[bool]:
+    #def computeFilterArray_awkward(self, array:ak.Array) -> np.ndarray[bool]:
     #    pass
 
     def getResult(self) -> np.ndarray[bool]:
@@ -93,13 +93,33 @@ class FilterEmptyEvents(FilteringComputation):
         return ak.num(array.rechits_energy, axis=1)>0
 
 
+class FilterRatioSecondToFirstTrackster(FilteringComputation):
+    """ Filter events where te ratio of energies of the second most-energetic trackster less than a threshold
+    Meant to filter brehm events """
+    def __init__(self, minFraction:float=0.011) -> None:
+        super().__init__(neededBranches=["clus3D_energy"])
+        self.minFraction = minFraction
+
+    def computeFilterArray_awkward(self, array:ak.Array) -> np.ndarray[bool]:
+        # indices giving the descending order of trackster energies
+        index_sort = ak.argsort(array.clus3D_energy, axis=1, ascending=False)
+        # index_sort[:, 1:2] is a list holding <=1 elt list wholding the index of the second most energetic trackster in the event
+        # zero-length lists in case there is <= 1 trackster
+        # index_sort[:, 0:1] is the same but for the most energetic trackster (can be empty in case there is no trackster)
+        # Using ak.firsts to replace single-element lists by their value or None
+        # the None propagate in the division
+        ratios = ak.firsts(array.clus3D_energy[index_sort[:, 1:2]]) / ak.firsts(array.clus3D_energy[index_sort[:, 0:1]])
+        # ratios is a simple list of events
+        # fill the None with True, since they correspond to cases with <= 1 trackster
+        # (this includes empty tracksters, they should be removed by another filter)
+        return ak.fill_none(ratios < self.minFraction, True)
+
 def makeDefaultFilters() -> list[FilteringComputation]:
     return [LowRecoEnergyFilter(), LowMainTracksterEnergyFilter(), FilterEmptyEvents()]
 
 
-def applyAllFilters(tree:uproot.TTree, filters:list[FilteringComputation]=None):
-    if filters is None:
-        filters = makeDefaultFilters()
+def applyAllFilters(tree:uproot.TTree, filters:list[FilteringComputation]):
+
     
     computeAllFromTree(tree, filters, tqdm_options=dict(desc="Computing filters"))
     for filter in filters:
@@ -107,7 +127,13 @@ def applyAllFilters(tree:uproot.TTree, filters:list[FilteringComputation]=None):
     
     return functools.reduce(lambda x, y : x&y, [filter.getResult() for filter in filters])
     
-def makeAndSaveFilters(reader:ClueNtupleReader, fileName="default_filter"):
-    filters = applyAllFilters(reader.tree)
+def makeAndSaveFilters(reader:ClueNtupleReader|list[ClueNtupleReader], fileName="default_filter", filters:list[FilteringComputation]=None):
+    if isinstance(reader, list):
+        for reader_instance in reader:
+            makeAndSaveFilters(reader_instance, fileName, filters)
+    
+    if filters is None:
+        filters = makeDefaultFilters()
+    filters = applyAllFilters(reader.tree, filters)
     os.makedirs(os.path.join(reader.pathToFolder, "filters"), exist_ok=True)
     np.save(os.path.join(reader.pathToFolder, "filters", fileName), filters) # will append .npy to the filename
