@@ -44,7 +44,7 @@ class ClueNtupleReader:
         with open(os.path.join(self.pathToSigmaOverEFolder, resultName+".pickle"), 'rb') as f:
             try:
                 return pickle.load(f)
-            except ModuleNotFoundError:
+            except (ModuleNotFoundError, AttributeError):
                 from energy_resolution import sigma_over_e
                 # hack to make notebook-saved pickle files work (from https://stackoverflow.com/a/2121918)
                 sys.modules['sigma_over_e'] = sigma_over_e

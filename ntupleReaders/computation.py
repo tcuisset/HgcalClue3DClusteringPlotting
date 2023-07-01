@@ -95,7 +95,7 @@ def computeAllFromTree(tree:uproot.TTree|list[uproot.TTree], computations:list[B
     Parameters : 
      - tree : an uproot TTree to process, or a list of them
      - computations : a list of computations (they must satifsfy the BaseComputation model)
-     - tqdm_options : dict of keyword args passed to tqdm. You can pass for example desc, or count (in case you provide an generator for tree which has no __len__)
+     - tqdm_options : dict of keyword args passed to tqdm. You can pass for example desc, or total (in case you provide an generator for tree which has no __len__)
      """
     neededBranches = set()
     computationsPerFilter:dict[EventFilterBase, list[BaseComputation]] = defaultdict(list)
