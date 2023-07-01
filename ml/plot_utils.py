@@ -12,6 +12,7 @@ def plotLossPerEpoch(epochs:np.ndarray[int], training_loss:np.ndarray[float], te
     ax.plot(np.array(epochs),np.array(training_loss), '+-b', label='Training loss', markersize=10)
     ax.plot(np.array(epochs),np.array(testing_loss), '+-r', label='Testing loss', markersize=10)
 
+    ax.set_yscale("log")
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss value")
     ax.legend()

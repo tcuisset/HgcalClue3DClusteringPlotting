@@ -36,7 +36,7 @@ data:
   reader: 
     class_path: ClueNtupleReader
     init_args:
-      version: v40
+      version: v41
       clueParams: cmssw
       datatype: sim_proton_v46_patchMIP
 #  datasetComputationClass: ml.regression.drn.dataset_making.LayerClustersTensorMaker

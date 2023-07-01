@@ -16,7 +16,7 @@ import uncertainties
 
 from hists.custom_hists import beamEnergiesAxis
 from hists.parameters import synchrotronBeamEnergiesMap, beamEnergies
-from energy_resolution.sigma_over_e import SigmaOverEComputations, fitSigmaOverE, plotSCAsEllipse, SigmaOverEPlotElement, plotSigmaOverMean, sigmaOverE_fitFunction, SigmaOverEFitError, EResolutionFitResult
+from energy_resolution.sigma_over_e import SigmaOverEComputations, fitSigmaOverE, plotSCAsEllipse, SigmaOverEPlotElement, plotSigmaOverMean, sigmaOverE_fitFunction, SigmaOverEFitError, EResolutionFitResult, plotFittedMean, plotFittedSigma
 
 from ml.regression.drn.modules import BaseLossParameters
 
@@ -82,7 +82,8 @@ class SigmaOverEPlotter:
             fitResult = None
             legend = "ML (fit on all points)"
         return SigmaOverEPlotElement_ML(legend=legend, fitResult=fitResult, fitFunction=sigmaOverE_fitFunction, 
-                dataPoints={beamEnergy : result.sigma / result.mu for beamEnergy, result in self.sigma_mu_results.items()}, 
+                dataPoints={beamEnergy : result.sigma / result.mu for beamEnergy, result in self.sigma_mu_results.items()},
+                sigmaMuResults=self.sigma_mu_results,
                 color="purple", beamEnergiesInTestSet=self.beamEnergiesInTestSet)
 
 
@@ -108,15 +109,17 @@ class SigmaOverEPlotter:
 
 
 class SigmaOverECallback(pl.Callback):
-    def __init__(self, fit_data:str="full", every_n_epochs:int=100, overlaySigmaOverEResults:list[SigmaOverEPlotElement]=[],
+    def __init__(self, fit_data:str="full", every_n_epochs:int=5, skip_first_n_epochs:int=0, overlaySigmaOverEResults:list[SigmaOverEPlotElement]=[],
             multiprocess_fit:str="forkserver", debug_mode=False, addFitResultUsingBareData=True) -> None:
         """ Parameters : 
          - fit_data : which dataset to use for sigma/E fitting (can be "full", or "test")
-         - 
+         - every_n_epochs : how often to perform the fits
+         - skip_first_n_epochs : don't fit for the given number of epochs
         """
         super().__init__()
         
         self.every_n_epochs = every_n_epochs
+        self.skip_first_n_epochs = skip_first_n_epochs
         self.overlaySigmaOverEResults = overlaySigmaOverEResults
         self.fit_data = fit_data
         self.multiprocess_fit = multiprocess_fit
@@ -141,7 +144,7 @@ class SigmaOverECallback(pl.Callback):
             raise ValueError("Wrong fit_data")
 
     def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
-        if trainer.current_epoch % self.every_n_epochs != 0:
+        if trainer.current_epoch < self.skip_first_n_epochs or (trainer.current_epoch - self.skip_first_n_epochs) % self.every_n_epochs != 0:
             return
         if trainer.sanity_checking:  # optional skip
             return
@@ -172,6 +175,17 @@ class SigmaOverECallback(pl.Callback):
                 "SigmaOverE/Full simulation (fct of E)",
                 plotSigmaOverMean(self.overlaySigmaOverEResults + [self.sigmaOverEPlotter.plotElt], xMode="E"),
                 trainer.current_epoch)
+            
+            tbWriter.add_figure(
+                "FittedMeanSigma/Mean - Full simulation",
+                plotFittedMean(self.overlaySigmaOverEResults + [self.sigmaOverEPlotter.plotElt], errors=True, beamEnergiesToCircle=True),
+                trainer.current_epoch
+            )
+            tbWriter.add_figure(
+                "FittedMeanSigma/Sigma - Full simulation",
+                plotFittedSigma(self.overlaySigmaOverEResults + [self.sigmaOverEPlotter.plotElt], normBy="sqrt(E)", errors=True, beamEnergiesToCircle=True),
+                trainer.current_epoch
+            )
             
             plotFit = True
             try:
@@ -224,7 +238,11 @@ class SigmaOverECallback(pl.Callback):
 
         except (RuntimeError, SigmaOverEFitError) as e:
             print("SigmaOverE fit failed due to : " + str(e))
-            raise e
+            if self.debug_mode:
+                raise e
+            else:
+                print(e)
+                print(traceback.format_exc())
         except Exception as e:
             print("SigmaOverE fit failed due to unknown exception : ")
             if self.debug_mode:

@@ -209,7 +209,7 @@ class DataMetricsLogger:
         plt.style.use(hep.style.CMS)
 
         tbWriter.add_figure(
-            "SigmaOverE/Full simulation (fct of E)",
+            "SigmaOverE-data/Full data (fct of E)",
             plotSigmaOverMean(self.overlaySigmaOverEResults + [self.plotter.plotElt], xMode="E"),
             self.epochPicked)
         
@@ -218,11 +218,11 @@ class DataMetricsLogger:
             fitRes = self.plotter.fitSigmaOverE()
 
             self._logScalarMetric({
-                "EnergyResolution/C (full data)":fitRes.C.nominal_value,
-                "EnergyResolution/S (full data)":fitRes.S.nominal_value,
-                "EnergyResolution/S*C (full data)":fitRes.S.nominal_value*fitRes.C.nominal_value})
+                "EnergyResolution-data/C (full data)":fitRes.C.nominal_value,
+                "EnergyResolution-data/S (full data)":fitRes.S.nominal_value,
+                "EnergyResolution-data/S*C (full data)":fitRes.S.nominal_value*fitRes.C.nominal_value})
             
-            tbWriter.add_figure("SigmaOverE/Full data (ellipse)",
+            tbWriter.add_figure("SigmaOverE-data/Full data (ellipse)",
                 plotSCAsEllipse(self.overlaySigmaOverEResults + [self.plotter.plotElt]),
                 self.epochPicked)
             
@@ -231,7 +231,7 @@ class DataMetricsLogger:
             pass # in case the straight line fit fails : still plot without the fit
         
         tbWriter.add_figure(
-            "SigmaOverE/Full data (fct of 1/sqrt(E))",
+            "SigmaOverE-data/Full data (fct of 1/sqrt(E))",
             self.plotter.plotSigmaOverMean(xMode="1/sqrt(E)", plotFit=True),
             self.epochPicked)
 
@@ -241,16 +241,16 @@ class DataMetricsLogger:
             fitRes = self.plotter.fitSigmaOverE(useOnlyTestPoints=True)
 
             self._logScalarMetric({
-                "EnergyResolution/C (test set)":fitRes.C.nominal_value,
-                "EnergyResolution/S (test set)":fitRes.S.nominal_value,
-                "EnergyResolution/S*C (test set)":fitRes.S.nominal_value*fitRes.C.nominal_value})
+                "EnergyResolution-data/C (test points)":fitRes.C.nominal_value,
+                "EnergyResolution-data/S (test points)":fitRes.S.nominal_value,
+                "EnergyResolution-data/S*C (test points)":fitRes.S.nominal_value*fitRes.C.nominal_value})
             
             tbWriter.add_figure(
-                "SigmaOverE/Fit on test set only (fct of 1/sqrt(E))",
+                "SigmaOverE-data/Fit on test points only (fct of 1/sqrt(E))",
                 self.plotter.plotSigmaOverMean(xMode="1/sqrt(E)", plotFit=True),
                 self.epochPicked)
 
-            tbWriter.add_figure("SigmaOverE/Fit on test set only (ellipse)",
+            tbWriter.add_figure("SigmaOverE-data/Fit on test points only (ellipse)",
                 plotSCAsEllipse(self.overlaySigmaOverEResults + [self.plotter.plotElt]),
                 self.epochPicked)
 

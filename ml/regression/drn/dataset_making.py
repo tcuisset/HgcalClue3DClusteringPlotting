@@ -8,7 +8,7 @@ import hist
 import pandas as pd
 import awkward as ak
 
-from hists.parameters import beamEnergies
+from hists.parameters import beamEnergies, synchrotronBeamEnergiesMap
 from hists.dataframe import DataframeComputations
 from hists.custom_hists import beamEnergiesAxis, layerAxis_custom
 from ntupleReaders.clue_ntuple_reader import ClueNtupleReader
@@ -35,6 +35,9 @@ class RechitsTensorMaker(BaseComputation):
         neededBranches = self.requestedBranches + ["clus3D_energy", "clus3D_idxs", "clus2D_idxs", "beamEnergy"] # branches that need to be loaded from tree
         if simulation:
             neededBranches.append("trueBeamEnergy")
+        else:
+            # map nominal beam energy to incident beam energy
+            self.incidentEnergyMap = np.vectorize(synchrotronBeamEnergiesMap.get, otypes=[float])
         self.tensorFileName = tensorFileName
         self.beamEnergiesToSelect = beamEnergiesToSelect
         super().__init__(**kwargs, neededBranches=neededBranches)
@@ -67,6 +70,11 @@ class RechitsTensorMaker(BaseComputation):
         if self.simulation:
             perEventColumns.append(array.trueBeamEnergy)
             perEventColumnNames.append("trueBeamEnergy")
+        else:
+            # put incident beam energy (synchrotron radiation corrected)
+            # only in data since in simulation we use trueBeamEnergy (though no reason we could not do it as well)
+            perEventColumns.append(self.incidentEnergyMap(array.beamEnergy))
+            perEventColumnNames.append("incidentBeamEnergy")
 
         for eventBranches, perEventValues in zip(zip(*perClusterColumns), zip(*perEventColumns)):
             beamEnergy = perEventValues[0]
@@ -102,6 +110,9 @@ class LayerClustersTensorMaker(BaseComputation):
         neededBranches = self.requestedBranches + ["clus3D_energy", "clus3D_idxs", "clus2D_idxs", "beamEnergy"] # branches that need to be loaded from tree
         if simulation:
             neededBranches.append("trueBeamEnergy")
+        else:
+            # map nominal beam energy to incident beam energy
+            self.incidentEnergyMap = np.vectorize(synchrotronBeamEnergiesMap.get, otypes=[float])
 
         self.tensorFileName = tensorFileName
         self.beamEnergiesToSelect = beamEnergiesToSelect
@@ -130,6 +141,11 @@ class LayerClustersTensorMaker(BaseComputation):
         if self.simulation:
             perEventColumns.append(array.trueBeamEnergy)
             perEventColumnNames.append("trueBeamEnergy")
+        else:
+            # put incident beam energy (synchrotron radiation corrected)
+            # only in data since in simulation we use trueBeamEnergy (though no reason we could not do it as well)
+            perEventColumns.append(self.incidentEnergyMap(array.beamEnergy))
+            perEventColumnNames.append("incidentBeamEnergy")
         
         for eventBranches, perEventValues in zip(zip(*perClusterColumns), zip(*perEventColumns)):
             beamEnergy = perEventValues[0]

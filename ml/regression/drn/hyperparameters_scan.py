@@ -35,26 +35,59 @@ class ParameterScan:
 def makeSimpleScan(key:str, values:list) -> list[dict[str, typing.Any]]:
     return [SingleParameterConfig(label=str(value), config={key:value}) for value in values]
 
-parametersForScan = [
-    #ParameterScan(name="dropout", configs=makeSimpleScan("model.drn.init_args.dropout", [0.1, 0.2, 0.3])),
-    #ParameterScan(name="hidden_dim", configs=makeSimpleScan("model.drn.init_args.hidden_dim", [15, 20, 25])),
-    #ParameterScan(name="k", configs=makeSimpleScan("model.drn.init_args.k", [5, 10, 15, 20])),
-    # ParameterScan(name="lr_scheduler", configs=[
-    #     {"scheduler_params.restart_period":10},
-    # ])
+parametersForScan_LC = [
+    # ParameterScan(name="dropout", configs=makeSimpleScan("model.drn.init_args.dropout", [0.05, 0.1, 0.2]#[0.1, 0.2, 0.3]
+    #                                                      )),
+    # ParameterScan(name="hidden_dim", configs=makeSimpleScan("model.drn.init_args.hidden_dim",  [50, 80]#[15, 20, 25]
+    #                                                         )),
+    # ParameterScan(name="k", configs=makeSimpleScan("model.drn.init_args.k",  [10, 20]#[5, 10, 20]
+    #                                                )),
+    # ParameterScan(name="lr_scheduler", configs=makeSimpleScan("model.lr_scheduler.restart_period", [50]#[20, 80, 130]
+    #                                                           )),
+    # ParameterScan(name="loss", configs=[
+    #     SingleParameterConfig("RatioCorrectedLoss", 
+    #         {"model.loss": "ml.regression.drn.modules.RatioCorrectedLoss",
+    #         "model.loss.coefs" : [-0.2597882 , -0.24326517,  1.01537901]}),
+    #     # SingleParameterConfig("RatioRelativeMSE",
+    #     #     {"model.loss": "ml.regression.drn.modules.RatioRelativeMSE"}),
+    #     # SingleParameterConfig("RatioRelativeExpLoss",
+    #     # {"model.loss": "ml.regression.drn.modules.RatioRelativeExpLoss"}),
+    # ]),
+    ParameterScan(name="drn_norm", configs=[
+        #SingleParameterConfig("all-ones", {"model.drn.norm" : [1., 1., 1., 1.]}),
+        #SingleParameterConfig("v1", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 1.]}),
+        #SingleParameterConfig("E10", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 10.]}),
+        SingleParameterConfig("E50", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 50.]}),
+        SingleParameterConfig("E100", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 100.]}),
+    ])
+
+]
+
+parametersForScan_rechits = [
+    ParameterScan(name="dropout", configs=makeSimpleScan("model.drn.init_args.dropout", [0.4]
+                                                         )),
+    ParameterScan(name="hidden_dim", configs=makeSimpleScan("model.drn.init_args.hidden_dim",  [10, 20, 50]#[15, 20, 25]
+                                                            )),
+    ParameterScan(name="k", configs=makeSimpleScan("model.drn.init_args.k",  [5, 10, 20]#[5, 10, 20]
+                                                   )),
+    ParameterScan(name="lr_scheduler", configs=makeSimpleScan("model.lr_scheduler.restart_period", [20, 50]#[20, 80, 130]
+                                                              )),
     ParameterScan(name="loss", configs=[
         SingleParameterConfig("RatioCorrectedLoss", 
             {"model.loss": "ml.regression.drn.modules.RatioCorrectedLoss",
             "model.loss.coefs" : [-0.2597882 , -0.24326517,  1.01537901]}),
-        SingleParameterConfig("RatioRelativeMSE",
-            {"model.loss": "ml.regression.drn.modules.RatioRelativeMSE"}),
-        SingleParameterConfig("RatioRelativeExpLoss",
-        {"model.loss": "ml.regression.drn.modules.RatioRelativeExpLoss"}),
+        # SingleParameterConfig("RatioRelativeMSE",
+        #     {"model.loss": "ml.regression.drn.modules.RatioRelativeMSE"}),
+        # SingleParameterConfig("RatioRelativeExpLoss",
+        # {"model.loss": "ml.regression.drn.modules.RatioRelativeExpLoss"}),
     ])
 ]
-hyperparameters_metric_keys = ["EnergyResolution/S*C (test set)", "EnergyResolution/S (test set)", "EnergyResolution/C (test set)"]
-""" List of metrics keys to save in hyperparameters view """
 
+
+parametersForScan = parametersForScan_LC
+hyperparameters_metric_keys = ["EnergyResolution/S*C (test set)", "EnergyResolution/S (test set)", "EnergyResolution/C (test set)",
+    "EnergyResolution-data/C (full data)", "EnergyResolution-data/S (full data)", "EnergyResolution-data/S*C (full data)"]
+""" List of metrics keys to save in hyperparameters view """
    
 
 def runForSingleParameterSet(args, data_trainer_kwargs:dict=dict(), hyperparameters_metric_keys=hyperparameters_metric_keys):
@@ -119,12 +152,13 @@ def scan(parameters:list[ParameterScan], default_args=None):
             except RuntimeError as e:
                 print("RuntimeError occurred, will try again with reduced batch_size")
                 print(e)
+                print(traceback.format_exc())
 
                 oom_error = True
                 # see https://pytorch.org/docs/stable/notes/faq.html#my-out-of-memory-exception-handler-can-t-allocate-memory
                 # don't rerun the training while the exception is in scope
             if oom_error:
-                runForSingleParameterSet(args=default_args+args+["--data.batch_size=512"])
+                runForSingleParameterSet(args=default_args+args+["--data.batch_size=512", f"--trainer.logger.version={experimentVersion}-OOMRestart"])
         except Exception as e:
             print(traceback.format_exc())
 

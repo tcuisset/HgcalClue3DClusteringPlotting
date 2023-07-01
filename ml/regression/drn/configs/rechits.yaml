@@ -2,16 +2,22 @@
 data:
   datasetComputationClass: ml.regression.drn.dataset_making.RechitsTensorMaker
   multiprocess_loader: false
-  keepOnGpu: cuda:2
+  keepOnGpu: cuda:3
   batch_size: 1024
+
+model:
+  drn:
+    init_args:
+      dropout: 0.4
 
 sigma_over_e_callback:
   fit_data: full
-  every_n_epochs: 4
+  every_n_epochs: 10
 
 trainer:
   accelerator: gpu
-  devices: [2]
+  devices: [3]
+  log_every_n_steps: 10
   callbacks:
     # - class_path: lightning.pytorch.callbacks.ModelCheckpoint
     #   init_args:
@@ -21,11 +27,15 @@ trainer:
       init_args:
         monitor: Loss/Validation_epoch
         mode: min
-        save_top_k: 20
-        every_n_epochs: 2
+        save_top_k: 10
+        every_n_epochs: 5
         save_last: true   
     - class_path: lightning.pytorch.callbacks.EarlyStopping
       init_args:
         monitor: Loss/Validation_epoch
-        patience: 8
-  max_epochs: 100
+        patience: 20
+    - class_path: ml.regression.drn.callbacks.simple_plots.SimplePlotsCallback
+      init_args:
+        every_n_epochs: 5
+        
+  max_epochs: 200

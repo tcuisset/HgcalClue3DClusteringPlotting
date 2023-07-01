@@ -23,7 +23,7 @@ from ml.cyclic_lr import CyclicLRWithRestarts
 beamEnergiesForTestSet = [30, 100, 250]
 
 class DRNDataset(InMemoryDataset):
-    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], datasetType:str, simulation:bool=True, transform=None, pre_transform=None, pre_filter=None):
+    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], datasetType:str, filter_name=None, simulation:bool=True, transform=None, pre_transform=None, pre_filter=None):
         """ Parameters : 
          - datasetComputationClass : the class, inheriting from BaseComputation, used to build the dataset form CLUE_clusters.root file.
             Must be a class that takes as __init__ args beamEnergiesToSelect, tensorFileName
@@ -33,9 +33,13 @@ class DRNDataset(InMemoryDataset):
               "train_val" : some beam energies removed for training
               "test" : complementary of "train"
          - simulation: if True (default), will load gun energy
+         - filter_name : name of the filter (leave to None for default_filter)
         """
         self.reader = reader
         self.datasetType = datasetType
+        if filter_name is None:
+            filter_name = "default_filter"
+        self.filter_name = filter_name
         self.datasetComputationClass = datasetComputationClass
         self.simulation = simulation
         try:
@@ -52,14 +56,16 @@ class DRNDataset(InMemoryDataset):
         else:
             raise ValueError(f"Wrong datasetType : {self.datasetType}")
         
-        super().__init__(os.path.join(reader.pathToMLDatasetsFolder, "DRN", datasetComputationClass.shortName, transform_name, self.datasetType), 
+        super().__init__(os.path.join(reader.pathToMLDatasetsFolder, "DRN", datasetComputationClass.shortName, 
+                f"{self.filter_name}-{transform_name}", self.datasetType), 
                 transform, pre_transform, pre_filter)
         self.data, self.slices = torch.load(self.processed_paths[0])
 
     def process(self):
         # Read data into huge `Data` list.
+        filterArray = self.reader.loadFilterArray(self.filter_name)
         tracksterPropComp = self.datasetComputationClass(beamEnergiesToSelect=self.beamEnergiesToSelect, 
-            tensorFileName=self.processed_file_names[0], eventFilter=NumpyArrayFilter(self.reader.loadFilterArray()),
+            tensorFileName=self.processed_file_names[0], eventFilter=NumpyArrayFilter(filterArray),
             simulation=self.simulation)
         computeAllFromTree(self.reader.tree, [tracksterPropComp], tqdm_options=dict(desc=f"Processing {self.datasetType} set"))
         data_list = tracksterPropComp.geometric_data_objects
@@ -90,7 +96,7 @@ class DRNDataset(InMemoryDataset):
 
 
 class DRNDataModule(pl.LightningDataModule):
-    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], transformFct:Callable[[Data], Data]=None,
+    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], datasetFilterName:str=None, transformFct:Callable[[Data], Data]=None,
             multiprocess_loader:bool=True, batch_size:int=2**14, keepOnGpu:str|bool=False):
         """
         Parameters : 
@@ -100,6 +106,7 @@ class DRNDataModule(pl.LightningDataModule):
         super().__init__()
         self.reader = reader
         self.datasetComputationClass = datasetComputationClass
+        self.datasetFilterName = datasetFilterName
         self.transformFct = transformFct
         self.multiprocess_loader = multiprocess_loader
 
@@ -112,7 +119,8 @@ class DRNDataModule(pl.LightningDataModule):
             raise ValueError("keepOnGpu is not compatible with multiprocess_loader. Set multiprocess_loader=False")
     
     def prepare_data(self) -> None:
-        kwargs = dict(reader=self.reader, datasetComputationClass=self.datasetComputationClass, pre_transform=self.transformFct)
+        kwargs = dict(reader=self.reader, datasetComputationClass=self.datasetComputationClass, 
+                filter_name=self.datasetFilterName, pre_transform=self.transformFct)
         self.dataset_train_val = DRNDataset(datasetType="train_val", **kwargs).shuffle()
         self.dataset_test = DRNDataset(datasetType="test", **kwargs)
 
