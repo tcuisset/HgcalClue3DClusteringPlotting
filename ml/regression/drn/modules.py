@@ -181,7 +181,7 @@ class  SimpleRelativeMSE(BaseLossParameters):
 
 class  RatioRelativeMSE(BaseLossParameters):
     def mapNetworkOutputToEnergyEstimate(self, network_output_batch:Batch, data_batch:Batch):
-        return network_output_batch * data_batch.trueBeamEnergy # probably not genenerlizable to data
+        return data_batch.tracksterEnergy / network_output_batch  # probably not genenerlizable to data
     
     def loss(self, network_output_batch:torch.Tensor, data_batch:Batch):
         return nn.functional.mse_loss(network_output_batch, data_batch.tracksterEnergy / data_batch.trueBeamEnergy)
