@@ -7,10 +7,11 @@ dependencies:
  - uproot=5.*
  - awkward=2.*
  - pandas=2.*
+ - pytables # for pandas HDF5 IO
  - numexpr # For pandas.eval
  - numpy
  - scipy # for curve_fit
- - hist>=2.6,<3 # Histograms
+ - hist>=2.6,<2.7.2 # Histograms (2.7.2 uses boost-histogram 1.4.0 which breaks due to https://github.com/scikit-hep/boost-histogram/pull/876)
  - bokeh=3.*
  - ipykernel # notebooks
  - ipywidgets # to use tqdm in notebooks

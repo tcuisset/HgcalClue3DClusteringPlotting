@@ -33,6 +33,10 @@ parser.add_argument("--datatype", dest="datatype", default="data",
     help="Can be data, sim_proton, sim_noproton")
 parser.add_argument("--clue-params", dest='clue_params', default="single-file",
     help="CLUE3D parameters name")
+
+parser.add_argument("--exclude-ntuples", dest="exclude_ntuples", action="append",
+    default=[483], # ntuple 483 is bad
+    help="Ntuples to exclude from analysis")
 args = parser.parse_args()
 
 if args.force_input_file is not None:
@@ -57,13 +61,15 @@ for name in dir(custom_hists):
 print("Opening input file", flush=True)
 store = HistogramStore(output_dir, HistogramId)
 
+cut = "&".join(["( ntupleNumber != " + str(ntuple) + ")" for ntuple in args.exclude_ntuples])
+print("Cut = " + cut)
 CLUE_tree:uproot.TTree = uproot.open(input_file + ":clusters")
 try:
     with tqdm.tqdm(total=CLUE_tree.num_entries) as pbar:
         # step_size of 50MB stranslates to about 5GB of memory usage by python, and about 4k events at a time
         # 200MB leads to 20k events at a time, memory usage of 15GB
         # 500MB leads to 50k events at a time, and memory usage of of around 30 GB 
-        for (array, report) in CLUE_tree.iterate(step_size="200MB", library="ak", report=True):
+        for (array, report) in CLUE_tree.iterate(step_size="200MB", library="ak", report=True, cut=cut):
             comp = DataframeComputations(array)
             for histogram in hist_dict.values():
                 histogram.loadFromComp(comp)

@@ -5,6 +5,11 @@ from functools import cached_property
 
 # Remove annoying tensorflow / tensorflow-addons warnings
 import os
+
+from zfit.core.interfaces import ZfitParameter
+from zfit.settings import ztypes
+from zfit.util import ztyping
+from zfit.util.ztyping import ExtendedInputType, NormInputType
 os.environ["ZFIT_DISABLE_TF_WARNINGS"] = "1" 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 import warnings
@@ -111,7 +116,26 @@ class GaussianParameters:
     def print(self):
         print(self.mu)
         print(self.sigma)
-        
+
+class CruijffParameters:
+    def __init__(self) -> None:
+        self.mu = get_param("mu", 100)
+        self.sigma_L = get_param("sigma_L", 1.)
+        self.sigma_R = get_param("sigma_R", 1.)
+        self.alpha_L = get_param("alpha_L", 0.06)
+        self.alpha_R = get_param("alpha_R", 0.03)
+    
+    def adaptParametersToHist(self, h:hist.Hist):
+        estimates = HistogramEstimates(h)
+        # Be robust with outliers
+        mean_h, sigma_h = estimates.median, estimates.sigmaEstimateUsingIQR
+        self.mu.lower_limit, self.mu.upper_limit = max(0, mean_h*0.5), max(350, mean_h*1.5)
+        self.mu.assign(mean_h)
+
+        self.sigma_L.lower_limit, self.sigma_L.upper_limit = 0.1*sigma_h, 5*sigma_h
+        self.sigma_L.assign(sigma_h)
+        self.sigma_R.lower_limit, self.sigma_L.upper_limit = 0.1*sigma_h, 5*sigma_h
+        self.sigma_R.assign(sigma_h)
 
 class SingleFitter:
     def __init__(self, h:hist.Hist, params:GaussianParameters=None) -> None:
@@ -187,4 +211,34 @@ class GaussianIterativeFitter:
                 plot(fitter.h, fitter.unbinned_pdf, fitter.data.space, text=f"After fit, iteration {i}")
 
         return fitResult
+
+
+class CruijffPdf(zfit.pdf.BasePDF):
+    def __init__(self, mu, sigma_R, sigma_L, alpha_R, alpha_L, obs, dtype: type = ztypes.float, name: str = "Cruijff", extended: ExtendedInputType = None, norm: NormInputType = None):
+        params = {"mu" : mu, "sigma_R":sigma_R, "sigma_L":sigma_L, "alpha_R":alpha_R, "alpha_L":alpha_L}
+        super().__init__(obs=obs, params=params, extended=extended, norm=norm,
+                         name=name)
     
+    #@zfit.z.function(autograph=True)
+    def _unnormalized_pdf(self, x):
+        x = zfit.z.unstack_x(x)
+        mu = self.params["mu"]
+        left = zfit.z.exp(-0.5 * zfit.z.square(x-mu) / ( self.params["sigma_L"]**2 + self.params["alpha_L"]*zfit.z.square(x-mu)))
+        right = zfit.z.exp(-0.5 * zfit.z.square(x-mu) / ( self.params["sigma_R"]**2 + self.params["alpha_R"]*zfit.z.square(x-mu)))
+        return tf.where(x < self.params["mu"], left, right)
+    
+class CruijffFitter:
+    def __init__(self, h:hist.Hist) -> None:
+        self.h = h
+        self.params = CruijffParameters()
+
+        self.params.adaptParametersToHist(h)
+        
+        self.data = zfit.data.BinnedData.from_hist(self.h)
+        self.unbinned_pdf = CruijffPdf(obs=self.data.obs, **self.params.__dict__)
+        self.binned_pdf = zfit.pdf.BinnedFromUnbinnedPDF(self.unbinned_pdf, space=self.data.space)
+    
+    def doFit(self) -> zfit.minimizers.fitresult.FitResult:
+        loss = zfit.loss.BinnedNLL(self.binned_pdf, self.data)
+        minimizer = zfit.minimize.Minuit(verbosity=5)
+        return minimizer.minimize(loss)

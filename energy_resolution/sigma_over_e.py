@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import mplhep as hep
 from tqdm.auto import tqdm
 
-from energy_resolution.fit import GaussianIterativeFitter, IterativeFitFailed
+from energy_resolution.fit import GaussianIterativeFitter, IterativeFitFailed, CruijffFitter, CruijffPdf
 from hists.parameters import synchrotronBeamEnergiesMap
 
 #NB : import zfit after importing energy_resolution.fit so we use the warnings filter defined there
@@ -53,15 +53,17 @@ def convert2DHistogramToDictOfHistograms(h_2D:hist.Hist) -> dict[int, hist.Hist]
 
 class SigmaOverEComputations:
     """ Class to manage gaussian fits of distribution of reconstructed energy """
-    def __init__(self, sigmaWindow:tuple[float, float]=(1, 2.5), plotDebug=False, recoverFromFailedFits=False) -> None:
+    def __init__(self, sigmaWindow:tuple[float, float]=(1, 2.5), plotDebug=False, recoverFromFailedFits=False, fitFunction="truncatedGaussian") -> None:
         """ Parameters : 
          - sigmaWindow : window around the mean (as tuple (down, up)) for fitting a gaussian, in unit of sigma (nb down must be positive)
          - plotDebug : plot intermediate fit results (to be used in notebook)
          - recoverFromFailedFits : will try to recover as much as possible from failed fits. At least half of the fits must succeed
+         - fitFunction : can be truncatedGaussian or cruijff 
         """
         self.sigmaWindow = sigmaWindow
         self.plotDebug = plotDebug
         self.recoverFromFailedFits = recoverFromFailedFits
+        self.fitFunction = fitFunction
 
 
     def singleFit(self, rechit_energies_h:hist.Hist, fitter_kwargs=dict()) -> SigmaMuResult|None:
@@ -69,23 +71,43 @@ class SigmaOverEComputations:
         Returns : a SigmaMuResult object.
         In case self.recoverFromFailedFits is True, can return an object with SigmaMuResult.fitQuality = "bad", or None in case no fit result could be obtained
         In case self.recoverFromFailedFits is False, will either return a good SigmaMuResult or raise IterativeFitFailed"""
-        fitter = GaussianIterativeFitter(rechit_energies_h, sigmaWindow=self.sigmaWindow)
-        try:
-            fitRes = fitter.multiIteration(plotDebug=self.plotDebug, **fitter_kwargs)
-            fitQuality = "good"
-        except IterativeFitFailed as e:
-            if not self.recoverFromFailedFits:
-                raise
-            if e.lastGoodFitResult is not None:
-                fitRes = e.lastGoodFitResult
-                fitQuality = "bad"
-            else:
-                return None
-
-        params = [fitter.params.mu, fitter.params.sigma]
-        covariance = fitRes.covariance(params)
-        mu, sigma = uncertainties.correlated_values([fitRes.values[param] for param in params], 
+        if self.fitFunction == "truncatedGaussian":
+            fitter = GaussianIterativeFitter(rechit_energies_h, sigmaWindow=self.sigmaWindow)
+            try:
+                fitRes = fitter.multiIteration(plotDebug=self.plotDebug, **fitter_kwargs)
+                fitQuality = "good"
+            except IterativeFitFailed as e:
+                if not self.recoverFromFailedFits:
+                    raise
+                if e.lastGoodFitResult is not None:
+                    fitRes = e.lastGoodFitResult
+                    fitQuality = "bad"
+                else:
+                    return None
+            params = [fitter.params.mu, fitter.params.sigma]
+            mu, sigma = uncertainties.correlated_values([fitRes.values[param] for param in params], 
                     fitRes.covariance(params))
+
+        elif self.fitFunction == "cruijff":
+            fitter = CruijffFitter(rechit_energies_h)
+            try:
+                fitRes = fitter.doFit()
+                fitQuality = "good"
+            except zfit.minimizers.strategy.FailMinimizeNaN:
+                if not self.recoverFromFailedFits:
+                    raise
+                else:
+                    return None
+        
+            params = [fitter.params.mu, fitter.params.sigma_L, fitter.params.sigma_R, fitter.params.alpha_L, fitter.params.alpha_R]
+            values_uncert = uncertainties.correlated_values([fitRes.values[param] for param in params], 
+                        fitRes.covariance(params))
+            mu = values_uncert[0] # mu
+            sigma = (values_uncert[1] + values_uncert[2]) / 2 # take mean of sigmaR and sigmaL
+
+        else:
+            raise ValueError("fitFunction should be truncatedGaussian or cruijff ")
+
         fitRes.freeze()  # freeze to make the FitResult pickleable
         return SigmaMuResult(mu, sigma, fitRes, fitQuality)
 
@@ -133,28 +155,46 @@ class SigmaOverEComputations:
 
         xlimits = (mu - 5*sigma, mu+4*sigma)
         ax.set_xlim(xlimits)
-        # ax.axvline(fitWindow[0], linestyle="dotted", label="Fit region")
-        # ax.axvline(fitWindow[1], linestyle="dotted")
-        fitWindow_plot = ax.axvspan(*fitWindow, alpha=0.5, facecolor="0.5", label="Fit window")
+        
+        if self.fitFunction == "truncatedGaussian":
+            fitWindow_plot = ax.axvspan(*fitWindow, alpha=0.5, facecolor="0.5", label="Fit window")
 
         h_plot = hep.histplot(energy_h, flow="none", ax=ax, label="Energy distribution", histtype="errorbar", color="black")
 
         # Plotting pdf
         # Note : the normalization has to be handled carefully since we only fitted over a subset
         x_pdf = np.linspace(*xlimits, num=1000)
-        pdf = zfit.pdf.Gauss(mu, sigma, zfit.Space("x"))
-        y_pdf = zfit.run(pdf.pdf(x_pdf, norm=fitWindow))
-        # Scale with the nb of events in the fit, but then correct for bin width over whole plot
-        scaleFactor = energy_h[hist.loc(fitWindow[0]):hist.loc(fitWindow[1])].sum() / energy_h.axes[0].size * (energy_h.axes[0].edges[-1]-energy_h.axes[0].edges[0])
-        pdf_plot,  = ax.plot(x_pdf, y_pdf*scaleFactor, label="Gaussian fit")
-        
-        
+        if self.fitFunction == "truncatedGaussian":
+            pdf = zfit.pdf.Gauss(mu, sigma, zfit.Space("x"))
+            y_pdf = zfit.run(pdf.pdf(x_pdf, norm=fitWindow))
+            # Scale with the nb of events in the fit, but then correct for bin width over whole plot
+            scaleFactor = energy_h[hist.loc(fitWindow[0]):hist.loc(fitWindow[1])].sum() / energy_h.axes[0].size * (energy_h.axes[0].edges[-1]-energy_h.axes[0].edges[0])
+            label = "Gaussian fit"
+            fitResText = f"Fit results :\n$\\mu = {result.mu:L}$\n$\\sigma = {result.sigma:L}$"
+        elif self.fitFunction == "cruijff":
+            pdf = CruijffPdf(obs=zfit.Space("x"), **{key: val_dict["value"] for key, val_dict in result.fitResult.params.items()} )
+            y_pdf = zfit.run(pdf.pdf(x_pdf, norm=xlimits))
+            scaleFactor = energy_h[hist.loc(xlimits[0]):hist.loc(xlimits[1])].sum() / energy_h.axes[0].size * (energy_h.axes[0].edges[-1]-energy_h.axes[0].edges[0])
+            label = "Cruijff fit"
 
-        ax.legend(handles=[h_plot[0][0], pdf_plot, fitWindow_plot])
+            fitResText = f"Fit results :\n$\\sigma = {result.sigma:L}$\n"
+            fitRes = result.fitResult
+            for param in fitRes.params:
+                param_uncert = uncertainties.ufloat(fitRes.params[param]['value'], math.sqrt(fitRes._covariance_dict['minuit_hesse'][param, param]))
+
+                fitResText += f"$\\{param} = {param_uncert:L}$\n"
+        
+        
+        pdf_plot,  = ax.plot(x_pdf, y_pdf*scaleFactor, label=label)
+        
+        if self.fitFunction == "truncatedGaussian":
+            ax.legend(handles=[h_plot[0][0], pdf_plot, fitWindow_plot])
+        else:
+            ax.legend(handles=[h_plot[0][0], pdf_plot])
 
         #fitRes_plot, = ax.plot([], [], " ", label=f"Fit results :\nmean = {result.mu}\nsigma = {result.sigma}")
-        ax.text(0.05, 0.6, f"Fit results :\n$\\mu = {result.mu:L}$\n$\\sigma = {result.sigma:L}$",
-                transform=ax.transAxes, fontsize=22)
+        ax.text(0.05, 0.8, s=fitResText,
+                transform=ax.transAxes, fontsize=22, va="top")
 
         ax.set_ylabel("Event count")
 
@@ -237,7 +277,7 @@ class SigmaOverEPlotElement:
     """ different plot elements with the same value of legendGroup will see their legend together """
 
 def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None, xMode="E", 
-        errors=True, plotFit=False, sim=False, linkPointsWithLines=True, markersize=5, legend=True) -> matplotlib.figure.Figure:
+        errors=True, plotFit=False, sim=False, linkPointsWithLines=True, markersize=5, legend=True, lumitext=None) -> matplotlib.figure.Figure:
     """ Make plots of sigma over <E> as a function of E or of 1/sqrt(E)
     Parameters : 
      - plotElements : list of plot elements
@@ -310,11 +350,11 @@ def plotSigmaOverMean(plotElements:list[SigmaOverEPlotElement], ax:plt.Axes=None
 
 
     ax.set_ylabel(r"$\frac{\hat{\sigma}_i}{\hat{\mu}_i}$")
-    if sim:
-        hep.cms.text("Simulation Preliminary", ax=ax)
-    else:
-        hep.cms.text("Preliminary", ax=ax)
-    hep.cms.lumitext(f"$e^+$ Test Beam", ax=ax)
+    # if sim:
+    #     hep.cms.text("Simulation Preliminary", ax=ax)
+    # else:
+    #     hep.cms.text("Preliminary", ax=ax)
+    hep.cms.lumitext(lumitext if lumitext else f"$e^+$ Test Beam", ax=ax)
     
     if not legend:
         return fig
@@ -424,7 +464,7 @@ def plotFittedMean(datatype_dict:dict[str, dict[int, SigmaMuResult]]|list[SigmaO
     ax.set_xlabel("Incident beam energy (GeV)")
     
     ax.axhline(y=1, linestyle="--", color="black")
-    hep.cms.text("Preliminary", ax=ax)
+    #hep.cms.text("Preliminary", ax=ax)
     hep.cms.lumitext(f"$e^+$ Test Beam", ax=ax)
     ax.legend()
 

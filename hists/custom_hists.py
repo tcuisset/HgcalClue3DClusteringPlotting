@@ -807,6 +807,25 @@ class Clus3DIntervalHoldingFractionOfEnergy(MyHistogram):
                     valuesNotInDf={"mainOrAllTracksters": "mainTrackster", "intervalEnergyFraction":fraction,
                         "maskLayer":maskLayerStr})
 
+class RechitsIntervalHoldingFractionOfEnergy(MyHistogram):
+    """ ! Do not project on intervalHoldingFractionOfEnergy_energyFraction_axis 
+    This can be used for both minLayer and maxLayer (you can just project on one or the other to get 1D distribution)
+    """
+    def __init__(self) -> None:
+        super().__init__(beamEnergiesAxis(),
+            intervalHoldingFractionOfEnergy_energyFraction_axis,
+            layerAxis_custom(name="intervalFractionEnergy_minLayer", label="Minimum layer of smallest interval holding at least fraction of 3D cluster energy"),
+            layerAxis_custom(name="intervalFractionEnergy_maxLayer", label="Maximum layer of smallest interval holding at least fraction of 3D cluster energy"),
+            label="Shortest layer interval holding at least fraction of total event energy\nmin/max layer of interval",
+            binCountLabel="Event count",
+        )
+
+    def loadFromComp(self, comp:DataframeComputations):
+        for i in range(intervalHoldingFractionOfEnergy_energyFraction_axis.size):
+            fraction = intervalHoldingFractionOfEnergy_energyFraction_axis.bin(i)
+            df = comp.rechits_intervalHoldingFractionOfEnergy_joined(float(fraction))
+            self.fillFromDf(df, valuesNotInDf={"intervalEnergyFraction":fraction})
+
 
 class Clus3DIntervalHoldingFractionOfEnergy_IntervalLength(MyHistogram):
     """ ! Do not project on intervalHoldingFractionOfEnergy_energyFraction_axis  or on intervalHoldingFraction_maskLayer

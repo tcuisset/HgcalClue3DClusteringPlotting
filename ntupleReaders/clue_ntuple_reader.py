@@ -24,6 +24,10 @@ class ClueNtupleReader:
 
         self.filterArrays:dict[str, np.ndarray[bool]] = dict()
     
+    @property
+    def isSimulation(self) -> bool:
+        return self.datatype != "data"
+
     @functools.cached_property
     def tree(self) -> uproot.TTree:
         return uproot.open(self.pathToFile + ":clusters")

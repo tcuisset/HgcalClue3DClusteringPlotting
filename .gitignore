@@ -4,3 +4,4 @@ build
 hists/dataframe_cython.c
 # Dash app cache
 .cache
+.venv

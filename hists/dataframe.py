@@ -1011,20 +1011,31 @@ class DataframeComputations:
             left_index=True, right_index=True
         )
 
-    def clusters3D_intervalHoldingFractionOfEnergy(self, fraction:float, engine:str|None=None, maskLayer:int=None) -> pd.DataFrame:
+    def clusters3D_intervalHoldingFractionOfEnergy(self, fraction:float, engine:str|None=None, maskLayer:int=None, mode:str="clue3d") -> pd.DataFrame:
         """ Compute, for each 3D cluster, the shortest interval [first layer; last layer] that contains at least fraction of the 3D cluster energy
         Parameters :
          - fraction
          - engine : can be python, cython, None (None prefers Cython)
          - maskLayer : if not None, then mask this layer number when computing intervals (also mask for computing total 3D cluster energy for fraction computation)
-        Index : eventInternal, clus3D_id
+         - mode : can be "clue3d" (computes the shortest interval of trackster holding fraction of main trackster energy, for each trackster)
+                 or "rechits" (computes the shortest interval of whole event holding fraction of whole event energy) 
+        Index : eventInternal, [clus3D_id in case mode="clue3d"]
         Columns : intervalFractionEnergy_minLayer	intervalFractionEnergy_maxLayer
         """
+        if mode == "clue3d":
+            indexOfLayerInMultiIndex = 2
+            """ Index of the layer column in multiindexed dataframe. In case of CLUE3D, index is event, clus3D_id, layer
+            In case of rechits, it is event, layer
+            """
+        elif mode == "rechits":
+            indexOfLayerInMultiIndex = 1
+        else:
+            raise ValueError("mode")
         try:
             # Use Cython version in priority
             if engine is None or engine == "cython":
                 from .dataframe_cython import computeShortestInterval
-                agg_lambda = lambda series : computeShortestInterval(series.to_numpy(), series.index.levels[2].to_numpy(), fraction)
+                agg_lambda = lambda series : computeShortestInterval(series.to_numpy(), series.index.levels[indexOfLayerInMultiIndex].to_numpy(dtype=np.int32), fraction)
             else:
                 raise Exception()
         except Exception as e:
@@ -1036,7 +1047,7 @@ class DataframeComputations:
             def computeShortestInterval(series:pd.Series, fraction:float) -> tuple[int, int]:
                 """ Compute the actual shortest interval. Params : 
                 - series : a Pandas series indexed by eventInternal, clus3D_id, clus2D_layer """
-                layers = series.index.levels[2] # List of layers 
+                layers = series.index.levels[indexOfLayerInMultiIndex] # List of layers 
                 totalEnergyFraction = fraction*np.sum(series)
                 bestInterval = (layers[0], layers[-1])
                 j = 0
@@ -1056,15 +1067,20 @@ class DataframeComputations:
                 #return pd.DataFrame({"intervalFractionEnergy_minLayer":bestInterval[0], "intervalFractionEnergy_maxLayer":bestInterval[1]}, index=[0])
             agg_lambda = partial(computeShortestInterval, fraction=fraction)
 
+        if mode == "clue3d":
+            if maskLayer is None:
+                masked_series = self.clusters3D_energyClusteredPerLayer.clus2D_energy_sum
+            else:
+                masked_series = self.clusters3D_energyClusteredPerLayer[["clus2D_energy_sum"]].reset_index(level="clus2D_layer")
+                masked_series = masked_series[masked_series.clus2D_layer != maskLayer].set_index("clus2D_layer", append=True).clus2D_energy_sum
+        elif mode == "rechits":
+            if maskLayer is None:
+                masked_series = self.rechits_totalReconstructedEnergyPerEventLayer.rechits_energy_sum_perLayer
+            else:
+                raise NotImplementedError("mode=rechits and maskLayer!=None not implemented yet")
 
-        if maskLayer is None:
-            masked_series = self.clusters3D_energyClusteredPerLayer.clus2D_energy_sum
-        else:
-            masked_series = self.clusters3D_energyClusteredPerLayer[["clus2D_energy_sum"]].reset_index(level="clus2D_layer")
-            masked_series = masked_series[masked_series.clus2D_layer != maskLayer].set_index("clus2D_layer", append=True).clus2D_energy_sum
-        
         series = (masked_series
-            .groupby(["eventInternal", "clus3D_id"])
+            .groupby(["eventInternal", "clus3D_id"] if mode == "clue3d" else ["eventInternal"])
             .agg(agg_lambda)
         )
         series.name = "intervalFractionEnergy_minMaxLayer"
@@ -1084,10 +1100,14 @@ class DataframeComputations:
         Note that if using maskLayer, then 3D clusters that span one layer that is exactly maskLayer are dropped.
         Index : eventInternal, clus3D_id
         Columns : intervalFractionEnergy_minLayer	intervalFractionEnergy_maxLayer intervalFractionEnergy_length beamEnergy	clus3D_x	clus3D_y	clus3D_z	clus3D_energy	clus3D_size"""
-        df = self.clusters3D_intervalHoldingFractionOfEnergy(fraction=fraction, maskLayer=maskLayer).join(self.clusters3D)
+        df = self.clusters3D_intervalHoldingFractionOfEnergy(fraction=fraction, maskLayer=maskLayer, mode="clue3d").join(self.clusters3D)
         df["intervalFractionEnergy_length"] = df["intervalFractionEnergy_maxLayer"]-df["intervalFractionEnergy_minLayer"]+1
         return df
 
+    def rechits_intervalHoldingFractionOfEnergy_joined(self, fraction:float) -> pd.DataFrame:
+        df = self.clusters3D_intervalHoldingFractionOfEnergy(fraction=fraction, mode="rechits").join(self.beamEnergy)
+        df["intervalFractionEnergy_length"] = df["intervalFractionEnergy_maxLayer"]-df["intervalFractionEnergy_minLayer"]+1
+        return df
 
 def clusters3D_filterLargestCluster(clusters3D_df : pd.DataFrame, dropDuplicates=["eventInternal"]) -> pd.Series:
     """
