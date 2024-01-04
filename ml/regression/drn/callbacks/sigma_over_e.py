@@ -89,7 +89,7 @@ class SigmaOverEPlotter:
 
     def plotSigmaOverMean(self, **kwargs) -> matplotlib.figure.Figure:
         """ Plot sigma over E plots. All keyword arguments are passed to energy_resolution.sigma_over_e.plotSigmaOverMean """
-        fig = plotSigmaOverMean(plotElements=self.overlaySigmaOverEResults + [self.plotElt], **kwargs)
+        fig = plotSigmaOverMean(**(dict(plotElements=self.overlaySigmaOverEResults + [self.plotElt]) | kwargs))
         if self.plotElt.beamEnergiesInTestSet is not None:
             ax = plt.gca()
             xValues = []
@@ -110,11 +110,12 @@ class SigmaOverEPlotter:
 
 class SigmaOverECallback(pl.Callback):
     def __init__(self, fit_data:str="full", every_n_epochs:int=5, skip_first_n_epochs:int=0, overlaySigmaOverEResults:list[SigmaOverEPlotElement]=[],
-            multiprocess_fit:str="forkserver", debug_mode=False, addFitResultUsingBareData=True) -> None:
+            multiprocess_fit:str="forkserver", debug_mode=False, train_datatype:str="simulation") -> None:
         """ Parameters : 
          - fit_data : which dataset to use for sigma/E fitting (can be "full", or "test")
          - every_n_epochs : how often to perform the fits
          - skip_first_n_epochs : don't fit for the given number of epochs
+         - train_datatype : can be "simulation", or "data", used as key for the tensorboard plots
         """
         super().__init__()
         
@@ -124,7 +125,7 @@ class SigmaOverECallback(pl.Callback):
         self.fit_data = fit_data
         self.multiprocess_fit = multiprocess_fit
         self.debug_mode = debug_mode
-        self.addFitResultUsingBareData = addFitResultUsingBareData
+        self.train_datatype = train_datatype
     
     def _fillHistogram(self, sigma_over_e_dataloader:DataLoader, pl_module: pl.LightningModule, plotter:SigmaOverEPlotter):
         for i, batch in enumerate(sigma_over_e_dataloader):
@@ -172,17 +173,17 @@ class SigmaOverECallback(pl.Callback):
                     )
             
             tbWriter.add_figure(
-                "SigmaOverE/Full simulation (fct of E)",
+                f"SigmaOverE/Full {self.train_datatype} (fct of E)",
                 plotSigmaOverMean(self.overlaySigmaOverEResults + [self.sigmaOverEPlotter.plotElt], xMode="E"),
                 trainer.current_epoch)
             
             tbWriter.add_figure(
-                "FittedMeanSigma/Mean - Full simulation",
+                f"FittedMeanSigma/Mean - Full {self.train_datatype}",
                 plotFittedMean(self.overlaySigmaOverEResults + [self.sigmaOverEPlotter.plotElt], errors=True, beamEnergiesToCircle=True),
                 trainer.current_epoch
             )
             tbWriter.add_figure(
-                "FittedMeanSigma/Sigma - Full simulation",
+                f"FittedMeanSigma/Sigma - Full {self.train_datatype}",
                 plotFittedSigma(self.overlaySigmaOverEResults + [self.sigmaOverEPlotter.plotElt], normBy="sqrt(E)", errors=True, beamEnergiesToCircle=True),
                 trainer.current_epoch
             )
@@ -193,11 +194,11 @@ class SigmaOverECallback(pl.Callback):
                 straightLineFit_exception = None
 
                 pl_module.log_dict({
-                    "EnergyResolution/C (full simulation)":fitRes.C.nominal_value,
-                    "EnergyResolution/S (full simulation)":fitRes.S.nominal_value,
-                    "EnergyResolution/S*C (full simulation)":fitRes.S.nominal_value*fitRes.C.nominal_value})
+                    f"EnergyResolution/C (full {self.train_datatype})":fitRes.C.nominal_value,
+                    f"EnergyResolution/S (full {self.train_datatype})":fitRes.S.nominal_value,
+                    f"EnergyResolution/S*C (full {self.train_datatype})":fitRes.S.nominal_value*fitRes.C.nominal_value})
                 
-                tbWriter.add_figure("SigmaOverE/Full simulation (ellipse)",
+                tbWriter.add_figure(f"SigmaOverE/Full {self.train_datatype} (ellipse)",
                     plotSCAsEllipse(self.overlaySigmaOverEResults + [self.sigmaOverEPlotter.plotElt]),
                     trainer.current_epoch)
                 
@@ -207,7 +208,7 @@ class SigmaOverECallback(pl.Callback):
                 pass # in case the straight line fit fails : still plot without the fit
             
             tbWriter.add_figure(
-                "SigmaOverE/Full simulation (fct of 1/sqrt(E))",
+                f"SigmaOverE/Full {self.train_datatype} (fct of 1/sqrt(E))",
                 self.sigmaOverEPlotter.plotSigmaOverMean(xMode="1/sqrt(E)", plotFit=plotFit),
                 trainer.current_epoch)
             

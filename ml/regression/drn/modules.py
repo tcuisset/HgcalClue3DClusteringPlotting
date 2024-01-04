@@ -23,7 +23,7 @@ from ml.cyclic_lr import CyclicLRWithRestarts
 beamEnergiesForTestSet = [30, 100, 250]
 
 class DRNDataset(InMemoryDataset):
-    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], datasetType:str, filter_name=None, simulation:bool=True, transform=None, pre_transform=None, pre_filter=None):
+    def __init__(self, reader:ClueNtupleReader, datasetComputationClass:Type[BaseComputation], datasetType:str, filter_name=None, transform=None, pre_transform=None, pre_filter=None):
         """ Parameters : 
          - datasetComputationClass : the class, inheriting from BaseComputation, used to build the dataset form CLUE_clusters.root file.
             Must be a class that takes as __init__ args beamEnergiesToSelect, tensorFileName
@@ -41,7 +41,6 @@ class DRNDataset(InMemoryDataset):
             filter_name = "default_filter"
         self.filter_name = filter_name
         self.datasetComputationClass = datasetComputationClass
-        self.simulation = simulation
         try:
             transform_name = pre_transform.__name__
         except:
@@ -66,7 +65,7 @@ class DRNDataset(InMemoryDataset):
         filterArray = self.reader.loadFilterArray(self.filter_name)
         tracksterPropComp = self.datasetComputationClass(beamEnergiesToSelect=self.beamEnergiesToSelect, 
             tensorFileName=self.processed_file_names[0], eventFilter=NumpyArrayFilter(filterArray),
-            simulation=self.simulation)
+            simulation=self.reader.isSimulation)
         computeAllFromTree(self.reader.tree, [tracksterPropComp], tqdm_options=dict(desc=f"Processing {self.datasetType} set"))
         data_list = tracksterPropComp.geometric_data_objects
 
@@ -180,28 +179,48 @@ class BaseLossParameters:
     def loss(self, network_output_batch:torch.Tensor, data_batch:Batch):
         pass
 
-class  SimpleRelativeMSE(BaseLossParameters):
+class DataSimSwitchMixin:
+    """ Allows easy switching between training on simulation, using trueBeamEnergy (the gun energy) and training on data (using incidentBeamEnergy, the synchtrotron energy corrected beam energy) """
+    def __init__(self, simulation:bool=True) -> None:
+        self.simulation = simulation
+    
+    def _trueOrIncidentBeamEnergy(self, batch:Batch) -> torch.Tensor:
+        if self.simulation:
+            return batch.trueBeamEnergy
+        else:
+            return batch.incidentBeamEnergy
+
+class SimpleRelativeMSE(BaseLossParameters, DataSimSwitchMixin):
+    def __init__(self, simulation: bool = True) -> None:
+        super().__init__(simulation=simulation)
+
     def mapNetworkOutputToEnergyEstimate(self, network_output_batch:Batch, data_batch:Batch):
         return network_output_batch
     
     def loss(self, network_output_batch:torch.Tensor, data_batch:Batch):
-        nn.functional.mse_loss(network_output_batch/data_batch.trueBeamEnergy, torch.ones_like(network_output_batch)) # Loss is MSE of E_estimate / E_beam wrt to 1
+        nn.functional.mse_loss(network_output_batch/self._trueOrIncidentBeamEnergy(data_batch), torch.ones_like(network_output_batch)) # Loss is MSE of E_estimate / E_beam wrt to 1
 
-class  RatioRelativeMSE(BaseLossParameters):
+class RatioRelativeMSE(BaseLossParameters, DataSimSwitchMixin):
+    def __init__(self, simulation: bool = True) -> None:
+        super().__init__(simulation=simulation)
+
     def mapNetworkOutputToEnergyEstimate(self, network_output_batch:Batch, data_batch:Batch):
         return data_batch.tracksterEnergy / network_output_batch  # probably not genenerlizable to data
     
     def loss(self, network_output_batch:torch.Tensor, data_batch:Batch):
-        return nn.functional.mse_loss(network_output_batch, data_batch.tracksterEnergy / data_batch.trueBeamEnergy)
+        return nn.functional.mse_loss(network_output_batch, data_batch.tracksterEnergy / self._trueOrIncidentBeamEnergy(data_batch))
 
 class RatioRelativeExpLoss(RatioRelativeMSE):
+    def __init__(self, simulation: bool = True) -> None:
+        super().__init__(simulation=simulation)
+    
     def loss(self, network_output_batch:torch.Tensor, data_batch:Batch):
-        return torch.mean(torch.exp(torch.abs(network_output_batch - data_batch.tracksterEnergy / data_batch.trueBeamEnergy)))
+        return torch.mean(torch.exp(torch.abs(network_output_batch - data_batch.tracksterEnergy / self._trueOrIncidentBeamEnergy(data_batch))))
 
-class RatioCorrectedLoss(BaseLossParameters):
+class RatioCorrectedLoss(BaseLossParameters, DataSimSwitchMixin):
     """ Default for coefs : [-0.2597882 , -0.24326517,  1.01537901] """
-    def __init__(self, coefs:list[float]) -> None:
-        super().__init__()
+    def __init__(self, coefs:list[float], simulation:bool=True) -> None:
+        super().__init__(simulation=simulation)
         self.a = torch.tensor(coefs)
     
     def _correctTracksterEnergy(self, data_batch: Batch) -> torch.Tensor:
@@ -216,7 +235,7 @@ class RatioCorrectedLoss(BaseLossParameters):
         return self._correctTracksterEnergy(data_batch)
     
     def loss(self, network_output_batch:torch.Tensor, data_batch:Batch):
-        return nn.functional.mse_loss(self.mapNetworkOutputToEnergyEstimate(network_output_batch, data_batch), data_batch.trueBeamEnergy)
+        return nn.functional.mse_loss(self.mapNetworkOutputToEnergyEstimate(network_output_batch, data_batch), self._trueOrIncidentBeamEnergy(data_batch))
 
     @property
     def hyperparameters(self) -> dict[str, float]:

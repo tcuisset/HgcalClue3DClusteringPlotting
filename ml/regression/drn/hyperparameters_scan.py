@@ -36,11 +36,11 @@ def makeSimpleScan(key:str, values:list) -> list[dict[str, typing.Any]]:
     return [SingleParameterConfig(label=str(value), config={key:value}) for value in values]
 
 parametersForScan_LC = [
-    # ParameterScan(name="dropout", configs=makeSimpleScan("model.drn.init_args.dropout", [0.05, 0.1, 0.2]#[0.1, 0.2, 0.3]
-    #                                                      )),
-    # ParameterScan(name="hidden_dim", configs=makeSimpleScan("model.drn.init_args.hidden_dim",  [50, 80]#[15, 20, 25]
+    ParameterScan(name="dropout", configs=makeSimpleScan("model.drn.init_args.dropout", [0.05, 0.1]#[0.1, 0.2, 0.3]
+                                                         )),
+    # ParameterScan(name="hidden_dim", configs=makeSimpleScan("model.drn.init_args.hidden_dim",  [40, 60, 80, 100]#[15, 20, 25]
     #                                                         )),
-    # ParameterScan(name="k", configs=makeSimpleScan("model.drn.init_args.k",  [10, 20]#[5, 10, 20]
+    # ParameterScan(name="k", configs=makeSimpleScan("model.drn.init_args.k",  [5, 10, 20, 30]#[5, 10, 20]
     #                                                )),
     # ParameterScan(name="lr_scheduler", configs=makeSimpleScan("model.lr_scheduler.restart_period", [50]#[20, 80, 130]
     #                                                           )),
@@ -53,39 +53,40 @@ parametersForScan_LC = [
     #     # SingleParameterConfig("RatioRelativeExpLoss",
     #     # {"model.loss": "ml.regression.drn.modules.RatioRelativeExpLoss"}),
     # ]),
-    ParameterScan(name="drn_norm", configs=[
-        #SingleParameterConfig("all-ones", {"model.drn.norm" : [1., 1., 1., 1.]}),
-        #SingleParameterConfig("v1", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 1.]}),
-        #SingleParameterConfig("E10", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 10.]}),
-        SingleParameterConfig("E50", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 50.]}),
-        SingleParameterConfig("E100", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 100.]}),
-    ])
+    # ParameterScan(name="drn_norm", configs=[
+    #     #SingleParameterConfig("all-ones", {"model.drn.norm" : [1., 1., 1., 1.]}),
+    #     #SingleParameterConfig("v1", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 1.]}),
+    #     #SingleParameterConfig("E10", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 10.]}),
+    #     SingleParameterConfig("E50", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 50.]}),
+    #     SingleParameterConfig("E100", {"model.drn.norm" : [1./(2*6.8), 1./(2*6.8), 1./28, 100.]}),
+    # ])
 
 ]
 
 parametersForScan_rechits = [
-    ParameterScan(name="dropout", configs=makeSimpleScan("model.drn.init_args.dropout", [0.4]
+    ParameterScan(name="dropout", configs=makeSimpleScan("model.drn.init_args.dropout", [0.1]
                                                          )),
-    ParameterScan(name="hidden_dim", configs=makeSimpleScan("model.drn.init_args.hidden_dim",  [10, 20, 50]#[15, 20, 25]
+    ParameterScan(name="hidden_dim", configs=makeSimpleScan("model.drn.init_args.hidden_dim",  [50]#[15, 20, 25]
                                                             )),
-    ParameterScan(name="k", configs=makeSimpleScan("model.drn.init_args.k",  [5, 10, 20]#[5, 10, 20]
+    ParameterScan(name="k", configs=makeSimpleScan("model.drn.init_args.k",  [5]#[5, 10, 20]
                                                    )),
-    ParameterScan(name="lr_scheduler", configs=makeSimpleScan("model.lr_scheduler.restart_period", [20, 50]#[20, 80, 130]
+    ParameterScan(name="lr_scheduler", configs=makeSimpleScan("model.lr_scheduler.restart_period", [30]#[20, 80, 130]
                                                               )),
-    ParameterScan(name="loss", configs=[
-        SingleParameterConfig("RatioCorrectedLoss", 
-            {"model.loss": "ml.regression.drn.modules.RatioCorrectedLoss",
-            "model.loss.coefs" : [-0.2597882 , -0.24326517,  1.01537901]}),
-        # SingleParameterConfig("RatioRelativeMSE",
-        #     {"model.loss": "ml.regression.drn.modules.RatioRelativeMSE"}),
-        # SingleParameterConfig("RatioRelativeExpLoss",
-        # {"model.loss": "ml.regression.drn.modules.RatioRelativeExpLoss"}),
-    ])
+    # ParameterScan(name="loss", configs=[
+    #     SingleParameterConfig("RatioCorrectedLoss", 
+    #         {"model.loss": "ml.regression.drn.modules.RatioCorrectedLoss",
+    #         "model.loss.coefs" : [-0.2597882 , -0.24326517,  1.01537901]}),
+    #     # SingleParameterConfig("RatioRelativeMSE",
+    #     #     {"model.loss": "ml.regression.drn.modules.RatioRelativeMSE"}),
+    #     # SingleParameterConfig("RatioRelativeExpLoss",
+    #     # {"model.loss": "ml.regression.drn.modules.RatioRelativeExpLoss"}),
+    # ])
 ]
 
 
 parametersForScan = parametersForScan_LC
 hyperparameters_metric_keys = ["EnergyResolution/S*C (test set)", "EnergyResolution/S (test set)", "EnergyResolution/C (test set)",
+    "EnergyResolution/S*C (full data)", "EnergyResolution/S (full data)", "EnergyResolution/C (full data)", # for training on data
     "EnergyResolution-data/C (full data)", "EnergyResolution-data/S (full data)", "EnergyResolution-data/S*C (full data)"]
 """ List of metrics keys to save in hyperparameters view """
    
@@ -93,21 +94,24 @@ hyperparameters_metric_keys = ["EnergyResolution/S*C (test set)", "EnergyResolut
 def runForSingleParameterSet(args, data_trainer_kwargs:dict=dict(), hyperparameters_metric_keys=hyperparameters_metric_keys):
     cli = cli_main(args, run=False)
     modelCheckpoint = cli.trainer.checkpoint_callback
+    if not cli.datamodule.reader.isSimulation:
+        cli.trainer.logger.log_hyperparams(cli.model.hyperparameters, {key : -1 for key in hyperparameters_metric_keys})
     cli.trainer.fit(model=cli.model, datamodule=cli.datamodule)
+    if cli.datamodule.reader.isSimulation:
+        try:
+            metricsLogger = DataMetricsLogger(cli, ckpt_path=modelCheckpoint.best_model_path, data_trainer_kwargs=data_trainer_kwargs)
+            metricsLogger.makeAll()
+        except:
+            print(traceback.format_exc())
 
-    try:
-        metricsLogger = DataMetricsLogger(cli, ckpt_path=modelCheckpoint.best_model_path, data_trainer_kwargs=data_trainer_kwargs)
-        metricsLogger.makeAll()
-    except:
-        print(traceback.format_exc())
-
-    # Saving hyperparameters
-    try:
-        metrics_to_save = {key:value for key, value in metricsLogger.scalarMetrics.items() if key in hyperparameters_metric_keys}
-    except:
-        metrics_to_save = {}
-    cli.trainer.logger.log_hyperparams(cli.model.hyperparameters, metrics_to_save)
-    cli.trainer.logger.save()
+        # Saving hyperparameters
+        try:
+            metrics_to_save = {key:value for key, value in metricsLogger.scalarMetrics.items() if key in hyperparameters_metric_keys}
+        except:
+            metrics_to_save = {}
+    
+        cli.trainer.logger.log_hyperparams(cli.model.hyperparameters, metrics_to_save)
+        cli.trainer.logger.save()
     return cli
 
 def scan(parameters:list[ParameterScan], default_args=None):

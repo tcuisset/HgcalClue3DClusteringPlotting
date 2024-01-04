@@ -17,7 +17,7 @@ model:
   loss:
     class_path: ml.regression.drn.modules.RatioCorrectedLoss
     init_args:
-      coefs: [-0.2597882 , -0.24326517,  1.01537901]
+      coefs: [-0.28349774, -0.2556718 ,  1.0477022] #Coefs for simulation. For data : [-0.59127367, -0.54769765,  1.01810674]
 
   optimizer:
     class_path: AdamW

@@ -172,10 +172,11 @@ def convertListOfTensorsToNumpy(tensors:list[torch.Tensor]) -> np.ndarray:
     return np.concatenate([tensor.numpy() for tensor in tensors])
 
 class SimplePlotsCallback(pl.Callback):
-    def __init__(self, every_n_epochs:int=1, plotHistogramsPerEnergy=False) -> None:
+    def __init__(self, every_n_epochs:int=1, plotHistogramsPerEnergy=False, simulation:bool=True) -> None:
         self._clearLists()
         self.every_n_epochs = every_n_epochs
         self.plotHistogramsPerEnergy = plotHistogramsPerEnergy
+        self.simulation = simulation
     
     def _shouldLog(self, current_epoch):
         # Don't log on the first epoch
@@ -184,13 +185,17 @@ class SimplePlotsCallback(pl.Callback):
     def _clearLists(self):
         self.tracksterEnergyEstimates = []
         self.trueBeamEnergies = []
+        self.incidentBeamEnergies = []
         self.beamEnergies = []
         self.networkOutputs = []
         self.tracksterEnergies = []
 
     def _convertAllToNumpy(self):
         self.tracksterEnergyEstimates = convertListOfTensorsToNumpy(self.tracksterEnergyEstimates)
-        self.trueBeamEnergies = convertListOfTensorsToNumpy(self.trueBeamEnergies)
+        if self.simulation:
+            self.trueBeamEnergies = convertListOfTensorsToNumpy(self.trueBeamEnergies)
+        else:
+            self.incidentBeamEnergies = convertListOfTensorsToNumpy(self.incidentBeamEnergies)
         self.beamEnergies = convertListOfTensorsToNumpy(self.beamEnergies)
         self.networkOutputs = convertListOfTensorsToNumpy(self.networkOutputs)
         self.tracksterEnergies = convertListOfTensorsToNumpy(self.tracksterEnergies)
@@ -199,12 +204,14 @@ class SimplePlotsCallback(pl.Callback):
         """ epochName can be Validation or Training """
         tbWriter:SummaryWriter = pl_module.logger.experiment
 
-        tbWriter.add_figure(
-            f"Scatter/{epochName}",
-            scatterPredictionVsTruth(self.trueBeamEnergies, self.tracksterEnergyEstimates, 
-                original_values=self.tracksterEnergies, epoch=pl_module.current_epoch),
-            pl_module.current_epoch
-        )
+        if self.simulation:
+            # Scatter does not really make sense for data. Violin plots are more suited
+            tbWriter.add_figure(
+                f"Scatter/{epochName}",
+                scatterPredictionVsTruth(self.trueBeamEnergies, self.tracksterEnergyEstimates, 
+                    original_values=self.tracksterEnergies, epoch=pl_module.current_epoch),
+                pl_module.current_epoch
+            )
 
         tbWriter.add_histogram(
             f"Prediction histograms/{epochName} prediction",
@@ -212,7 +219,8 @@ class SimplePlotsCallback(pl.Callback):
             pl_module.current_epoch
         )
 
-        pred_over_truth_array = (self.tracksterEnergyEstimates - self.trueBeamEnergies)/self.trueBeamEnergies
+        trueOrIncidentBeamEnergy = self.trueBeamEnergies if self.simulation else self.incidentBeamEnergies
+        pred_over_truth_array = (self.tracksterEnergyEstimates - trueOrIncidentBeamEnergy)/trueOrIncidentBeamEnergy
         tbWriter.add_histogram(
             f"Prediction histograms/{epochName} Pred-truth / truth",
             pred_over_truth_array,
@@ -257,7 +265,10 @@ class SimplePlotsCallback(pl.Callback):
             return
         self.networkOutputs.append(moveToCpu(outputs))
         self.tracksterEnergyEstimates.append(moveToCpu(pl_module.loss_params.mapNetworkOutputToEnergyEstimate(outputs, batch)))
-        self.trueBeamEnergies.append(moveToCpu(batch.trueBeamEnergy))
+        if self.simulation:
+            self.trueBeamEnergies.append(moveToCpu(batch.trueBeamEnergy))
+        else:
+            self.incidentBeamEnergies.append(moveToCpu(batch.incidentBeamEnergy))
         self.beamEnergies.append(moveToCpu(batch.beamEnergy))
         self.tracksterEnergies.append(moveToCpu(batch.tracksterEnergy))
 

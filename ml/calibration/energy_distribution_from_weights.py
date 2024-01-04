@@ -161,8 +161,8 @@ class WeightedLayersComputations:
         ax.set_ylabel("Layer weights (MeV/MIP)")
         ax.xaxis.grid(True)
 
-        hep.cms.text("Simulation Preliminary", ax=ax)
-        hep.cms.lumitext("$e^+$ TB", ax=ax)
+        #hep.cms.text("Simulation Preliminary", ax=ax)
+        hep.cms.lumitext("Calibrated layer weights - $e^+$ Test Beam", ax=ax)
         ax.legend(frameon=True)
         return fig
 

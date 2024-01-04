@@ -41,6 +41,7 @@ dependencies:
 
  - pyg # torch_geometric
  - pytorch-cluster
+ - pytorch-scatter
 
  -lighnitng>=2.0.2,<3
 

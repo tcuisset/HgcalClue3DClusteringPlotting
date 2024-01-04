@@ -15,10 +15,10 @@ class Predictor:
         self.datasetComputationClass = datasetComputationClass
         self.batch_size = batch_size
         self.h_2D = makeHist()
-        self.reader = ClueNtupleReader("v40", "cmssw", "data")
+        self.reader = ClueNtupleReader("v41", "cmssw", "data")
     
     def loadDataDataset(self):
-        self.dataset_data = DRNDataset(self.reader, datasetComputationClass=self.datasetComputationClass, datasetType="full", simulation=False)
+        self.dataset_data = DRNDataset(self.reader, datasetComputationClass=self.datasetComputationClass, datasetType="full")
 
     def getPredictCallback(self):
         class FillHistogramCallback(pl.Callback):

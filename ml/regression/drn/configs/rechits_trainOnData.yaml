@@ -1,29 +1,37 @@
 # lightning.pytorch==2.0.2
 data:
-  datasetComputationClass: ml.regression.drn.dataset_making.LayerClustersTensorMaker
+  datasetComputationClass: ml.regression.drn.dataset_making.RechitsTensorMaker
   multiprocess_loader: false
-  keepOnGpu: cuda:2
+  keepOnGpu: cuda:3
+  batch_size: 1024
+  reader: 
+    init_args:
+      datatype: data
 
 model:
   drn:
     init_args:
-      hidden_dim: 20
-      k: 20
-      dropout: 0.2
+      dropout: 0.1
       norm: # 1./(2*6.8), 1./(2*6.8), 1./28, 10.
        - 0.07352 # 1./(2*6.8)
        - 0.07352 # 1./(2*6.8)
        - 0.035714 # 1/28 
-       - 50 # energy in GeV
+       - 300 # energy in GeV
+  loss:
+    init_args:
+      coefs:  [-0.59127367, -0.54769765,  1.01810674] #Coefs for data
+      simulation: false
 
 sigma_over_e_callback:
   fit_data: full
   every_n_epochs: 20
   skip_first_n_epochs: 30
+  train_datatype: data
 
 trainer:
   accelerator: gpu
-  devices: [2]
+  devices: [3]
+  log_every_n_steps: 5
   callbacks:
     # - class_path: lightning.pytorch.callbacks.ModelCheckpoint
     #   init_args:
@@ -42,8 +50,7 @@ trainer:
         patience: 80
     - class_path: ml.regression.drn.callbacks.simple_plots.SimplePlotsCallback
       init_args:
-        every_n_epochs: 10
-    
-  max_epochs: 1000
-  log_every_n_steps: 1
-
+        every_n_epochs: 5
+        simulation: false
+        
+  max_epochs: 500

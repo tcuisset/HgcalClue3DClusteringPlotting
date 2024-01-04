@@ -1,25 +1,34 @@
+# To be used on top of common.yaml
 # lightning.pytorch==2.0.2
 data:
   datasetComputationClass: ml.regression.drn.dataset_making.LayerClustersTensorMaker
   multiprocess_loader: false
   keepOnGpu: cuda:2
-
+  batch_size: 2048
+  reader: 
+    init_args:
+      datatype: data
 model:
   drn:
     init_args:
-      hidden_dim: 20
-      k: 20
-      dropout: 0.2
+      hidden_dim: 100
+      k: 10
+      dropout: 0.05
       norm: # 1./(2*6.8), 1./(2*6.8), 1./28, 10.
        - 0.07352 # 1./(2*6.8)
        - 0.07352 # 1./(2*6.8)
        - 0.035714 # 1/28 
        - 50 # energy in GeV
+  loss:
+    init_args:
+      coefs:  [-0.59127367, -0.54769765,  1.01810674] #Coefs for data
+      simulation: false
 
 sigma_over_e_callback:
   fit_data: full
   every_n_epochs: 20
-  skip_first_n_epochs: 30
+  skip_first_n_epochs: 20
+  train_datatype: data
 
 trainer:
   accelerator: gpu
@@ -43,7 +52,8 @@ trainer:
     - class_path: ml.regression.drn.callbacks.simple_plots.SimplePlotsCallback
       init_args:
         every_n_epochs: 10
+        simulation: false
     
-  max_epochs: 1000
+  max_epochs: 400
   log_every_n_steps: 1
 
