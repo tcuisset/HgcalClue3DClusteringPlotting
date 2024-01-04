@@ -1,5 +1,7 @@
 import itertools
 from functools import cached_property
+import warnings
+from pathlib import Path
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -15,12 +17,13 @@ def desaturateArrowColor(color:str):
     return hsluv_to_hex([hue, np.clip(sat-40, 0, 100), lightness])
 
 class LayerVisualization(BaseVisualization):
-    def __init__(self, event:LoadedEvent, layerNb:int, standalone=False) -> None:
+    def __init__(self, event:LoadedEvent, layerNb:int, standalone=False, sizeSettings=dict()) -> None:
         """ 
         Parameters : 
          - standalone : if False, meant to be plotted with a 3D view of the event, with coeherent colors. If True, meant as standalone plot (choose best colors) 
         """
         super().__init__(event)
+        self.sizeSettings = sizeSettings
         self.layerNb = layerNb
         self.standalone = standalone
         self.fig = go.Figure(
@@ -69,7 +72,7 @@ class LayerVisualization(BaseVisualization):
     
     def add2DClusters(self):
         """ Add symbols of each layer cluster """
-        clus2DMarkerSizeScale = MarkerSizeLogScaler(self.event.clus2D_df.clus2D_energy, maxMarkerSize=50, minMarkerSize=15)
+        clus2DMarkerSizeScale = MarkerSizeLogScaler(self.event.clus2D_df.clus2D_energy, maxMarkerSize=self.sizeSettings.get("clue.max", 50), minMarkerSize=self.sizeSettings.get("clue.min", 15))
         outlier_counter = 1
         for clus2D in self.clus2D_df_onLayer.sort_values("clus2D_energy", ascending=False).itertuples():
             clus2D_id = clus2D.Index
@@ -90,7 +93,7 @@ class LayerVisualization(BaseVisualization):
                 legendgrouptitle_text="2D clusters",
                 name=legend_name,
                 x=[clus2D.clus2D_x], y=[clus2D.clus2D_y],
-                opacity=0.8,
+                opacity=self.sizeSettings.get("clue.opacity", 0.8),
                 marker=dict(
                     symbol=clus3D_id_symbol,
                     color=self.mapClus2Did_color(clus2D_id),
@@ -111,8 +114,8 @@ class LayerVisualization(BaseVisualization):
 
         return self
     
-    def addRechits(self):
-        markerSizeScale = MarkerSizeLogScaler(self.rechits_df_onLayer.rechits_energy, maxMarkerSize=25, minMarkerSize=2)
+    def addRechits(self, energyForScale=None):
+        markerSizeScale = MarkerSizeLogScaler(self.rechits_df_onLayer.rechits_energy if energyForScale is None else energyForScale, maxMarkerSize=self.sizeSettings.get("rechits.max", 25), minMarkerSize=self.sizeSettings.get("rechits.min", 2))
         #markerSizeScale = MarkerSizeLinearScaler(self.rechits_df_onLayer.rechits_energy, maxMarkerSize=10)
         showLegend = True
         for index, grouped_df in self.rechits_df_onLayer.groupby(by=["clus3D_id", "clus2D_id"], dropna=False):
@@ -129,7 +132,7 @@ class LayerVisualization(BaseVisualization):
                 if self.standalone:
                     trace_dict["marker_size"] = 1.*markerSizeScale.scale(row.rechits_energy_ofNearestHigher)
                 else:
-                    trace_dict["marker_size"] = 10
+                    trace_dict["marker_size"] = self.sizeSettings.get("rechits.chain.arrowSize", 10)
 
                 self.fig.add_traces(go.Scatter(
                     mode="markers+lines",
@@ -139,15 +142,15 @@ class LayerVisualization(BaseVisualization):
                     hoverinfo='skip',
                     x=[x1, x2],
                     y=[y1, y2],
-                    opacity=0.95,
+                    opacity=self.sizeSettings.get("rechits.opacity", 0.95),
                     marker=dict(
                         symbol="arrow",
                         color=desaturateArrowColor(self.mapClus2Did_color(index[1])),
                         angleref="previous",
-                        standoff=0.3*markerSizeScale.scale(row.rechits_energy_ofNearestHigher),
+                        standoff=0.55*markerSizeScale.scale(row.rechits_energy_ofNearestHigher),
                     ),
                     line=dict(
-                        width=max(1, math.log(row.rechits_cumulativeEnergy/0.01)), #line width in pixels
+                        width=max(self.sizeSettings.get("rechits.chain.minLineWidth", 1), math.log(row.rechits_cumulativeEnergy/self.sizeSettings.get("rechits.chain.cumulativeEnergyFactor", 0.01))), #line width in pixels
                     ),
                     **trace_dict
                 ))
@@ -230,7 +233,7 @@ class LayerVisualization(BaseVisualization):
             x=impacts.impact_x, y=impacts.impact_y,
             marker=dict(
                 color="black",
-                size=8,
+                size=self.sizeSettings.get("impact.size", 8),
                 symbol="x"
             ),
             hoverinfo='skip',
@@ -247,4 +250,39 @@ class LayerVisualization(BaseVisualization):
             y0=detExt.centerY-detExt.radius, y1=detExt.centerY+detExt.radius,
             line_color="blue",
         )
+        return self
+    
+    def addHexagonSensors(self, fill=True):
+        try:
+            df_sensor_positions = pd.read_hdf(Path(__file__).resolve().parent / "cells-positions.hdf5", self.event.datatype)
+        except Exception as e:
+            warnings.warn("Could not load sensors locations : " + str(e))
+            return self
+        
+        sensors_onLayer = df_sensor_positions.loc[self.layerNb]
+        for sensor in sensors_onLayer.itertuples():
+            x = sensor.x
+            y = sensor.y
+            radius = (0.974487-9.009615e-06)/np.sqrt(3)*1.07
+            vertices = np.array([
+                [x+radius,y],
+                [x+radius/2,y+(np.sqrt(3.)/2)*radius],
+                [x-radius/2,y+(np.sqrt(3.)/2)*radius],
+                [x-radius,y],
+                [x-radius/2,y-(np.sqrt(3.)/2)*radius],
+                [x+radius/2,y-(np.sqrt(3.)/2)*radius],
+            ])
+
+            if fill:
+                kwargs=dict(mode="none", fill="toself", fillcolor="#ebebeb")
+            else:
+                kwargs=dict(mode="lines", fill=None, line_color="black", line_width=0.5, opacity=1)
+                vertices = np.append(vertices, vertices[0:1, :], axis=0)
+
+            self.fig.add_trace(go.Scatter(
+                x = vertices[:, 0],
+                y=vertices[:, 1],
+                hoverinfo="skip", showlegend=False,
+                **kwargs
+            ))
         return self

@@ -105,12 +105,14 @@ class EventIndex:
 
 
 class EventLoader:
-    def __init__(self, pathToFile:str) -> None:
-        """ pathToFile is path to CLUE_clusters.root file (included)"""
+    def __init__(self, pathToFile:str, datatype:str=None) -> None:
+        """ pathToFile is path to CLUE_clusters.root file (included)
+        datatype can be "data", "simulation", a simulation tag ("sim_proton_v46_patchMIP"), None (unknown) """
         self.file = uproot.open(pathToFile, object_cache=None, array_cache=None)
         self.tree:uproot.TTree = self.file["clusters"]
         self.eventIndex = EventIndex(self.tree.arrays(filter_name=["beamEnergy", "ntupleNumber", "event"], library="np"),
                                         columns=["beamEnergy", "ntupleNumber", "event"])
+        self.datatype = datatype
 
     @cached_property
     def clueParameters(self):
@@ -160,6 +162,7 @@ class LoadedEvent:
         self.record:ak.Record = ak.to_packed(record) # Pack the event so reduces greatly the pickled size
         self.clueParameters = el.clueParameters
         self.clue3DParameters = el.clueParameters
+        self.datatype = el.datatype
     
     @property
     def clus3D_df(self):
@@ -202,7 +205,7 @@ class LoadedEvent:
             .set_index("clus2D_id")
             .pipe(makeCumulativeEnergy, prefix="clus2D")
         )
-        return clus3D_merged.join(clus3D_merged[["clus2D_x", "clus2D_y", "clus2D_z", "clus2D_layer"]], on="clus2D_nearestHigher", rsuffix="_ofNearestHigher")
+        return clus3D_merged.join(clus3D_merged[["clus2D_x", "clus2D_y", "clus2D_z", "clus2D_layer", "clus2D_energy"]], on="clus2D_nearestHigher", rsuffix="_ofNearestHigher")
 
     @property
     def clus2D_ids(self) -> list[int]:

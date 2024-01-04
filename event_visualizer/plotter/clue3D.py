@@ -26,7 +26,7 @@ interpolateZToLayer = scipy.interpolate.interp1d(x=list(hists.parameters.layerTo
 
 class Clue3DVisualization(BaseVisualization):
     """ Class building a Plotly figure for 3D event visualization """
-    def __init__(self, event:LoadedEvent, title=None, projection="orthographic", zAspectRatio=1, useLayerAsZ=False) -> None:
+    def __init__(self, event:LoadedEvent, title=None, projection="orthographic", zAspectRatio=1, useLayerAsZ=False, sizeSettings=dict()) -> None:
         """ CLUE3D visualization in 3D
         Parameters :
          - title : put True to generate a Title from the event number, or put a go.Layout.Title object
@@ -35,6 +35,7 @@ class Clue3DVisualization(BaseVisualization):
          - useLayerAsZ : if True, use layer as the z axis, instead of actual z position in TB setup (so adjacent layers are further apart for visibility)
         """
         super().__init__(event)
+        self.sizeSettings = sizeSettings
         if title is True:
             title = go.layout.Title(text=f"CLUE3D visualization - ntuple {event.record.ntupleNumber}, event {event.record.event} - e+ {event.record.beamEnergy} GeV")
         
@@ -130,7 +131,7 @@ class Clue3DVisualization(BaseVisualization):
         Parameters : 
          - groupAllTracksters : if True, then a single legend entry will be shown for all tracksters. If False, each trackster has its individual legend entry
         """
-        markerSizeScale = MarkerSizeLogScaler(self.event.clus3D_df.clus3D_energy, maxMarkerSize=60, minMarkerSize=30)
+        markerSizeScale = MarkerSizeLogScaler(self.event.clus3D_df.clus3D_energy, maxMarkerSize=self.sizeSettings.get("clue3D.max", 60), minMarkerSize=self.sizeSettings.get("clue3D.min", 30))
         def makeTrace(df:pd.DataFrame):
             if groupAllTracksters:
                 legendArgs = dict(
@@ -176,7 +177,7 @@ class Clue3DVisualization(BaseVisualization):
          - chainAsIndividualGroup : if True, the chain of 2D clusters will be toggleable separately. If False, it is grouped with all 3D clusters
         """
         showLegend = True
-        markerSizeScale = MarkerSizeLogScaler(self.event.clus2D_df.clus2D_energy, maxMarkerSize=14, minMarkerSize=3)
+        markerSizeScale = MarkerSizeLogScaler(self.event.clus2D_df.clus2D_energy, maxMarkerSize=self.sizeSettings.get("clue.max", 14), minMarkerSize=self.sizeSettings.get("clue.min", 3))
         for clus3D_id, grouped_df in self.event.clus2D_df.groupby("clus3D_id", dropna=False):
             if math.isnan(clus3D_id):
                 trace_dict = dict(
@@ -191,7 +192,19 @@ class Clue3DVisualization(BaseVisualization):
                     name=f"LC in trackster nb {int(clus3D_id)}",
                     legendrank=self.legendRanks.clus2D,
                 )
-            
+            clue_fixLCLineWidth = self.sizeSettings.get("clue.fixLCLineWidth", False)
+            if clue_fixLCLineWidth is not False:
+                # fix for https://github.com/plotly/plotly.js/issues/3796
+                self.fig.add_trace(go.Scatter3d(
+                    marker_symbol=trace_dict["marker_symbol"],
+                    showlegend=False, hoverinfo="skip",
+                    mode="markers",
+                    x=grouped_df["clus2D_x"], y=grouped_df["clus2D_y"], z=self._getZColumn(grouped_df, "clus2D_"), 
+                    marker=dict(
+                        color="black",
+                        size=markerSizeScale.scale(grouped_df["clus2D_energy"])*(1.2 if clue_fixLCLineWidth is True else clue_fixLCLineWidth),
+                    ),
+                ))
             self.fig.add_trace(go.Scatter3d(
                 **trace_dict,
                 mode="markers",
@@ -201,7 +214,7 @@ class Clue3DVisualization(BaseVisualization):
                 marker=dict(
                     color=grouped_df.index.to_series().map(self.mapClus2Did_color),
                     line_color="black",
-                    line_width=2, # Does not work on some graphics cards
+                    line_width=self.sizeSettings.get("clue.markerLineWidth", 2), # Does not work on some graphics cards
                     size=markerSizeScale.scale(grouped_df["clus2D_energy"]),
                 ),
                 customdata=np.dstack((grouped_df.clus2D_energy, grouped_df.clus2D_rho, grouped_df.clus2D_delta,
@@ -240,12 +253,13 @@ class Clue3DVisualization(BaseVisualization):
                         name="LC chain of nearest higher",
                         showlegend=showLegend,
                         legendrank=self.legendRanks.clus2D_chain, # Has to be above default (1000) so that it is shown after all LC
-                        line_width=max(1, math.log(row.clus2D_cumulativeEnergy/0.1)), #line width in pixels
+                        line_width=max(self.sizeSettings.get("clue.chain.minLineWidth", 1), math.log(row.clus2D_cumulativeEnergy/self.sizeSettings.get("clue.chain.cumulativeEnergyFactor", 0.1))), #line width in pixels
                     ), 
                     dictCone=dict(),
                     dictCombined=legend_kwargs,
                     color=self.mapClus3Did_color(clus3D_id),
-                    sizeFactor=4
+                    sizeFactor=3,
+                    standoff=markerSizeScale.scale(row.clus2D_energy_ofNearestHigher)*0.003
                     )
                 )
 
@@ -262,7 +276,7 @@ class Clue3DVisualization(BaseVisualization):
         if hiddenByDefault:
             additional_trace_kwargs["visible"] = 'legendonly'
         showLegend = True
-        markerSizeScale = MarkerSizeLogScaler(self.event.rechits_df.rechits_energy, maxMarkerSize=15, minMarkerSize=1)
+        markerSizeScale = MarkerSizeLogScaler(self.event.rechits_df.rechits_energy, maxMarkerSize=self.sizeSettings.get("rechits.max", 15), minMarkerSize=self.sizeSettings.get("rechits.min", 1))
 
         def mapClus2DidToProps(clus2D_id:int) -> dict:
             prop_dict = dict(
@@ -297,6 +311,7 @@ class Clue3DVisualization(BaseVisualization):
                 **mapClus2DidToProps(index[1]),
                 marker=dict(
                     size=markerSizeScale.scale(grouped_df["rechits_energy"]),
+                    line_width=1
                 ),
                 customdata=np.dstack((grouped_df.rechits_energy, grouped_df.rechits_rho, grouped_df.rechits_delta,
                     getPointTypeStringForRechits(clus2D_id=index[1], grouped_df=grouped_df), 
@@ -330,11 +345,12 @@ class Clue3DVisualization(BaseVisualization):
                         name="Rechits chain of nearest higher",
                         showlegend=showLegend,
                         legendrank=self.legendRanks.rechits_chain, # Has to be above default (1000) so that it is shown after all rechits
-                        line_width=max(1, math.log(row.rechits_cumulativeEnergy/0.01)), #line width in pixels
+                        line_width=max(self.sizeSettings.get("rechits.chain.minLineWidth", 1), math.log(row.rechits_cumulativeEnergy/self.sizeSettings.get("rechits.chain.cumulativeEnergyFactor", 0.01))), #line width in pixels
                     ), 
                     dictCone=dict(),
-                    dictCombined=additional_trace_kwargs | legend_kwargs | dict(opacity=0.5),
+                    dictCombined=additional_trace_kwargs | legend_kwargs | dict(opacity=0.4),
                     color=self.mapClus2Did_color(index[1]),
+                    standoff=markerSizeScale.scale(row.rechits_energy_ofNearestHigher)*0.003
                     )
                 )
                 showLegend = False
@@ -349,7 +365,7 @@ class Clue3DVisualization(BaseVisualization):
             x=impacts.impact_x, y=impacts.impact_y, z=self._getZColumn(impacts, "impact_"),
             line=dict(
                 color="black",
-                width=3,
+                width=self.sizeSettings.get("impact.lineWidth", 3),
             ),
             hoverinfo='skip',
         ))

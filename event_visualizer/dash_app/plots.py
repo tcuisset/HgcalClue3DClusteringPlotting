@@ -5,11 +5,11 @@ from event_visualizer.plotter.clue3D import Clue3DVisualization
 from event_visualizer.plotter.layer import LayerVisualization
 from event_visualizer.plotter.longitudinal_profile import LongitudinalProfileVisualization
 
-zAxisDropdownSettings = {"layer-3": "Layer as z", "layer-5":"Layer as z (extra space)", "z-1" : "z - aspect ratio=1", "z-3" : "z - aspect ratio 3", "z-5":"z - aspect ratio 5"}
-zAxisDropdownSettingsMap = {"layer-3": dict(zAspectRatio=3, useLayerAsZ=True), "layer-5": dict(zAspectRatio=5, useLayerAsZ=True),
+zAxisDropdownSettings = {"layer-3": "Layer as z", "layer-5":"Layer as z (extra space)", "layer-8":"Layer as z (extra extra space)", "z-1" : "z - aspect ratio=1", "z-3" : "z - aspect ratio 3", "z-5":"z - aspect ratio 5"}
+zAxisDropdownSettingsMap = {"layer-3": dict(zAspectRatio=3, useLayerAsZ=True), "layer-5": dict(zAspectRatio=5, useLayerAsZ=True), "layer-8": dict(zAspectRatio=8, useLayerAsZ=True),
     "z-1" : dict(zAspectRatio=1, useLayerAsZ=False),  "z-3" : dict(zAspectRatio=3, useLayerAsZ=False), "z-5" : dict(zAspectRatio=5, useLayerAsZ=False)}
 
-def makePlotClue3D(event:LoadedEvent, zAxisSetting, projectionType):
+def makePlotClue3D(event:LoadedEvent, zAxisSetting, projectionType, visSettings=dict()):
     """ Returns a Plotly figure representing the CLUE3D vis from a loaded event """
     try:
         plotSettings = zAxisDropdownSettingsMap[zAxisSetting]
@@ -17,7 +17,7 @@ def makePlotClue3D(event:LoadedEvent, zAxisSetting, projectionType):
         print(e)
         plotSettings = dict()
     
-    fig = (Clue3DVisualization(event, projection=projectionType, **plotSettings)
+    fig = (Clue3DVisualization(event, projection=projectionType, **plotSettings, **visSettings)
         .addDetectorCylinder()
         .addRechits()
         .add2DClusters()
@@ -31,6 +31,7 @@ def makePlotClue3D(event:LoadedEvent, zAxisSetting, projectionType):
 def makePlotLayer(event:LoadedEvent, layer:int):
     """ Returns a Plotly figure representing the per-layer vis from a loaded event """
     fig = (LayerVisualization(event, layerNb=layer)
+        .addHexagonSensors()
         .add2DClusters()
         .addRechits()
         .addImpactPoint()

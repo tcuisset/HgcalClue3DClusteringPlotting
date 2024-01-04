@@ -70,7 +70,7 @@ class BaseVisualization:
         else:
             return DetectorExtentData
 
-def makeArrow3D(x1, x2, y1, y2, z1, z2, dictLine=dict(), dictCone=dict(), dictCombined=dict(), color="blue", sizeFactor=1):
+def makeArrow3D(x1, x2, y1, y2, z1, z2, dictLine=dict(), dictCone=dict(), dictCombined=dict(), color="blue", sizeFactor=1, standoff=0):
     """ Draw an arrow from x1, y1, z1 to x1, y2, z2
     Parameters : 
      - dictLine : dict of kwargs passed to Scatter3D
@@ -78,25 +78,28 @@ def makeArrow3D(x1, x2, y1, y2, z1, z2, dictLine=dict(), dictCone=dict(), dictCo
      - dictCombined : dict of kwargs passed to both
      - color : color of arrow
      - sizeFactor : multiplicative factor on cone size
+     - standoff : length to offset tip of arrow from x2, y2, z2
     """
     traces = []
     try:
-        lengthFactor = sizeFactor/math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
+        length = math.sqrt((x2-x1)**2 + (y2-y1)**2 + (z2-z1)**2)
+        lengthFactor = sizeFactor/length
+        lineStandoffFactor = standoff + 0.1*sizeFactor
         # Use collections.ChainMap to merge dictionnaries in sequence
         # Give preference to keywords from arguments over those specified here
         traces.append(go.Scatter3d(
             **collections.ChainMap(dictLine, dictCombined, dict( 
                 mode="lines",
                 hoverinfo='skip',
-                x=[x1, x2],
-                y=[y1, y2],
-                z=[z1, z2],
+                x=[x1, x2 - (x2-x1)/length * lineStandoffFactor],
+                y=[y1, y2 - (y2-y1)/length * lineStandoffFactor],
+                z=[z1, z2 - (z2-z1)/length * lineStandoffFactor],
                 marker_color=color,
             ))
         ))
         traces.append(go.Cone(
             **collections.ChainMap(dictCone, dictCombined, dict(
-                x=[x2], y=[y2], z=[z2],
+                x=[x2 - (x2-x1)/length * standoff], y=[y2 - (y2-y1)/length * standoff], z=[z2- (z2-z1)/length * standoff],
                 u=[lengthFactor*(x2-x1)],
                 v=[lengthFactor*(y2-y1)],
                 w=[lengthFactor*(z2-z1)],

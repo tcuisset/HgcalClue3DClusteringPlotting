@@ -11,14 +11,16 @@ view_3D_component = [
     # The tab div has a column flex display defined in dcc.Tabs.content_style (same for all tabs)
     html.Div(children=[
             dcc.Dropdown(id="zAxisSetting", options=zAxisDropdownSettings, value=next(iter(zAxisDropdownSettings)), style=dropdownStyle),
-            dcc.Dropdown(id="projectionType", options={"perspective" : "Perspective", "orthographic" : "Orthographic"}, value="perspective", style=dropdownStyle),
+            dcc.Dropdown(id="projectionType", options={"perspective" : "Perspective", "orthographic" : "Orthographic"}, value="orthographic", style=dropdownStyle),
         ], 
         # The buttons div should not spread vertically, but individual buttons should spread horizontally
         style={"flex": "0 1 auto", "display" : "flex", "flexFlow":"row"}
     ),
     dcc.Loading(
         children=dcc.Graph(id="plot_3D", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
-            scale=3.
+            #scale=1,
+            #width=1334 * 5,
+            #height=741 * 5,
         ))),
         parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible
     )
@@ -29,11 +31,13 @@ view_layer_component = [
     # The tab div has a column flex display defined in dcc.Tabs.content_style (same for all tabs)
     html.Div(children=[
         html.Div("Layer (for layer view) :", style=legendDivStyle),
-        html.Div(dcc.Slider(min=1, max=28, step=1, value=10, id="layer"), style={"flex":"10 10 auto"}), # Need a div for style=
+        html.Div(dcc.Slider(min=1, max=28, step=1, value=8, id="layer"), style={"flex":"10 10 auto"}), # Need a div for style=
     ], style={"flex": "0 1 auto", "display" : "flex", "flexFlow":"row"}),
     dcc.Loading(
         children=dcc.Graph(id="plot_layer", style={"height":"100%"}, config=dict(toImageButtonOptions=dict(
-            scale=4.
+            height=1000,
+            width=1000,
+            scale=8.
         ))),
         parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible (note there is only one box in the flex box)
     )

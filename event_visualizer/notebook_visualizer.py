@@ -3,7 +3,7 @@ import pandas as pd
 import awkward as ak
 import dash
 from dash import html, dcc, Input, Output, State
-from jupyter_dash import JupyterDash
+#from jupyter_dash import JupyterDash
 
 from event_visualizer.plotter.layer import LayerVisualization
 from event_visualizer.plotter.clue3D import Clue3DVisualization
@@ -14,13 +14,13 @@ from locateEvents.utils import makeDashLink, makeCsvRow, printCsvRowsFromDf
 
 
 class EventDisplay:
-    def __init__(self, eventList:pd.DataFrame|ak.Array|dict, eventLoader:EventLoader, run_server_mode="inline", **run_server_kwargs) -> None:
+    def __init__(self, eventList:pd.DataFrame|ak.Array|dict, eventLoader:EventLoader, jupyter_mode="inline", run_server_kwargs=dict(), clue3DPlotSettings=dict()) -> None:
         """ Build notebook-embedded event display
         Parameters : 
          - eventList : should contain beamEnergy, event, ntupleNumber columns, either as a pandas Dataframe, an awkard array or a dict of lists
          - eventLoader : the EventLoader to load the events from
-         - run_server_mode : passed to JupyterDash.run_server, can be "external", "inline", or "jupyter_lab"
-         - extra kwargs : passed to JupyterDash.run_server (and then on to Dash.run_server)
+         - jupyter_mode : passed to Dash.run, can be "external", "inline", or "jupyter_lab"
+         - extra kwargs : passed to Dash.run
         """
         if isinstance(eventList, ak.Array):
             eventList = ak.to_dataframe(eventList[["beamEnergy", "event", "ntupleNumber"]])
@@ -30,13 +30,14 @@ class EventDisplay:
         self.el = eventLoader
         self.shuffledIndex = None
 
-        self.app = JupyterDash(__name__)
+        self.app = dash.Dash(__name__)
         self.app.layout = \
         html.Div(children=[
             dcc.Store(id="current-event-id"),
             html.Div(children=[
                 html.Button(id="button-next", children="Next"),
-            ], style={"flex":"0 1 auto"}),
+                html.Div(id="relayout-data-output"),
+            ], style={"flex":"0 1 auto", "flexFlow":"row"}),
             dcc.Tabs(id="plot_tabs", children=[
                 dcc.Tab(label="3D view", value="3D", children=view_3D_component),
                 dcc.Tab(label="Layer view", value="layer", children=view_layer_component),
@@ -46,8 +47,11 @@ class EventDisplay:
                         parent_style={"flex": "1 1 auto"}, # graph should spread vertically as much as possible (note there is only one box in the flex box)
                     )
                 ),
-            ], style={"flex":"1 1 auto"}, value="3D"),
-        ], style={"display":"flex", "flexFlow":"column"})
+            ], style={"flex":"1 0 auto"}, value="3D", parent_style={'flex': '1 1 auto'},
+                content_style={'flex': '1 1 auto',  # Have tab content flex vertically inside [tab header, tab content] div
+                   # Have stuff arranged vertically inside a tab (only actually needed for 3D view tab, but I have not found a way to have per-tab setting)
+                   "display":"flex", "flexFlow":"column"},),
+        ], style={"display":"flex", "flexFlow":"column", "height":"100vh"})
         
 
         @self.app.callback(
@@ -55,16 +59,31 @@ class EventDisplay:
             [Input("current-event-id", "data"), Input("zAxisSetting", "value"), Input("projectionType", "value")],
         )
         def updatePlots(eventId, zAxisSetting, projectionType):            
-            return makePlotClue3D(self.currentEvent, zAxisSetting, projectionType), makePlotLongitudinalProfile(self.currentEvent)
+            fig_clue3d, fig_longProf =  makePlotClue3D(self.currentEvent, zAxisSetting, projectionType, visSettings=clue3DPlotSettings), makePlotLongitudinalProfile(self.currentEvent)
+            fig_clue3d.update_scenes(
+                xaxis_visible=False, yaxis_visible=False,zaxis_visible=False 
+                )
+            return fig_clue3d, fig_longProf
 
         @self.app.callback(
             Output("plot_layer", "figure"),
             [Input("current-event-id", "data"), Input("layer", "value")],
         )
         def updateLayerPlot(eventId, layer):
-            return makePlotLayer(self.currentEvent, layer)
+            fig = makePlotLayer(self.currentEvent, layer)
+            fig.update_layout(
+                xaxis_visible=False, yaxis_visible=False,
+                xaxis_showgrid=False, yaxis_showgrid=False, paper_bgcolor='rgba(0,0,0,0)',  plot_bgcolor='rgba(0,0,0,0)'
+                )
+            return fig
         
-
+        # @self.app.callback(
+        #     Output("relayout-data-output", "children"),
+        #     Input("plot_3D", "relayoutData")
+        # )
+        # def show_relayout_data(data):
+        #     return [str(data)]
+        
         @self.app.callback(
             [Output("current-event-id", "data"), Output("layer", "value")],
             [Input("button-next", "n_clicks")],
@@ -79,7 +98,7 @@ class EventDisplay:
 
         self.currentEvent = None
 
-        self.app.run_server(run_server_mode, debug=True, **run_server_kwargs)
+        self.app.run(jupyter_mode=jupyter_mode, debug=True, **run_server_kwargs)
 
 
     
